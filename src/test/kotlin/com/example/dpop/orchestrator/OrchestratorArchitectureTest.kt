@@ -69,6 +69,17 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         }
     }
 
+    given("the account a journey ran for (AuthJourney.accountId)") {
+        then("no production code reads it - the account in hand is the channel's") {
+            // Review 2026-09, fahrplan Phase D 21: a second readable copy of the same fact is how
+            // `journey.accountId ?: channel.accountId` spread to eleven places and grew a dead branch.
+            noClasses()
+                .should().callMethod("com.example.dpop.orchestrator.journey.AuthJourney", "getAccountId")
+                .because("AuthJourney.accountId is an audit record; decisions read ChannelSession.accountId")
+                .check(classes)
+        }
+    }
+
     given("the versioned HTTP layer (api.v1)") {
         then("nothing outside it depends on it") {
             // api.v1 is how requests reach the orchestrator: routes, request bodies, parameter

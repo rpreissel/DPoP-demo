@@ -132,7 +132,7 @@ class JourneyRecorder(
         outcome: ToolOutcome.Completed.Identified
     ) {
         accountService.addIdentification(
-            checkNotNull(journey.accountId),
+            checkNotNull(channel.accountId),
             tool.method,
             outcome.achievedAcr?.value,
             outcome.auditDetails.orEmpty() + mapOf(

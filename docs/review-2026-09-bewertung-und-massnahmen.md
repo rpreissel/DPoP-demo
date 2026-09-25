@@ -302,7 +302,15 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     einzeln zur Prüfung (`ident-fsc` bei unbekannter Person, `ident-eid`, `ident-nect`,
     `auth-qr-lookup` mit eigenem Versuchsbudget); `auth-kobil` gab überflüssig ein Konto mit, das
     der Kanal schon kennt.
-21. **`AccountInHand`** – räumt den toten Zweitkonto-Zweig mit auf; Doku 04 §2 angleichen.
+21. ~~`AccountInHand`~~ – erledigt 2026-09-25, schlanker als geplant: Es gibt kein Wertobjekt,
+    sondern eine Quelle. `journey.accountId ?: channel.accountId` stand an elf Stellen, obwohl beide
+    in jedem erreichbaren Fall gleich sind (der Start kopiert, jede Bindung schreibt beide). Jetzt
+    liest jede Entscheidung `ChannelSession.accountId`; `AuthJourney.accountId` bleibt als
+    geschriebener Nachweis und wird per ArchUnit von keinem Produktionscode gelesen. Das Bit „von
+    dieser Journey gebunden“ brauchte nur der tote Zweitkonto-Zweig – der ist entfernt, die Doku
+    (04 §2, journeys/register.md) beschreibt jetzt das tatsächliche Verhalten: ein zweites Konto auf
+    einem verknüpften Gerät nur über `intent=register`. Im `tool_api` sind `journeyAccountId` und
+    `channelAccountId` zu einem `accountId` zusammengelegt.
 
 **Phase E – Niveaus und Keycloak**
 

@@ -50,6 +50,14 @@ class AuthJourney(
     @Column(name = "lifecycle", nullable = false, length = 32)
     var lifecycle: JourneyLifecycle = JourneyLifecycle.STARTED
 
+    /**
+     * The account this journey ran for - a RECORD, written when it starts and whenever it binds
+     * one, for audit queries. Never read to decide anything: the account in hand is the channel's
+     * (`ChannelSession.accountId`), the one source (review 2026-09, fahrplan Phase D 21). Code used
+     * to read `journey.accountId ?: channel.accountId` in eleven places, as if the two could
+     * differ; they never did, and a branch built on the difference was dead.
+     * `OrchestratorArchitectureTest` keeps it write-only.
+     */
     @Column(name = "account_id")
     var accountId: Long? = null
 

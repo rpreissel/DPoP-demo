@@ -81,13 +81,13 @@ class AuthKobilToolController(
 
         // Resolved at the call site, as auth-device does: only the instance whose details live on
         // THIS caller's key may be used, so a credential bound to another phone is not reachable.
-        val enrollmentRef = context.journeyAccountId?.let { accountId ->
+        val enrollmentRef = context.accountId?.let { accountId ->
             accountDirectory.activeInstanceEnrollment(accountId, descriptor.method) { details ->
                 descriptor.keyBinding?.livesOn(details, bindingKeyRef) == true
             }
         } ?: throw UnresolvableReferenceException(Text("Auf diesem Gerät ist KOBIL nicht als Anmeldeverfahren eingerichtet"))
 
-        val outcome = handler.start(context.toolSessionId, enrollmentRef, passwordAvailable(context.journeyAccountId))
+        val outcome = handler.start(context.toolSessionId, enrollmentRef, passwordAvailable(context.accountId))
         val response = toolEndpoint.applyOutcome(context, outcome)
         val location = toolEndpoint.activationLocation(context, uriBuilder.build().toUri())
         return ResponseEntity.status(HttpStatus.CREATED).location(location).body(response)
@@ -126,7 +126,7 @@ class AuthKobilToolController(
 
         // Resolved even when the account has no password: PasswordCredentialPort.verify must run
         // either way so a missing credential costs exactly what a wrong one does.
-        val passwordEnrollment = passwordEnrollmentOf(context.journeyAccountId)
+        val passwordEnrollment = passwordEnrollmentOf(context.accountId)
 
         val outcome = handler.releasePin(toolSessionId, request.unlock, passwordEnrollment)
         val response = toolEndpoint.applyOutcome(context, outcome)
@@ -179,7 +179,7 @@ class AuthKobilToolController(
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.loadContext(toolSessionId, bindingKeyRef, AUTH_KOBIL_TOOL_ID)
         val outcome = if (toolEndpoint.isCurrentTool(context)) {
-            checkNotNull(handler.read(toolSessionId, passwordAvailable(context.journeyAccountId)) as? ToolOutcome.InProgress) {
+            checkNotNull(handler.read(toolSessionId, passwordAvailable(context.accountId)) as? ToolOutcome.InProgress) {
                 "read() must return InProgress while the tool is still current"
             }
         } else {

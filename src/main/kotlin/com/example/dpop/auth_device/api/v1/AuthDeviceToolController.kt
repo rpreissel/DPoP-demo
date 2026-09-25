@@ -73,7 +73,7 @@ class AuthDeviceToolController(
 
         // Resolved and null-checked HERE, at the call site - the handler never sees a nullable
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
-        val enrollmentRef = context.channelAccountId
+        val enrollmentRef = context.accountId
             ?.let { accountDirectory.activeInstanceEnrollment(it, descriptor.method) { instanceDetails -> descriptor.keyBinding?.livesOn(instanceDetails, bindingKeyRef) == true } }
             ?: throw UnresolvableReferenceException(Text("Keine aktive Geraete-Methode fuer dieses Geraet"))
         val outcome = handler.start(context.toolSessionId, enrollmentRef)

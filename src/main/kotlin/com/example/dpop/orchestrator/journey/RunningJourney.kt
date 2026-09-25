@@ -20,7 +20,6 @@ class RunningJourney private constructor(internal val entity: AuthJourney) {
     val journeyId: UUID get() = checkNotNull(entity.journeyId)
     val channelSessionId: UUID get() = checkNotNull(entity.channelSessionId)
     val intent: AuthIntent get() = checkNotNull(entity.intent)
-    val accountId: Long? get() = entity.accountId
 
     companion object {
         fun of(journey: AuthJourney): RunningJourney? =

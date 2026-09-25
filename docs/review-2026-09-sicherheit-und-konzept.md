@@ -450,7 +450,8 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
   ohne Abgleich mit den schon bescheinigten Stammdaten des Kontos.
 - **Namensvetter-Risiko:** Korrelation vergleicht nur Name, Vorname, Geburtsdatum
   (`IdentityMatchingService.kt:47-48`). Adresse bewusst ein- oder ausschließen und in ADR-18 festhalten.
-- **Zweitkonto-Zweig tot:** `JourneyActionExecutor.kt:160-186` ist über FAST_ACCESS unerreichbar,
+- **Zweitkonto-Zweig tot** – *behoben 2026-09-25 (Phase D 21): Zweig entfernt, Doku angeglichen.*
+  `JourneyActionExecutor.kt:160-186` ist über FAST_ACCESS unerreichbar,
   weil `journey.accountId` beim Start aus dem Kanal vorbelegt wird; Doku 04 §2 beschreibt ein
   Verhalten, das nur mit `intent=register` existiert.
 - **Frontend-Thumbprint** (`frontend/src/dpop.ts:89-98`) weicht vom RFC-7638-Wert des Backends ab –

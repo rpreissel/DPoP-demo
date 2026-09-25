@@ -13,10 +13,13 @@ interface ToolContext {
     /** The toolId this context was obtained for. */
     val toolId: String
     val toolSessionId: UUID
-    /** The account id the current journey is working towards, or `null` if none is set yet. */
-    val journeyAccountId: Long?
-    /** The account id already bound to this channel, or `null` for an anonymous channel. */
-    val channelAccountId: Long?
+    /**
+     * The account in hand: the one this channel knows - from the device link, an earlier login, or
+     * bound by the running journey so far - or `null` while nobody is known yet. One value: the
+     * journey's and the channel's account used to be offered side by side, though they never
+     * differed (review 2026-09, fahrplan Phase D 21).
+     */
+    val accountId: Long?
 }
 
 /**

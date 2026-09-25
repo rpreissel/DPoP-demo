@@ -48,7 +48,7 @@ class AuthQrToolController(
         uriBuilder: UriComponentsBuilder
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.beginActivation(channelSessionId, bindingKeyRef, AUTH_QR_TOOL_ID)
-        val accountId = context.channelAccountId
+        val accountId = context.accountId
             ?.takeIf { accountDirectory.activeEnrollment(it, descriptor.method) != null }
             ?: throw UnresolvableReferenceException(Text("Kein aktives Anmeldeverfahren dieser Art fuer dieses Konto"), "no active qr-login method")
         val outcome = handler.start(context.toolSessionId, accountId)

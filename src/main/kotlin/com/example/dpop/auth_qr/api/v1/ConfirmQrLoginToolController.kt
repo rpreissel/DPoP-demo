@@ -79,7 +79,7 @@ class ConfirmQrLoginToolController(
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, CONFIRM_QR_LOGIN_TOOL_ID)
 
         val body = request ?: ConfirmQrLoginPatchRequest()
-        val accountId = checkNotNull(context.channelAccountId) { "confirm-qr-login on a channel without an accountId" }
+        val accountId = checkNotNull(context.accountId) { "confirm-qr-login on a channel without an accountId" }
         // Resolved HERE, at the call site - this module may not depend on `account`
         // (docs/03-tool-architektur.md #2). An account without an active enroll-qr opt-in must
         // never approve on its own behalf, checked only when actually accepting.

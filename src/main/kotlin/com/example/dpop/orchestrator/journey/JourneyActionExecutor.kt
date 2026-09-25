@@ -82,7 +82,7 @@ class JourneyActionExecutor(
      * nothing.
      */
     fun matchesAttestedIdentity(journey: AuthJourney, channel: ChannelSession, personId: String): Boolean {
-        val inHand = journey.accountId ?: channel.accountId ?: return false
+        val inHand = channel.accountId ?: return false
         return identityResolver.attestedIdentityMatches(inHand, personId)
     }
 
@@ -121,7 +121,7 @@ class JourneyActionExecutor(
      */
     private fun performRecordIdentification(journey: AuthJourney, channel: ChannelSession, action: Action.RecordIdentification) {
         assertClaimsCovered(action.tool, action.outcome.claims)
-        val inHand = journey.accountId ?: channel.accountId
+        val inHand = channel.accountId
         // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject
         // itself - it only turns a typed number into a register-vouched PERSON_ID, which is
         // exactly what that role declares. An IDENTIFICATION tool may bind on its own strength
@@ -185,14 +185,12 @@ class JourneyActionExecutor(
                     // would silently split one run across two.
                     inHandAccount.isUnidentified -> inHandAccount.accountId
                     // An identified account plus an attestation that resolves to nobody means a
-                    // DIFFERENT person. A device-recognized channel reaches this legitimately -
-                    // somebody else registering on a linked phone (docs/04-orchestrierung.md #2,
-                    // "Zweitaccount"): that run opens its own account, and the device-rebind
-                    // question follows later.
-                    journey.accountId == null -> accountService.createUnidentifiedAccount().accountId
-                    // This journey bound that identified account itself, so there is no second
-                    // account to fall back to - mixing a stranger's attested identity into it is
-                    // the one thing that must never happen quietly.
+                    // DIFFERENT person - mixing a stranger's attested identity into it is the one
+                    // thing that must never happen quietly. Somebody else registering on a linked
+                    // phone does not get here: `intent=register` never takes the device's account
+                    // (AuthIntent.startsFromDeviceLink), so its channel has nothing in hand
+                    // (docs/04-orchestrierung.md #2, "Zweitaccount"). A branch that opened a second
+                    // account here was unreachable and is gone (review 2026-09, fahrplan Phase D 21).
                     else -> throw IdentityConflictException(
                         Text("Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung")
                     )
@@ -293,7 +291,7 @@ class JourneyActionExecutor(
         // "Enrollment zuerst" the address is attested as the very FIRST step, before any credential
         // exists - so this is regularly the call that brings the account into being. A channel that
         // never gets further leaves no orphan behind (deleteIfAbandonedUnidentified).
-        val inHand = journey.accountId ?: channel.accountId
+        val inHand = channel.accountId
             ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Attested without an AuthEvidence" }
         val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
@@ -367,7 +365,7 @@ class JourneyActionExecutor(
         // already exist mid-flow, so this is always safe to defer to here. A channel
         // that never gets this far leaves no orphan account behind
         // (`deleteIfAbandonedUnidentified`, `fallBack`).
-        val accountId = journey.accountId ?: channel.accountId
+        val accountId = channel.accountId
             ?: accountService.createUnidentifiedAccount().accountId.also { bindAccount(journey, channel, it) }
         val authEvidenceId = checkNotNull(channel.authEvidenceId) { "Enrolled without an AuthEvidence" }
         val evidence = checkNotNull(authEvidenceService.getAuthEvidence(authEvidenceId)) {
@@ -462,7 +460,7 @@ class JourneyActionExecutor(
      *   silent switch this whole class of bug is made of - so a disagreement is a `409`.
      */
     private fun accountOfProof(journey: AuthJourney, channel: ChannelSession, action: Action.AcceptProof): Long {
-        val inHand = journey.accountId ?: channel.accountId
+        val inHand = channel.accountId
         val named = action.outcome.accountId?.takeIf { action.tool.role == MethodRole.LOOKUP_AUTH }
         if (named != null && inHand != null && named != inHand) {
             throw IdentityConflictException(Text("Der Nachweis gehoert zu einem anderen Konto als dieser Sitzung"))
@@ -510,7 +508,7 @@ class JourneyActionExecutor(
 
     /** The account this session currently holds - never one a strategy stored in its state earlier (see [Action.LinkDevice]). */
     private fun performLinkDevice(journey: AuthJourney, channel: ChannelSession) {
-        val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "LinkDevice without a known account" }
+        val accountId = checkNotNull(channel.accountId) { "LinkDevice without a known account" }
         linkDeviceTo(channel, accountId)
     }
 
@@ -586,7 +584,7 @@ class JourneyActionExecutor(
      * rejected if the account could no longer reach its own channel's floor afterwards.
      */
     private fun removeMethod(journey: AuthJourney, channel: ChannelSession, methodInstanceId: String) {
-        val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Remove without a known account" }
+        val accountId = checkNotNull(channel.accountId) { "Remove without a known account" }
         val account = accountService.findAccount(accountId)
             ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${accountId}")
         val target = account.authenticationMethods.firstOrNull { it.active && it.id == methodInstanceId }
@@ -630,7 +628,7 @@ class JourneyActionExecutor(
      * projection first, so this refuses rather than leaving the channel below its own minimum.
      */
     private fun performRetractAttribute(journey: AuthJourney, channel: ChannelSession, attributeType: AttributeType) {
-        val accountId = checkNotNull(journey.accountId ?: channel.accountId) { "Retract without a known account" }
+        val accountId = checkNotNull(channel.accountId) { "Retract without a known account" }
         val account = accountService.findAccount(accountId)
             ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${accountId}")
 

@@ -137,7 +137,7 @@ class JourneyLogDetails(
         is Action.RecordApproval -> emptyMap()
         is Action.ApplyRestoredEvidence -> mapOf("source" to action.source, "methods" to methodEvidenceDetail(action.methods))
         is Action.RevokeAuthMethod -> {
-            val accountId = journey.accountId ?: channel.accountId
+            val accountId = channel.accountId
             val target = accountId?.let { accountService.findAccount(it) }
                 ?.authenticationMethods?.firstOrNull { it.id == action.methodInstanceId }
             mapOf("methodInstanceId" to action.methodInstanceId, "method" to target?.method, "label" to target?.label)
@@ -149,6 +149,6 @@ class JourneyLogDetails(
         // more, see Action.LinkDevice) - logged from the same place the executor reads it, so the
         // log says what actually happened rather than what a strategy once intended.
         is Action.LinkDevice, is Action.DeleteAccount ->
-            mapOf("accountId" to (journey.accountId ?: channel.accountId))
+            mapOf("accountId" to channel.accountId)
     }
 }

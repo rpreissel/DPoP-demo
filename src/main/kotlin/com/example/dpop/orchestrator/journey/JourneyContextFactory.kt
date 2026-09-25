@@ -33,7 +33,7 @@ class JourneyContextFactory(
     private val featureFlagProviders: List<FeatureFlagProvider>
 ) {
     fun contextFor(journey: AuthJourney, channel: ChannelSession): JourneyContext {
-        val accountId = journey.accountId ?: channel.accountId
+        val accountId = channel.accountId
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         return JourneyContext(
             channel = checkNotNull(channel.channel) { "ChannelSession without a channel type" },

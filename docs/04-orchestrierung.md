@@ -277,7 +277,14 @@ Abschnitt unten).
 `FAST_ACCESS` nutzt diese Journey: Muss sich jemand beim schnellen Anmelden erst ausweisen, startet
 sie als vorgeschalteter Schritt (`Transition.RequireSubJourney`) – nach demselben Muster wie
 `RE_IDENTIFY`. Ein zweites Konto erzwingt `REGISTER` **nicht**: Dieselbe Person (erkannt über KVNR
-oder Partnernummer) findet dasselbe Konto wieder.
+oder Partnernummer) findet dasselbe Konto wieder. Umgekehrt entsteht ein zweites Konto auf einem
+verknüpften Gerät nur über `intent=register`: Als vorgeschalteter Schritt des schnellen Anmeldens
+kennt der Kanal schon das Konto des Geräts, und eine fremde Person ohne Konto wird dort abgewiesen
+statt still ein neues Konto zu bekommen ([register.md](journeys/register.md)).
+
+Welches Konto gerade „in der Hand“ ist, sagt allein `ChannelSession.accountId`. `AuthJourney.accountId`
+hält nur fest, für welches Konto eine Journey lief (Nachweis), und wird zu keiner Entscheidung
+gelesen.
 
 Der gewählte Intent wird in der `ChannelSession` gespeichert. Fortsetzen und Abbrechen starten
 denselben Intent erneut: Eine abgebrochene Anmeldung über die E-Mail-Adresse (`LOOKUP_LOGIN`) beginnt

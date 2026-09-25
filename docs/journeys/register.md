@@ -99,9 +99,13 @@ Ergebnis.
 - Wird kein Konto gefunden (`Resolution.Unresolved`), schreibt die Journey auf das Konto, das sie
   bereits hat, solange dieses noch keine PersonId trägt. Andernfalls entsteht ein neues Konto ohne
   zugeordnete Person.
-- Ein bereits identifiziertes Konto übernimmt nie die bestätigte Identität eines anderen. Gehört der
-  Kanal nur dem Gerät (der oben beschriebene Zweitaccount-Fall), bekommt die Journey ein eigenes
-  Konto. Sonst wird sie abgewiesen.
+- Ein bereits identifiziertes Konto übernimmt nie die bestätigte Identität eines anderen: Ergibt die
+  Identifizierung eine Person ohne Konto, während der Kanal schon ein identifiziertes Konto kennt
+  (etwa über die Geräteverknüpfung beim schnellen Anmelden), wird sie abgewiesen. Wer auf einem
+  verknüpften Gerät ein eigenes, neues Konto will, startet mit `intent=register` – dieser Einstieg
+  übernimmt das Konto des Geräts nicht. Eine Person mit eigenem Konto führt dagegen zur Frage nach
+  der Geräteverknüpfung (oben). Ein Zweig, der im ersten Fall still ein zweites Konto anlegen
+  sollte, war nie erreichbar und ist entfernt (Review 2026-09, Phase D 21).
 - `recordClaims` schreibt PersonId und E-Mail auf demselben Weg für Claims und Anker. Konto, Claims
   und Journey-Zustand werden in derselben Transaktion gespeichert. Scheitert sie an einem Konflikt,
   wird auch das neue Konto zurückgenommen.

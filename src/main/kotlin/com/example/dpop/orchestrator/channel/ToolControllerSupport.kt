@@ -73,8 +73,7 @@ class ToolControllerSupport(
         val journeyId: UUID,
         val channelSessionId: UUID,
         val bindingKeyRef: String,
-        override val journeyAccountId: Long?,
-        override val channelAccountId: Long?
+        override val accountId: Long?
     ) : AuthorizedToolContext
 
     override fun activationLocation(context: ToolContext, baseUri: URI): URI =
@@ -113,8 +112,7 @@ class ToolControllerSupport(
             journeyId = journey.journeyId,
             channelSessionId = checkNotNull(channel.channelSessionId),
             bindingKeyRef = bindingKeyRef,
-            journeyAccountId = journey.accountId,
-            channelAccountId = channel.accountId
+            accountId = channel.accountId
         )
     }
 
@@ -167,8 +165,7 @@ class ToolControllerSupport(
             journeyId = journey.journeyId,
             channelSessionId = checkNotNull(channel.channelSessionId),
             bindingKeyRef = bindingKeyRef,
-            journeyAccountId = journey.accountId,
-            channelAccountId = channel.accountId
+            accountId = channel.accountId
         )
     }
 
@@ -341,9 +338,9 @@ class ToolControllerSupport(
      */
     private fun demoInfo(journey: RunningJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
         val journeys = journeyService.debugChain(channel)
-        val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
+        val personId = channel.accountId?.let { accountService.findAccount(it)?.personId }
         return demoDisclosure.assemble(
-            accountId = journey.accountId,
+            accountId = channel.accountId,
             personId = personId,
             journeys = journeys,
             values = values,
