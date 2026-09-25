@@ -48,7 +48,8 @@ kc:
 #                    peerAuthAudience). Aendert sich einer dieser Werte, baut MigrationRunner das
 #                    Realm NEU AUF (resetOnSetupChange) - dieselbe Konsequenz wie bei einer
 #                    geaenderten Migrationsdatei, denn die erledigten Schritte wuerden den neuen
-#                    Wert sonst nie wieder anfassen.
+#                    Wert sonst nie wieder anfassen. Nur im Demomodus (demo.mode); sonst bricht
+#                    der Start mit RealmResetRefusedException ab (Review 2026-09, M-10).
 #   KeycloakAccess - wie man dieses Keycloak erreicht: keycloakBaseUrl, publicKeycloakBaseUrl.
 #                    Steht in keinem Realm, kostet also nichts: gilt beim naechsten Start.
 #                    Zugangsdaten gibt es keine: die Migration meldet sich als orchestrator-migration

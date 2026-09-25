@@ -92,6 +92,13 @@ class MigrationRunner(
      * gegen das Realm scheiterte mit 403.
      */
     private val onRealmCreated: () -> Unit = {},
+    /**
+     * Ob eine geänderte Migration oder ein geändertes Setup-Feld das Realm löschen und neu aufbauen
+     * DARF. Ein Neuaufbau nimmt Sitzungen, alle `sub`-IDs und jedes Credential am Nutzer mit
+     * (Review 2026-09, M-10) - ohne diesen Schalter bricht der Lauf stattdessen mit einer Meldung ab,
+     * die den Grund nennt. Ausdrücklich, ohne Voreinstellung: der Aufrufer entscheidet.
+     */
+    private val allowRealmReset: Boolean,
 ) {
     private val realmName: String get() = setup.realmName
     private val realm: RealmResource get() = kc.realm(realmName)
@@ -192,6 +199,7 @@ class MigrationRunner(
     }
 
     private fun resetRealm(reason: String) {
+        if (!allowRealmReset) throw RealmResetRefusedException(realmName, reason)
         println("$reason - lösche Realm '$realmName' und wende alle Migrationen neu an.")
         realm.remove()
         ensureRealmExists()
@@ -306,3 +314,14 @@ class MigrationRunner(
         return digest.joinToString("") { "%02x".format(it) }
     }
 }
+
+/**
+ * Ein Neuaufbau des Realms wäre nötig, ist aber nicht freigegeben (`allowRealmReset`). Der Start
+ * bricht ab, statt Sitzungen, Nutzer-IDs und Credentials stillschweigend zu verwerfen.
+ */
+class RealmResetRefusedException(realmName: String, reason: String) : IllegalStateException(
+    "$reason - das Realm '$realmName' müsste dafür gelöscht und neu aufgebaut werden. Das verwirft " +
+        "Sitzungen, alle Nutzer-IDs (sub) und jedes Credential am Nutzer und ist nur im Demomodus " +
+        "erlaubt. Die Änderung als neue Migration schreiben statt eine angewendete zu ändern, oder " +
+        "das Realm bewusst von Hand entfernen."
+)

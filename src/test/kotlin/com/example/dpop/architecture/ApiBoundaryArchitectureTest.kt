@@ -52,6 +52,7 @@ class ApiBoundaryArchitectureTest : BehaviorSpec({
         "com.example.dpop.orchestrator.api.v1.TextsController" to "the wordings every client renders, before any channel exists",
         "com.example.dpop.orchestrator.api.v1.tool.ToolCatalogController" to "which tools exist - no account, no channel state",
         "com.example.dpop.orchestrator.kc.OrchestratorClientJwksController" to "public keys Keycloak verifies our client assertions against",
+        "com.example.dpop.orchestrator.kc.KeycloakResponseJwksController" to "public key Keycloak verifies our signed answers against (M-9)",
         "com.example.dpop.orchestrator.admin.ServerInfoController" to "demo overview under DEMO_API, read-only",
         "com.example.dpop.orchestrator.admin.DemoLoginThemeController" to "demo theme switch under DEMO_API (AdminPaths), later hardening (ADR-35)",
     )

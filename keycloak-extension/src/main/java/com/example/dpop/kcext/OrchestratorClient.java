@@ -41,10 +41,13 @@ final class OrchestratorClient {
     private final HttpClient http = HttpClient.newHttpClient();
     private final String baseUrl;
     private final PeerAuthAssertionSigner signer;
+    private final OrchestratorResponseVerifier verifier;
 
     OrchestratorClient(String baseUrl, String issuer, String audience, com.nimbusds.jose.jwk.ECKey signingKey) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.signer = new PeerAuthAssertionSigner(issuer, audience, signingKey);
+        // The orchestrator answers as the audience of our assertions, addressed to their issuer (us).
+        this.verifier = OrchestratorResponseVerifier.forOrchestrator(this.baseUrl, audience, issuer);
     }
 
     /**
@@ -247,14 +250,21 @@ final class OrchestratorClient {
                 : HttpRequest.BodyPublishers.ofString(body.toString());
         builder.method(method, publisher);
 
-        HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        HttpResponse<byte[]> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
+        // Before anything in the answer is believed - error or not (review 2026-09, M-9).
+        verifier.verify(
+                response.headers().firstValue(OrchestratorResponseVerifier.HEADER).orElse(null),
+                PeerAuthAssertionSigner.jtiOf(assertion),
+                response.statusCode(),
+                response.body());
+        String answer = new String(response.body(), java.nio.charset.StandardCharsets.UTF_8);
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new OrchestratorApiException(response.statusCode(), response.body());
+            throw new OrchestratorApiException(response.statusCode(), answer);
         }
-        if (response.body() == null || response.body().isBlank()) {
+        if (answer.isBlank()) {
             return MAPPER.createObjectNode();
         }
-        return MAPPER.readTree(response.body());
+        return MAPPER.readTree(answer);
     }
 
     private static String urlEncode(String value) {

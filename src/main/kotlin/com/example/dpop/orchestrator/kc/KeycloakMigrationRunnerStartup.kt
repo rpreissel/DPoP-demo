@@ -50,6 +50,10 @@ class KeycloakMigrationRunnerStartup(
     // Wie lange der Start auf Keycloak wartet (AwaitReachable) - grosszuegig, weil Keycloak im selben
     // Pod erst sein eigenes Schema aufbaut.
     @Value("\${keycloak-migrate.wait-timeout:PT5M}") private val waitTimeout: Duration,
+    // Eine geaenderte Migration darf das Realm nur im Demomodus neu aufbauen (Review 2026-09, M-10):
+    // dort ist ein frisches Realm erwuenscht, im Betrieb verwirft es Sitzungen, Nutzer-IDs und
+    // Credentials - dann bricht der Start ab (RealmResetRefusedException).
+    @Value("\${demo.mode}") private val demoMode: Boolean,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(KeycloakMigrationRunnerStartup::class.java)
 
@@ -67,7 +71,7 @@ class KeycloakMigrationRunnerStartup(
             probe.get().uri("/realms/master").retrieve().toBodilessEntity()
         }
         val kc = buildAdminClient(baseUrl, migrationToken::accessToken, insecure = keycloakHttp.trustSelfSigned)
-        val runner = MigrationRunner(kc, setup.realm, migrations, onRealmCreated = migrationToken::invalidate)
+        val runner = MigrationRunner(kc, setup.realm, migrations, onRealmCreated = migrationToken::invalidate, allowRealmReset = demoMode)
         try {
             runner.up()
         } catch (e: MigrationStepFailedException) {

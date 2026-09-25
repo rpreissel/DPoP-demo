@@ -7,6 +7,13 @@ Server, wird **ohne mTLS** abgesichert. Keycloak legt jeder Anfrage eine signier
 der Orchestrator prüft sie (`PeerAuthValidator`, [05-api.md](../05-api.md) Abschnitt 3). Der Browser
 erreicht den Orchestrator nirgends direkt.
 
+**Die Antwort ist ebenso signiert** (seit 2026-09-25, Review M-9): Die Assertion sichert nur die
+Anfrage, die Antwort aber entscheidet, wer eingeloggt wird. Der Orchestrator signiert deshalb jede
+Antwort auf eine Peer-Auth-Anfrage (`KeycloakResponseSigner`, Header `Orchestrator-Response-Signature`)
+über Status und Inhalt, gebunden an die `jti` der Anfrage; die Erweiterung prüft das gegen
+`/orchestrator/api/v1/kc/response-jwks/.well-known/jwks.json`, bevor sie der Antwort glaubt
+(`OrchestratorResponseVerifier`).
+
 Es gibt genau ein JWT je Anfrage, nicht ein Access-Token mit einem getrennten Nachweis dazu. Bei der
 ersten Anmeldung gibt es nämlich noch kein `sub`. Die Assertion sagt deshalb nur: „Ich handle für
 diesen Kanal-Anker; der Nutzer ist vielleicht noch unbekannt.“
@@ -41,9 +48,12 @@ auch ihr Schlüssel wird über eine JWKS-URL bereitgestellt. Ein eigenes Schlüs
 Signatur zwischen den Servern von der Signatur der Tokens. Weil der Browser den Orchestrator nie direkt
 erreicht, bleibt die Angriffsfläche auf die eine Verbindung zwischen den beiden Servern beschränkt.
 
-**Folgen und Kosten**: Die Sicherheit dieser Verbindung hängt ganz an der Prüfung der Signatur in der
-Anwendung. Mit mTLS wären die Identität der Gegenseite und die Verschlüsselung schon beim
-Verbindungsaufbau erzwungen. Ein übernommenes Keycloak kann jeden Nutzer nachahmen. Das liegt aber
+**Folgen und Kosten**: Die Sicherheit dieser Verbindung hängt ganz an der Prüfung der Signaturen in
+der Anwendung – in beide Richtungen. **Verschlüsselt ist der Hop nicht:** Er läuft heute über `http://`;
+wer mitliest, sieht Anfragen und Antworten (etwa E-Mail-Adressen), kann sie aber weder fälschen
+noch einer anderen Anfrage unterschieben. TLS auf dem Hop ist Sache der Umgebung (ADR-35, Phase G);
+im OpenShift-Pod läuft er ohnehin über `localhost`. Mit mTLS wären Identität und Verschlüsselung schon
+beim Verbindungsaufbau erzwungen. Ein übernommenes Keycloak kann jeden Nutzer nachahmen. Das liegt aber
 schon daran, dass Keycloak hier an erster Stelle steht; auch mTLS würde daran nichts ändern.
 
 **Geschichte**: Ursprünglich war angenommen, die Assertion werde mit den Token-Schlüsseln des Realms

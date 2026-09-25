@@ -1503,6 +1503,27 @@ paths:
       summary: Fetch this channel's signed RestoreData
       tags:
       - KC channels
+  /orchestrator/api/v1/kc/response-jwks/.well-known/jwks.json:
+    get:
+      operationId: keycloakResponseJwks
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties: {
+                  }
+                type: object
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      summary: Public Key der Antwortsignatur (Header Orchestrator-Response-Signature)
+      tags:
+      - Keycloak-Kanal
   /orchestrator/api/v1/texts/{lang}:
     get:
       description: 'Map of text id to wording with `{name}` placeholders. `lang` is de or en (a region like en-GB counts as
@@ -1804,6 +1825,8 @@ tags:
   name: App channels
 - description: Operator kill-switch and order for tools, per channel type
   name: 'Admin: tool availability'
+- description: Oeffentlicher Schluessel, gegen den Keycloak die Antworten des Orchestrators prueft
+  name: Keycloak-Kanal
 - description: 'E-Mail: Bestaetigung der Adresse, Anmeldung und Login ohne DPoP'
   name: 'Tool: E-Mail'
 - description: The kc facade's one facade-specific endpoint - upsert channel + advance journey

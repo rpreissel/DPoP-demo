@@ -323,8 +323,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 23. ~~M-3~~ – entschieden 2026-09-25: Keycloak-Tokens werden nicht gebunden; die Grenze steht in
     ADR-9 und docs/09 Abschnitt 4.
 24. ~~M-7~~ – entschieden 2026-09-25: bleibt, abgewogen in ADR-37.
-25. **M-9 / M-10** Antwort an Keycloak signieren (TLS auf dem Hop ist Umgebung → Phase G),
-    Realm-Neuaufbau nur mit Schalter.
+25. ~~M-9 / M-10~~ – erledigt 2026-09-25: Antworten an Keycloak signiert und von der Extension
+    geprüft (TLS auf dem Hop bleibt Phase G); Realm-Neuaufbau nur im Demomodus.
 26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.
 27. **Port-Verträge der Fremdsysteme vervollständigen** (ADR-35): je Port, was ein reales System
     zusagen muss (Signatur, Frische, serverseitiges Ergebnis, Ablage ohne Klartext-Rückschluss) –

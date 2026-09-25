@@ -357,6 +357,13 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-9 Hop Keycloak → Orchestrator unverschlüsselt, Antwort nicht authentisiert
 
+> **Behoben, soweit Kern (2026-09-25):** Jede Antwort auf eine Peer-Auth-Anfrage ist signiert
+> (`KeycloakResponseSigner`/`KeycloakResponseSigningFilter`, eigenes JWKS) über Status und Inhalt,
+> gebunden an die `jti` der Anfrage; die Extension prüft sie (`OrchestratorResponseVerifier`) und
+> behandelt eine ungeprüfte Antwort wie keine. ADR-7 nennt jetzt ausdrücklich, dass der Hop nicht
+> verschlüsselt ist; TLS folgt mit der Umgebung (Phase G). Tests:
+> `KeycloakResponseSigningIntegrationTest`, `OrchestratorResponseVerifierTest`.
+
 - **Wo:** `application-keycloak.yml` (`orchestratorBaseUrl` überall `http://`);
   `OrchestratorAuthenticator.java:158-162` (`findOrCreateUser(response.authDataAccountId())`).
 - **Problem:** Peer-Auth sichert nur die Anfrage. Wer auf diesem Hop mitlesen und antworten kann,
@@ -365,6 +372,9 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 - **Vorschlag:** TLS auf dem Hop oder signierte Antwort; mindestens die Netzannahme in ADR-7 festhalten.
 
 ### M-10 `resetOnSetupChange` baut das Realm beim Start ohne Rückfrage neu
+
+> **Behoben (2026-09-25):** Ein Neuaufbau ist nur im Demomodus erlaubt (`demo.mode`); sonst bricht
+> der Start mit `RealmResetRefusedException` ab und nennt den Grund. Test: `RealmResetGateTest`.
 
 - **Wo:** `keycloak-migrations/.../MigrationRunner.kt:154-197`; in OpenShift gehört
   `PUBLIC_ORCHESTRATOR_URL` zum `RealmSetup`.

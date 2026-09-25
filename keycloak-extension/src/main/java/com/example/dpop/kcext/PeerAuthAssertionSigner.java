@@ -58,4 +58,13 @@ final class PeerAuthAssertionSigner {
         }
         return jwt.serialize();
     }
+
+    /** The jti of an assertion this signer produced - what the orchestrator's answer must name ({@code req}). */
+    static String jtiOf(String assertion) {
+        try {
+            return SignedJWT.parse(assertion).getJWTClaimsSet().getJWTID();
+        } catch (java.text.ParseException e) {
+            throw new IllegalStateException("Own peer-auth assertion unreadable", e);
+        }
+    }
 }
