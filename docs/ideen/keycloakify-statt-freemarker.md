@@ -1,7 +1,7 @@
 # Idee: Keycloakify neben FreeMarker für Anmeldung, Registrierung und Verwaltung der Verfahren
 
-Status: **weitgehend umgesetzt** (Issue `DPoP-demo-an4z`): gemeinsames Aussehen, Keycloakify-Theme mit
-allen Seiten des Orchestrators, Build und Laufzeit-Schalter stehen; es fehlen die Ende-zu-Ende-Tests. Die Verwaltung der Anmeldeverfahren im
+Status: **umgesetzt** (Issue `DPoP-demo-an4z`): gemeinsames Aussehen, Keycloakify-Theme mit allen
+Seiten des Orchestrators, Build, Laufzeit-Schalter und Ende-zu-Ende-Tests gegen den Compose-Stack. Die Verwaltung der Anmeldeverfahren im
 Web-Kanal läuft bereits als Required Action von Keycloak mit FreeMarker (`orchestrator-manage-methods.ftl`,
 [API](../05-api.md), „Anmeldeverfahren verwalten im Web-Kanal“). Keycloakify würde nur deren Darstellung
 ersetzen, wie die aller anderen Seiten.
@@ -234,6 +234,11 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
    React-Seiten, gemeinsame Bausteine in `keycloak-theme/src/login/components/`. Gegen Keycloak
    geprüft: SMS-Anmeldung bis zur Code-Eingabe, QR-Warteseite.
 6. **Build (erledigt):** Gradle-Tasks, `stageKeycloakArtifact`, `Dockerfile` (Abschnitt 8).
-7. **Ende-zu-Ende-Tests** mit Playwright gegen ein echtes Keycloak (Podman Compose): dieselben
-   Abläufe mit beiden Themes, dazu Umschalten zur Laufzeit ohne Neustart und der Abgleich nach einem
-   Neustart.
+7. **Ende-zu-Ende-Tests (erledigt):** `frontend/e2e-keycloak/` mit eigener Konfiguration
+   (`playwright.keycloak.config.ts`), gestartet mit `npm run test:e2e:keycloak` gegen einen laufenden
+   Compose-Stack, nicht in der CI. Je Theme: Umschalten per Admin-API, beide Vermerke, die SMS-Seite
+   hin und zurück und eine vollständige Anmeldung mit Passwort bis zum Code. Dazu Umschalten mitten
+   in einer Anmeldung. Die SMS wird nie abgeschickt, weil der Orchestrator höchstens drei Sendungen
+   je Konto und Zeitfenster erlaubt und ein zweiter Lauf sonst scheitern würde. Den Abgleich nach
+   einem Neustart prüft `LoginThemeSwitchTest`, nicht die Suite: dafür müsste sie den
+   Orchestrator-Container neu starten.
