@@ -21,6 +21,13 @@ export type KcContextExtensionPerPage = {
     /** One entry per stepData.missingFields, value always "". */
     fields: Record<string, string>
   }
+  'orchestrator-confirm.ftl': {
+    title?: string
+    confirmLabel?: string
+    cancelLabel?: string
+  }
+  /** Nothing of its own - the message is Keycloak's (kcContext.message). */
+  'orchestrator-error.ftl': Record<string, unknown>
   'orchestrator-select.ftl': {
     title?: string
     description?: string

@@ -20,6 +20,14 @@ const { getKcContextMock } = createGetKcContextMock({
       optionLabels: { 'auth-qr-lookup': 'Mit der App anmelden', 'auth-sms-lookup': 'SMS', 'auth-password-lookup': 'Passwort' },
       offerRegistration: true,
     },
+    'orchestrator-confirm.ftl': {
+      title: 'Konto wirklich löschen?',
+      confirmLabel: 'Ja, löschen',
+      cancelLabel: 'Nein, behalten',
+    },
+    'orchestrator-error.ftl': {
+      message: { type: 'error', summary: 'Die Anmeldung ist gerade nicht möglich.' },
+    },
     'orchestrator-tool.ftl': {
       toolId: 'auth-example',
       fields: { email: '', code: '' },

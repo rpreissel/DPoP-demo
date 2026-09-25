@@ -306,7 +306,8 @@ public class OrchestratorAuthenticator implements Authenticator {
             // pass on retry re-fetches the real, current list; here we only need something to show.
             return errorForm(context, error != null ? error : "Die Auswahl der Anmeldemethode ist fehlgeschlagen.");
         }
-        return context.form().setAuthenticationSession(authSession).setError(error).createForm("orchestrator-error.ftl");
+        // Through WebFormRenderer like every other page: the template needs t (and Keycloakify texts).
+        return errorForm(context, error);
     }
 
     @Override

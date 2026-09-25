@@ -4,6 +4,8 @@ import Template from 'keycloakify/login/Template'
 import type { KcContext } from './KcContext'
 import { useI18n } from './i18n'
 import { setTexts } from '../texts'
+import { OrchestratorConfirm } from './pages/OrchestratorConfirm'
+import { OrchestratorError } from './pages/OrchestratorError'
 import { OrchestratorSelect } from './pages/OrchestratorSelect'
 import { OrchestratorTool } from './pages/OrchestratorTool'
 import './theme.css'
@@ -22,6 +24,10 @@ export default function KcPage({ kcContext }: { kcContext: KcContext }) {
     <Suspense>
       {(() => {
         switch (kcContext.pageId) {
+          case 'orchestrator-confirm.ftl':
+            return <OrchestratorConfirm kcContext={kcContext} />
+          case 'orchestrator-error.ftl':
+            return <OrchestratorError kcContext={kcContext} />
           case 'orchestrator-select.ftl':
             return <OrchestratorSelect kcContext={kcContext} />
           case 'orchestrator-tool.ftl':
