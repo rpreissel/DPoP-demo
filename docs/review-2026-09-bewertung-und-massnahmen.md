@@ -215,6 +215,11 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 **Phase A – Ausnutzbares schließen (Tage)**
 
 1. ~~S-1 Tool-Replay~~ – erledigt 2026-09-25.
+1b. **ADR „Betriebsanspruch“** (P-2) – vorgezogen, weil die Antwort bestimmt, wie gründlich die
+    Schritte 3 und 4 sein müssen: Bleibt das Projekt Referenz, genügt es, den Migrationsclient nach
+    dem Setup zu deaktivieren und die OpenShift-Variante als erreichbare Demo zu härten; wird es
+    Produkt, braucht es getrennte Schlüssel und Mocks außerhalb des Betriebspfads. Kostet Nachdenken,
+    keinen Code.
 2. **S-2** Keycloak-Sync: keinen fremden User übernehmen, `email` nur admin-editierbar,
    `accountId`-Mismatch → 409, eindeutiger `orchestratorAccountId`.
 3. **S-3** Ein Schlüssel je Keycloak-Client; Migrationsclient ohne dauerhafte Master-Admin-Rolle.
@@ -235,7 +240,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     noch Dinge, die kein Review sah – die werden hier eingeschoben.
 12. **ArchUnit `@BindingKey`-Regel** und **Invariantenregister** (P-1, Schicht 4) anlegen – zunächst
     mit leeren Mechanismus-Einträgen, die die Lücken zeigen.
-13. **ADR „Betriebsanspruch“** (P-2) entscheiden. Kostet nichts, bestimmt aber Phase D.
+13. **ADR „Betriebsanspruch“** – siehe 1b; falls dort noch nicht entschieden, spätestens hier,
+    denn Phase E hängt daran.
 
 **Phase C – Zustandsraum verkleinern und verbieten (eine Woche)**
 
@@ -280,7 +286,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 ## 5. Was dieses Dokument nicht entscheidet
 
-- Ob das Projekt produktiv geht (Schritt 13). Die Reihenfolge ist so gebaut, dass Phasen A bis D
-  in beiden Fällen sinnvoll sind; erst Phase E hängt an der Antwort.
+- Ob das Projekt produktiv geht (Schritt 1b). Die Reihenfolge ist so gebaut, dass Phasen A bis D
+  in beiden Fällen sinnvoll sind; die Antwort bestimmt nur die Tiefe der Schritte 3 und 4 und den
+  Inhalt von Phase E.
 - Ob der Web-Kanal die Regel „Refresh-Token nie ins Frontend“ übernehmen soll – das ist eine
   Frage an den Anspruch des Web-Kanals, nicht an seine Sicherheit.

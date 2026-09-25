@@ -390,11 +390,10 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ---
 
-## 5. Empfohlene Reihenfolge
+## 5. Reihenfolge
 
-1. **S-1** (Replay) – reproduziert, betrifft die Kernzusage „Logout ist endgültig“.
-2. **S-2, S-3** (Keycloak-Kontoübernahme, Master-Admin-Schlüssel).
-3. **S-4, S-5, M-12** – Betriebspfad OpenShift härten, bevor er erreichbar ist.
-4. **S-6, S-7, S-8, M-2** – Identifizierungs- und QR-Pfade.
-5. **M-5, M-6, M-13** – Invarianten per Constraint bzw. Typ statt Konvention.
-6. Rest nach Aufwand; Doku-Abweichungen (M-1, M-3, M-7, M-9, Zweitkonto-Zweig) gleich mit korrigieren.
+Die Abarbeitung folgt dem Fahrplan in
+[review-2026-09-bewertung-und-massnahmen.md](review-2026-09-bewertung-und-massnahmen.md),
+Abschnitt 4. Er verzahnt die Einzelbefunde dieses Dokuments mit den strukturellen Maßnahmen, damit
+kein Befund zweimal gelöst wird (etwa S-6: erst schnell, dann in Phase D durch den Typ endgültig).
+Dieses Dokument bleibt das Nachschlagewerk mit den Fundstellen.
