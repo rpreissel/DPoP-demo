@@ -38,6 +38,7 @@ fachlich brauchen.
 | [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Geräte-Verfahren, QR-Login im Browser und Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
 | [12-entscheidungen.md](12-entscheidungen.md) | **Index** der Architekturentscheidungen | Review, „Warum ist das so?" |
 | [adr/](adr/) | Eine Datei je Entscheidung, samt erwogener Alternative und Kosten | Genau eine Entscheidung nachlesen |
+| [review-2026-09-sicherheit-und-konzept.md](review-2026-09-sicherheit-und-konzept.md) | Offenes Review: Sicherheitsbefunde und konzeptionelle Schwächen, nach Schwere sortiert | Härtung planen, Befunde abarbeiten |
 | [archiv/](archiv/) | Abgeschlossene Reviews – historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Überlegungen samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [glossar/](glossar/) | Externes Begriffsglossar und sein Abgleich mit diesem Projekt | Prüfen, ob das Domänenmodell fremde Begriffe abbilden kann |
