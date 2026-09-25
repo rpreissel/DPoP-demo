@@ -546,3 +546,48 @@
 .demo-area .demo-picker label {
   color: var(--text-h);
 }
+
+/* ---- Logged-in app: welcome menu and sub-screens --------------------------------------------- */
+
+.phone__screen .account-menu {
+  margin: 12px 0 16px;
+  padding: 0;
+  list-style: none;
+  box-shadow: 0 1px 3px rgba(0, 35, 86, 0.08);
+}
+
+.phone__screen button.account-back {
+  min-height: 0;
+  margin: 0 0 8px;
+  padding: 4px 0 4px 16px;
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--phone-blue);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.phone__screen button.account-back::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 7px;
+  height: 7px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.phone__screen .status-list button.small {
+  min-height: 34px;
+  padding: 4px 14px;
+  font-size: 14px;
+}
+
+/* A person's data, not code - the app's plain type, not the demo column's monospace. */
+.phone__screen .status-list .value {
+  font-family: inherit;
+}

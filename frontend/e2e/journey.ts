@@ -24,7 +24,8 @@ export async function completeRegistration(page: Page): Promise<void> {
   await page.getByRole('button', { name: ui('Weiter zur Freischaltcode-Eingabe') }).click()
   await page.getByRole('button', { name: ui('Identifizieren') }).click()
 
-  const success = page.getByRole('heading', { name: ui('Authentifizierung erfolgreich!') })
+  // The welcome that greets a logged-in user - its name part varies, so only the words before it.
+  const success = page.getByRole('heading', { name: new RegExp(`^${ui('Willkommen, {name}!').split('{name}')[0]}`) })
 
   for (let step = 0; step < 12 && !(await success.isVisible()); step++) {
     // Every click re-renders the step and detaches the button mid-action - settle first rather

@@ -44,7 +44,7 @@ import { shorten } from '../../format.ts'
 import { ChannelNav } from '../../components/ChannelNav'
 import { DemoArea, DemoProvider } from '../../components/DemoArea'
 import { PhoneFrame } from '../../components/PhoneFrame'
-import { AuthenticationCompletedView } from '../../components/AuthenticationCompletedView'
+import { AuthenticationCompletedView, type AccountView } from '../../components/AuthenticationCompletedView'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
 import { SelectMethodView } from '../../components/SelectMethodView'
@@ -119,6 +119,10 @@ export function AppChannelApp() {
   // Bezeugung, die schon darin steckt. Das darf nicht ein Klick nebenbei sein.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [error, setError] = useState('')
+  // The logged-in screen (welcome, profile, security) - kept here so a step-up or an added method
+  // returns to where it was started; a new channel starts at the welcome again.
+  const [accountView, setAccountView] = useState<AccountView>('home')
+  useEffect(() => setAccountView('home'), [channelSessionId])
   // Only takes effect on the next channel-creating action (Verbinden/Login ohne DPoP/Registrieren
   // below) - needed to reach enroll-password at all: it requires a confirmed email first, but a
   // single loa1 method already satisfies the default floor and ends registration before password
@@ -844,6 +848,8 @@ export function AppChannelApp() {
                     currentAmr={currentAmr}
                     activeMethods={activeMethods}
                     demo={demo}
+                    view={accountView}
+                    onNavigate={setAccountView}
                     onAddMethod={handleAddMethod}
                     onDeactivateMethod={handleDeactivateMethod}
                     onDeleteAccount={handleDeleteAccount}

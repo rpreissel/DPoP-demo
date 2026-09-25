@@ -1,5 +1,4 @@
 import { t } from '../texts'
-import { Tx } from '../Tx'
 import { useEffect, useState } from 'react'
 import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo, IdTokenClaims } from '../types'
@@ -78,6 +77,9 @@ function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof
   )
 }
 
+/** The three screens of the logged-in app: a welcome, the person's data, the account's security. */
+export type AccountView = 'home' | 'profile' | 'security'
+
 interface AuthenticationCompletedViewProps {
   dpop: DpopKeyPair
   channelSessionId: string
@@ -86,6 +88,12 @@ interface AuthenticationCompletedViewProps {
   /** All active methods on the account - distinct from currentAmr, which is only what THIS session proved. */
   activeMethods?: ActiveMethodView[]
   demo?: DemoInfo
+  /**
+   * Which screen shows - held by the caller, so a step-up or an added method returns to the
+   * screen it was started from rather than to the welcome (this view unmounts meanwhile).
+   */
+  view: AccountView
+  onNavigate: (view: AccountView) => void
   onAddMethod: () => void
   onDeactivateMethod: (methodInstanceId: string) => void
   onStepUp: (requiredAcr: string) => void
@@ -96,6 +104,45 @@ interface AuthenticationCompletedViewProps {
   infoMessage?: string
 }
 
+/** A list row like the method choice: icon tile, bold label, grey hint, chevron. */
+function MenuRow({ icon, label, hint, onClick }: { icon: string; label: string; hint?: string; onClick: () => void }) {
+  return (
+    <li>
+      <button className="method-choice" onClick={onClick}>
+        <span className="method-choice-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="method-choice-text">
+          <span className="method-choice-label">{label}</span>
+          {hint && <span className="method-choice-hint">{hint}</span>}
+        </span>
+      </button>
+    </li>
+  )
+}
+
+/** Head of a sub-screen: back to the welcome, then the screen's title. */
+function SubScreenHead({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <>
+      <button className="account-back" onClick={onBack}>
+        {t('Zurück')}
+      </button>
+      <h2>{title}</h2>
+    </>
+  )
+}
+
+function StatusRow({ label, value }: { label: string; value?: string }) {
+  if (value == null || value === '') return null
+  return (
+    <li>
+      <span className="label">{label}</span>
+      <span className="value">{value}</span>
+    </li>
+  )
+}
+
 /** FE-11: accountId/personId come from the demo-only object, never a production field. */
 export function AuthenticationCompletedView({
   dpop,
@@ -104,6 +151,8 @@ export function AuthenticationCompletedView({
   currentAmr,
   activeMethods,
   demo,
+  view,
+  onNavigate,
   onAddMethod,
   onDeactivateMethod,
   onStepUp,
@@ -140,91 +189,107 @@ export function AuthenticationCompletedView({
   const personName = typeof claims?.name === 'string' ? claims.name : undefined
   // The role (ADR-34): versnr = insured with us (Versicherter); personId alone = known to the
   // Personenverzeichnis but not insured here (Partner); neither = Interessent (ADR-10/18 - full
-  // identity possibly attested, but no person assigned). Shown compactly in parentheses behind the
-  // name, not as its own status row.
+  // identity possibly attested, but no person assigned).
   const accountStatus = claims ? accountRole(claims.personId, claims.versnr) : undefined
+  const hasQrLogin = activeMethods?.some((m) => m.method === 'qr') ?? true
 
-  return (
+  const home = (
     <>
-    <div className="card success-card">
-      <h2>{t('Authentifizierung erfolgreich!')}</h2>
-      <div className="identity-row">
-        <p>
-          {personName ? (
-            accountStatus ? (
-              <Tx text="Angemeldet als {name} ({status})." name={<strong>{personName}</strong>} status={accountStatus} />
-            ) : (
-              <Tx text="Angemeldet als {name}." name={<strong>{personName}</strong>} />
-            )
-          ) : accountStatus ? (
-            t('Sie sind angemeldet ({status}).', { status: accountStatus })
-          ) : (
-            t('Sie sind angemeldet.')
-          )}
+      <div className="card success-card">
+        <h2>{personName ? t('Willkommen, {name}!', { name: personName }) : t('Willkommen!')}</h2>
+        <p>{accountStatus ? t('Sie sind als {status} angemeldet.', { status: accountStatus }) : t('Sie sind angemeldet.')}</p>
+      </div>
+      <ul className="method-choice-list account-menu">
+        <MenuRow icon="👤" label={t('Profil')} hint={t('Ihre persönlichen Daten')} onClick={() => onNavigate('profile')} />
+        <MenuRow icon="🔒" label={t('Sicherheit')} hint={t('Anmeldeverfahren und Konto')} onClick={() => onNavigate('security')} />
+        {/* Worded as an instruction, not a status: the app cannot know whether a browser is
+            waiting - the pairing code shown there is what connects the two, entered next. */}
+        <MenuRow
+          icon="💻"
+          label={t('Anmeldung im Browser bestätigen')}
+          hint={hasQrLogin ? t('Code aus dem Browser eingeben') : t('Dafür zuerst unter „Sicherheit“ den QR-Login hinzufügen')}
+          onClick={onPeerLogin}
+        />
+      </ul>
+      <Demo>
+        <p className="demo-diagram">
+          {t('Anmeldung im Browser bestätigen')}
+          <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline>
+            <span
+              className="diagram-hint-trigger"
+              tabIndex={0}
+              aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: t('Anmeldung im Browser bestätigen') })}
+            >
+              ℹ️
+            </span>
+          </DiagramHint>
         </p>
-        <button className="secondary small" onClick={onLogout}>
+      </Demo>
+      <div className="form-actions">
+        <button className="secondary" onClick={onLogout}>
           {t('Abmelden')}
         </button>
       </div>
-      <ul className="status-list">
-        {currentAcr && (
-          <li>
-            <span className="label">{t('Sicherheitsniveau')}</span>
-            <span className="value">{currentAcr}</span>
-          </li>
-        )}
-        {currentAmr && currentAmr.length > 0 && (
-          <li>
-            <span className="label">{t('Genutzte Anmeldeverfahren')}</span>
-            <span className="value">{currentAmr.join(', ')}</span>
-          </li>
-        )}
-      </ul>
-      {(demo?.accountId != null || demo?.personId != null) && (
-        <Demo>
-          <ul className="status-list">
-            {demo?.accountId != null && (
-              <li>
-                <span className="label">{t('Konto-ID (Demo)')}</span>
-                <span className="value">{demo.accountId}</span>
-              </li>
-            )}
-            {demo?.personId != null && (
-              <li>
-                <span className="label">{t('Personen-ID (Demo)')}</span>
-                <span className="value">{demo.personId}</span>
-              </li>
-            )}
-          </ul>
-        </Demo>
-      )}
+    </>
+  )
 
+  const profile = (
+    <div className="card">
+      <SubScreenHead title={t('Profil')} onBack={() => onNavigate('home')} />
+      <ul className="status-list">
+        <StatusRow label={t('Vor- und Nachname')} value={personName} />
+        <StatusRow label={t('Status')} value={accountStatus} />
+        <StatusRow label={t('Versichertennummer')} value={claims?.versnr} />
+        <StatusRow label={t('Partnernummer')} value={claims?.personId} />
+        <StatusRow label={t('E-Mail')} value={claims?.email} />
+      </ul>
+      {!claims && <p className="hint">{t('Ihre Daten werden geladen …')}</p>}
       {canStepUpToLoa2 && (
         <>
           <SectionHeading text={t('Sicherheitsniveau erhöhen')} diagram="stepUp" />
-          <p>{t('Ein Step-up fordert einen zusätzlichen Nachweis an (MFA), ohne sich neu anzumelden.')}</p>
+          <p>{t('Bestätigen Sie Ihre Anmeldung mit einem zweiten Verfahren, dann erreichen Sie Sicherheitsniveau 2 - ohne sich neu anzumelden.')}</p>
           <div className="form-actions">
             <button className="secondary" onClick={() => onStepUp('loa2')}>
-              {t('Sicherheitsniveau jetzt erhöhen')}
+              {t('Sicherheitsniveau 2 anfordern')}
             </button>
           </div>
         </>
       )}
-
-      <SectionHeading text={t('Web-Login per QR bestätigen')} diagram="confirmPeerLogin" />
-      {/* Worded as an instruction, not a status: the app cannot know whether a browser is waiting -
-          the pairing code shown there is what connects the two, entered in the next step. */}
-      <p>{t('Zeigt ein Browser einen QR- oder Pairing-Code an, bestätigen Sie den Login hier.')}</p>
-      {activeMethods && !activeMethods.some((m) => m.method === 'qr') && (
-        <p className="hint">
-          {t('Dafür muss für dieses Konto das Verfahren „QR-Login“ aktiviert sein - unten unter „Anmeldeverfahren verwalten“.')}
-        </p>
+      {(demo?.accountId != null || demo?.personId != null) && (
+        <Demo>
+          <ul className="status-list">
+            <StatusRow label={t('Konto-ID (Demo)')} value={demo?.accountId != null ? String(demo.accountId) : undefined} />
+            <StatusRow label={t('Personen-ID (Demo)')} value={demo?.personId != null ? String(demo.personId) : undefined} />
+          </ul>
+        </Demo>
       )}
-      <div className="form-actions">
-        <button className="secondary" onClick={onPeerLogin}>
-          {t('Web-Login bestätigen')}
-        </button>
-      </div>
+      {/* The raw claims next to the phone - the screen itself shows them as a person's data. */}
+      {claims && (
+        <Demo>
+          <Disclosure summary={t('ID-Token-Claims')}>
+            <ul className="status-list">
+              {Object.entries(claims)
+                .filter(([, value]) => value !== null && value !== undefined)
+                .map(([key, value]) => (
+                  <li key={key}>
+                    <span className="label">{key}</span>
+                    <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                  </li>
+                ))}
+            </ul>
+          </Disclosure>
+        </Demo>
+      )}
+    </div>
+  )
+
+  const security = (
+    <div className="card">
+      <SubScreenHead title={t('Sicherheit')} onBack={() => onNavigate('home')} />
+      <ul className="status-list">
+        <StatusRow label={t('Sicherheitsniveau')} value={currentAcr} />
+        <StatusRow label={t('Genutzte Anmeldeverfahren')} value={currentAmr && currentAmr.length > 0 ? currentAmr.join(', ') : undefined} />
+      </ul>
 
       <SectionHeading text={t('Anmeldeverfahren verwalten')} diagram="manageMethods" />
       {manageError && <div className="hint">{manageError}</div>}
@@ -238,7 +303,7 @@ export function AuthenticationCompletedView({
           {activeMethods.map((method) => (
             <li key={method.id}>
               <span className="label">{labelFor(method)}</span>
-              <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
+              <button className="secondary small" onClick={() => onDeactivateMethod(method.id)}>
                 {t('Deaktivieren')}
               </button>
             </li>
@@ -273,30 +338,15 @@ export function AuthenticationCompletedView({
           {t('Konto löschen')}
         </button>
       </div>
-
-      {/* Technical detail view, collapsed by default - same trade-off as the AccessToken claims
-          in TokenPanel: the two headline facts (name + Kontostatus) live in the identity row,
-          everything else only on demand. */}
-      {claims && (
-        <Demo>
-          <Disclosure summary={t('ID-Token-Claims')}>
-            <ul className="status-list">
-              {Object.entries(claims)
-                .filter(([, value]) => value !== null && value !== undefined)
-                .map(([key, value]) => (
-                  <li key={key}>
-                    <span className="label">{key}</span>
-                    <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
-                  </li>
-                ))}
-            </ul>
-          </Disclosure>
-        </Demo>
-      )}
     </div>
-    <Demo>
-      <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
-    </Demo>
+  )
+
+  return (
+    <>
+      {view === 'profile' ? profile : view === 'security' ? security : home}
+      <Demo>
+        <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
+      </Demo>
     </>
   )
 }
