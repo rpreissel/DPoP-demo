@@ -54,7 +54,7 @@ public final class OrchestratorNotes {
     static final String USER_SESSION_NOTE_RESTORE_DATA = "orchestrator_restore_data";
 
     /** The orchestrator accountId, once known - a durable Keycloak user attribute, read back on every later step-up. */
-    static final String USER_ATTR_ACCOUNT_ID = "orchestratorAccountId";
+    static final String USER_ATTR_ACCOUNT_ID = AccountUsers.ACCOUNT_ID_ATTRIBUTE;
 
     private OrchestratorNotes() {
     }

@@ -48,7 +48,8 @@ step("realm einstellungen setzen") {
 // Keycloaks deklaratives User Profile (seit 24.x Default) verwirft jedes User-Attribut, das hier
 // nicht deklariert ist - ohne das würde orchestratorAccountId (von KeycloakAdminClient auf jedem
 // synchronisierten User gesetzt) von der API akzeptiert, aber nie persistiert. Diese Ressource ist
-// für das GESAMTE Profil zuständig, nicht additiv.
+// für das GESAMTE Profil zuständig, nicht additiv. username/email/firstName/lastName darf der Nutzer
+// nur sehen, nicht ändern (upConfig, Review 2026-09 S-2): Quelle ist das Orchestrator-Konto.
 step("user profile konfigurieren") {
     up {
         users().userProfile().update(upConfig("orchestratorAccountId" to setOf("admin")))

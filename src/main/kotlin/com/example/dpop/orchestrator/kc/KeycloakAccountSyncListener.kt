@@ -79,7 +79,7 @@ class KeycloakAccountSyncListener(
         // exactly the silent state the registry exists to prevent.
         keycloakAdminClient.upsertUser(
             profile.accountId, profile.email, profile.emailConfirmed,
-            mirror.firstName, mirror.lastName, mirror.attributes
+            mirror.firstName, mirror.lastName, mirror.attributes, accountExists = { accountService.findAccount(it) != null }
         )
         val keypair = accountKeypairService.keypairFor(profile.accountId)
         val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()

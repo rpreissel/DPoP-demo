@@ -66,6 +66,15 @@ class KcChannelService(
         // always sends an empty amr alongside it, and always mints a brand-new channelSessionId -
         // see [restoredFactors]/[liveFactors] below, applied separately for exactly that reason.
         val restoreData = restoreDataToken?.let { restoreDataCodec.decode(it, restoreDataKcSessionId) }
+        // Keycloak's user attribute and the restore token must name the same account. Preferring
+        // one silently would let a Keycloak user that wears ANOTHER account's id (a mis-attributed
+        // mirror) carry this session's restored evidence into that account.
+        if (accountId != null && restoreData?.accountId != null && accountId != restoreData.accountId) {
+            throw OrchestratorException.invalidState(
+                Text("Die Sitzung gehört zu einem anderen Konto"),
+                "accountId=$accountId restoreData.accountId=${restoreData.accountId}"
+            )
+        }
         val effectiveAccountId = accountId ?: restoreData?.accountId
         val restoredFactors = restoreData?.evidence?.factors.orEmpty()
         // method/maxAcr/factorTypes are fixed per authenticator TYPE, not resent per proof - see
@@ -127,7 +136,13 @@ class KcChannelService(
             val channel = kcChannelAccessGuard.requireChannel(channelSessionId, assertion)
             // Step-up (docs/05-api.md Abschnitt 3): binds the channel to the account
             // Keycloak already knows, as soon as it first appears - never overwritten once set,
-            // a later request naming a different account would be a mismatch, not a rebind.
+            // a later request naming a different account is a mismatch, not a rebind.
+            if (effectiveAccountId != null && channel.accountId != null && channel.accountId != effectiveAccountId) {
+                throw OrchestratorException.invalidState(
+                    Text("Die Sitzung gehört zu einem anderen Konto"),
+                    "channel.accountId=${channel.accountId} requested=$effectiveAccountId"
+                )
+            }
             if (effectiveAccountId != null && channel.accountId == null) {
                 channel.accountId = effectiveAccountId
                 sessionManagementService.updateChannelSession(channel)

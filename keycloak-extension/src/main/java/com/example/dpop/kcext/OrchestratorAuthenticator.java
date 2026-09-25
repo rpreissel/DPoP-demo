@@ -246,8 +246,7 @@ public class OrchestratorAuthenticator implements Authenticator {
         KeycloakSession session = context.getSession();
         RealmModel realm = context.getRealm();
         UserProvider users = session.users();
-        UserModel existing = users.searchForUserByUserAttributeStream(realm, OrchestratorNotes.USER_ATTR_ACCOUNT_ID, String.valueOf(accountId))
-                .findFirst().orElse(null);
+        UserModel existing = AccountUsers.findByAccountId(session, realm, String.valueOf(accountId));
         if (existing != null) return existing;
         // First time this account authenticates through Keycloak - same pattern as
         // RegistrationUserCreation: mint a Keycloak user record and attach the orchestrator's own

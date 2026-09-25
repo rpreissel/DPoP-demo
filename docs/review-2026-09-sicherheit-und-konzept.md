@@ -57,6 +57,15 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-2 Keycloak-Account-Sync übernimmt fremde Keycloak-User per E-Mail-Treffer
 
+> **Behoben (2026-09-25):** Der Sync sucht den Spiegel zuerst über `orchestratorAccountId` und
+> übernimmt einen User per E-Mail nur, wenn er keinem noch bestehenden anderen Konto gehört
+> (`resolveMirror` in `KeycloakAdminClient.kt`, Unit-Test `KeycloakMirrorResolutionTest`); mehr als
+> ein Träger desselben `orchestratorAccountId` wird abgelehnt – im Sync und in der Extension
+> (`AccountUsers.findByAccountId`). `username`/`email`/`firstName`/`lastName` darf der Nutzer im
+> User-Profile nur noch sehen. `KcChannelService` weist ein abweichendes Konto ab (zwischen
+> `accountId` und RestoreData wie gegenüber dem schon gebundenen Kanal), Test in
+> `KcChannelIntegrationTest`.
+
 - **Wo:**
   - `orchestrator/kc/KeycloakAdminClient.kt:107` –
     `findMirror = email?.let(::findUserIdByEmail) ?: findUserId(accountId)`: E-Mail zuerst, egal

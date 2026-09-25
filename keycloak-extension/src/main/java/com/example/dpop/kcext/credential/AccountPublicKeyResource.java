@@ -1,5 +1,7 @@
 package com.example.dpop.kcext.credential;
 
+import com.example.dpop.kcext.AccountUsers;
+
 import com.example.dpop.kcext.grant.AccountTokenGrantType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +20,6 @@ import org.keycloak.services.resources.admin.fgap.AdminPermissionEvaluator;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 /**
  * `POST /admin/realms/{realm}/orchestrator-keys/{accountId}` (DPoP-demo-xso): the write side of
@@ -102,9 +103,6 @@ public class AccountPublicKeyResource {
     }
 
     private UserModel findUserByAccountId(String accountId) {
-        try (Stream<UserModel> matches = session.users()
-                .searchForUserByUserAttributeStream(realm, AccountTokenGrantType.ACCOUNT_ID_ATTRIBUTE, accountId)) {
-            return matches.findFirst().orElse(null);
-        }
+        return AccountUsers.findByAccountId(session, realm, accountId);
     }
 }

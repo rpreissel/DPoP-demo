@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator
 
+import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
@@ -13,6 +14,7 @@ import io.mockk.every
 import java.time.Instant
 import java.util.UUID
 import org.junit.jupiter.api.assertThrows
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
@@ -27,6 +29,9 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
 
     @MockkBean
     private lateinit var jwkThumbprintService: JwkThumbprintService
+
+    @Autowired
+    private lateinit var accountService: AccountService
 
     init {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
@@ -164,6 +169,34 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     // only ever enrolled sms+email, so password/device must never appear here even
                     // though they're both in the catalog.
                     options shouldContainExactlyInAnyOrder listOf("auth-sms", "auth-password")
+                }
+            }
+        }
+
+        Given("a kc channel already bound to one account") {
+            When("a later PATCH on the same channel names a different account") {
+                Then("it is refused as a mismatch, never a silent rebind (review 2026-09, S-2)") {
+                    val authenticatedChannelSessionId = loginAsSeededAccount()
+                    val accountId = jdbcTemplate.queryForObject(
+                        "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
+                        Long::class.java,
+                        UUID.fromString(authenticatedChannelSessionId)
+                    )
+                    val otherAccountId = accountService.createUnidentifiedAccount().accountId
+
+                    val kcChannelSessionId = UUID.randomUUID()
+                    stubAssertion(channelAnchor = "kc-user-session-${UUID.randomUUID()}")
+                    kcPatch(kcChannelSessionId, """{"accountId":$accountId,"targetAcr":"loa2"}""")
+
+                    val rejected = assertThrows<HttpClientErrorException> {
+                        kcPatchRaw(kcChannelSessionId, """{"accountId":$otherAccountId}""")
+                    }
+                    rejected.statusCode shouldBe HttpStatus.CONFLICT
+                    jdbcTemplate.queryForObject(
+                        "SELECT account_id FROM orchestrator.channel_session WHERE id = ?",
+                        Long::class.java,
+                        kcChannelSessionId
+                    ) shouldBe accountId
                 }
             }
         }

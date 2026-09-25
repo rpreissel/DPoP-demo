@@ -225,8 +225,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md): Backend-Kern
     produktionsreif, Frontends und Umgebung später. Die Schritte unten sind danach zugeschnitten;
     was in die Umgebung gehört, steht gesammelt in Phase G.
-2. **S-2** Keycloak-Sync: keinen fremden User übernehmen, `email` nur admin-editierbar,
-   `accountId`-Mismatch → 409, eindeutiger `orchestratorAccountId`.
+2. ~~S-2 Keycloak-Sync~~ – erledigt 2026-09-25.
 3. **S-3** Ein Schlüssel je Keycloak-Client (getrennte `purpose`-Schlüssel); Migrationsclient ohne
    dauerhafte Master-Admin-Rolle. Nach ADR-35 die volle Trennung, nicht nur Deaktivieren.
 4. **S-4** Trust-all an einen ausdrücklichen Schalter im `keycloak-setup`-Parametersatz binden,

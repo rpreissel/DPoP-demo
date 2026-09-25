@@ -1,5 +1,7 @@
 package com.example.dpop.kcext.grant;
 
+import com.example.dpop.kcext.AccountUsers;
+
 import com.example.dpop.kcext.OrchestratorNotes;
 import com.example.dpop.kcext.credential.OrchestratorPublicKeyCredential;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
@@ -54,7 +56,7 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     public static final String GRANT_TYPE = "urn:dpop-demo:account-token";
     public static final String ACCOUNT_ID_PARAM = "account_id";
     public static final String ASSERTION_PARAM = "assertion";
-    public static final String ACCOUNT_ID_ATTRIBUTE = "orchestratorAccountId";
+    public static final String ACCOUNT_ID_ATTRIBUTE = AccountUsers.ACCOUNT_ID_ATTRIBUTE;
     private static final String SESSION_MARKER_NOTE = "dpop-demo-account-token-session";
 
 
@@ -153,9 +155,7 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     }
 
     private UserModel findUserByAccountId(String accountId) {
-        try (Stream<UserModel> matches = session.users().searchForUserByUserAttributeStream(realm, ACCOUNT_ID_ATTRIBUTE, accountId)) {
-            return matches.findFirst().orElse(null);
-        }
+        return AccountUsers.findByAccountId(session, realm, accountId);
     }
 
     /** The verified assertion's own claims (including acr/amr, if present) - {@code null} if signature, subject, audience, or expiry don't check out. */

@@ -44,7 +44,7 @@ class KeycloakAccountSyncService(
             )
             keycloakAdminClient.upsertUser(
                 accountId, profile.email, profile.emailConfirmed,
-                mirror.firstName, mirror.lastName, mirror.attributes
+                mirror.firstName, mirror.lastName, mirror.attributes, accountExists = { it in existingAccountIds }
             )
             val keypair = accountKeypairService.keypairFor(accountId)
             val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()

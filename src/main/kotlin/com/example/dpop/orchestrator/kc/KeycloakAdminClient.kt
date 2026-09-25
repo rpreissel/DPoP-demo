@@ -75,8 +75,12 @@ class KeycloakAdminClient(
      * `KeycloakAccountSyncListener`/`-Service`) as plain Keycloak custom user attributes, exactly
      * like `orchestratorAccountId` already is - never cached here either, just relayed each sync.
      */
-    fun upsertUser(accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String> = emptyMap()) {
-        val existingUserId = findMirror(accountId, email)
+    fun upsertUser(
+        accountId: Long, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?,
+        attributes: Map<String, String> = emptyMap(),
+        accountExists: (Long) -> Boolean
+    ) {
+        val existingUserId = findMirror(accountId, email, accountExists)
         if (existingUserId == null) {
             val username = uniqueUsername(email, firstName, lastName, accountId)
             val userId = createUser(accountId, username, email, emailConfirmed, firstName, lastName, attributes)
@@ -88,35 +92,47 @@ class KeycloakAdminClient(
     }
 
     /**
-     * This account's Keycloak user, resolved BY E-MAIL FIRST and only then by
-     * `orchestratorAccountId`.
+     * This account's Keycloak user: the one carrying `orchestratorAccountId` = [accountId], and
+     * failing that, the user already wearing [email] - but only if that user belongs to NO live
+     * account.
      *
-     * The order is what matters. EMAIL is a unique account anchor, so whoever wears the address
-     * in Keycloak is this account's mirror or nobody's - while the attribute can be missing
-     * (a user minted by `OrchestratorAuthenticator` on first login, before any sync ran) or stale
-     * (a leftover from a previous incarnation of the orchestrator database, whose account ids
-     * started over at 1). Resolving by the attribute first is what used to make the sync write an
-     * address a DIFFERENT user already held, which Keycloak rejects with
-     * `409 "User exists with same email"`. Since the sync is deliberately best-effort, that 409
-     * was swallowed and the account simply kept a Keycloak user with no e-mail, no name and none
-     * of the mirrored stammdaten attributes - none of which then appear as token claims.
+     * By attribute first, because the attribute is what the extension resolves logins and tokens
+     * by; the mirror is whoever carries it. More than one carrier is a conflict this sync must not
+     * resolve by picking one (the extension would otherwise hand either user's session this
+     * account's tokens).
      *
-     * An account whose e-mail changed still resolves: no user wears the new address yet, so the
-     * attribute lookup takes over and the update re-points it.
+     * The e-mail fallback exists because a user can legitimately wear the address without the
+     * attribute: one hand-declared in Keycloak, or a leftover from an earlier orchestrator database
+     * whose account ids started over. Adopting such a user avoids Keycloak's
+     * `409 "User exists with same email"` on create. What it must never adopt is a user whose
+     * attribute names ANOTHER account that still exists - that user is somebody's mirror, and
+     * taking it over would hand its session this account's identity (review 2026-09, S-2). Such a
+     * collision is thrown, not skipped: the Event Publication Registry retries, and the other
+     * account's own next sync restores its address and clears the collision.
      */
-    private fun findMirror(accountId: Long, email: String?): String? =
-        email?.let(::findUserIdByEmail) ?: findUserId(accountId)
+    private fun findMirror(accountId: Long, email: String?, accountExists: (Long) -> Boolean): String? =
+        resolveMirror(accountId, findUsers(accountId), email?.let(::findUserByEmail), accountExists)
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any?>.toKcUser(): KcUser {
+        val attributes = this["attributes"] as? Map<String, List<String>>
+        return KcUser(
+            id = this["id"] as String,
+            accountId = attributes?.get("orchestratorAccountId")?.firstOrNull()?.toLongOrNull()
+        )
+    }
 
     /** The user wearing [email] right now, whatever account (if any) it is currently attributed to. */
-    private fun findUserIdByEmail(email: String): String? {
+    private fun findUserByEmail(email: String): KcUser? {
         val uri = UriComponentsBuilder.fromPath("/admin/realms/{realm}/users")
             .queryParam("email", email)
             .queryParam("exact", "true")
+            .queryParam("briefRepresentation", "false")
             .buildAndExpand(realm)
             .toUriString()
         return authorized().get().uri(uri).retrieve()
             .body<List<Map<String, Any?>>>().orEmpty()
-            .firstOrNull()?.get("id") as? String
+            .firstOrNull()?.toKcUser()
     }
 
     /**
@@ -255,12 +271,22 @@ class KeycloakAdminClient(
     }
 
     private fun findUserId(accountId: Long): String? {
+        val users = findUsers(accountId)
+        check(users.size <= 1) {
+            "Keycloak holds ${users.size} users with orchestratorAccountId=$accountId - refusing to pick one"
+        }
+        return users.singleOrNull()?.id
+    }
+
+    /** Every user carrying `orchestratorAccountId` = [accountId] - normally at most one. */
+    private fun findUsers(accountId: Long): List<KcUser> {
         val uri = UriComponentsBuilder.fromPath("/admin/realms/{realm}/users")
             .queryParam("q", "orchestratorAccountId:$accountId")
+            .queryParam("briefRepresentation", "false")
             .buildAndExpand(realm)
             .toUriString()
-        val users = authorized().get().uri(uri).retrieve().body<List<Map<String, Any?>>>().orEmpty()
-        return users.firstOrNull()?.get("id") as? String
+        return authorized().get().uri(uri).retrieve().body<List<Map<String, Any?>>>().orEmpty()
+            .map { it.toKcUser() }
     }
 
     private fun createUser(accountId: Long, username: String, email: String?, emailConfirmed: Boolean, firstName: String?, lastName: String?, attributes: Map<String, String>): String {
@@ -459,3 +485,26 @@ data class AccountTokenResponse(
     val refreshToken: String? = null,
     val refreshExpiresInSeconds: Long? = null
 )
+
+/** A Keycloak user as far as mirror resolution cares: its id and the account it is attributed to. */
+internal data class KcUser(val id: String, val accountId: Long?) {
+    /** Carries the id of an account that still exists - i.e. is somebody's mirror right now. */
+    fun isLiveMirror(accountExists: (Long) -> Boolean): Boolean = accountId != null && accountExists(accountId)
+}
+
+/**
+ * The decision behind [KeycloakAdminClient]'s mirror lookup, free of HTTP: [byAttribute] are the
+ * users carrying `orchestratorAccountId` = [accountId], [byEmail] the user wearing the account's
+ * address (if any). Returns the user to write, `null` to create one, or throws on a conflict.
+ */
+internal fun resolveMirror(accountId: Long, byAttribute: List<KcUser>, byEmail: KcUser?, accountExists: (Long) -> Boolean): String? {
+    check(byAttribute.size <= 1) {
+        "Keycloak holds ${byAttribute.size} users with orchestratorAccountId=$accountId - refusing to pick one"
+    }
+    val mirror = byAttribute.singleOrNull()
+    val emailOwner = byEmail?.takeIf { it.id != mirror?.id }
+    check(emailOwner == null || emailOwner.accountId == accountId || !emailOwner.isLiveMirror(accountExists)) {
+        "Keycloak user ${emailOwner!!.id} wears the address of accountId=$accountId but belongs to accountId=${emailOwner.accountId}"
+    }
+    return mirror?.id ?: emailOwner?.id
+}

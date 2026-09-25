@@ -23,20 +23,24 @@ fun StepContext.updateRealm(mutate: RealmRepresentation.() -> Unit) {
  * Keycloaks User-Profile-Update ersetzt immer die GESAMTE Konfiguration, nicht additiv - deshalb
  * müssen username/email/firstName/lastName immer mit dabei sein. extraAttributes hängt weitere,
  * auf die genannten Rollen eingeschränkte Attribute an.
+ *
+ * username/email/firstName/lastName darf der Nutzer sehen, aber nur `admin` (der Account-Sync des
+ * Orchestrators) ändern: Die Quelle ist das Orchestrator-Konto. Eine selbst gesetzte E-Mail war der
+ * Hebel, mit dem ein Keycloak-User zum Spiegel eines fremden Kontos werden konnte (Review 2026-09, S-2).
  */
 fun upConfig(vararg extraAttributes: Pair<String, Set<String>>): UPConfig {
-    fun attr(name: String, roles: Set<String> = setOf("admin", "user"), displayName: String? = null) =
+    fun attr(name: String, roles: Set<String> = setOf("admin", "user"), displayName: String? = null, editRoles: Set<String> = roles) =
         UPAttribute(name).apply {
             this.displayName = displayName
-            permissions = UPAttributePermissions(roles, roles)
+            permissions = UPAttributePermissions(roles, editRoles)
         }
 
     return UPConfig().apply {
         attributes = listOf(
-            attr("username", displayName = "\${username}"),
-            attr("email", displayName = "\${email}"),
-            attr("firstName", displayName = "\${firstName}"),
-            attr("lastName", displayName = "\${lastName}"),
+            attr("username", displayName = "\${username}", editRoles = setOf("admin")),
+            attr("email", displayName = "\${email}", editRoles = setOf("admin")),
+            attr("firstName", displayName = "\${firstName}", editRoles = setOf("admin")),
+            attr("lastName", displayName = "\${lastName}", editRoles = setOf("admin")),
         ) + extraAttributes.map { (name, roles) -> attr(name, roles) }
     }
 }
