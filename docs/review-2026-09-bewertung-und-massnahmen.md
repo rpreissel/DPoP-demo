@@ -155,6 +155,11 @@ Die Trennung Kanal / Journey / ToolSession ist richtig – sie ist nur nirgends 
 
 ### Zu P-2: Anspruch entscheiden
 
+> **Entschieden ([ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md)):** Der
+> Backend-Kern ist produktionsreif; simulierte Fremdsysteme bleiben Vorführrahmen hinter Ports;
+> Frontends und Ausführungsumgebung werden später gehärtet. Die Optionen unten sind der Stand vor
+> der Entscheidung; gültig ist die Mischform aus dem ADR.
+
 - **Ein ADR „Betriebsanspruch“** mit genau einer Aussage: *Dieser Code geht produktiv* oder
   *dieser Code bleibt Referenz*. Alles Weitere leitet sich daraus ab.
 - **Wenn Referenz:** OpenShift-Variante als „erreichbare Demo“ deklarieren und dafür ein
@@ -188,10 +193,11 @@ Die Trennung Kanal / Journey / ToolSession ist richtig – sie ist nur nirgends 
   kann das bereits).
 - **Gerätefaktor unabhängig vom Kanalschlüssel:** `thumbprint == bindingKeyRef` beim Enrollment
   ablehnen; als Test verankert.
-- **Mock-Verfahren tragen ihr Niveau nicht selbst:** `ident-eid` (Mock) bekommt ein
-  `maxAcr`, das in der Variante `openshift` per Start-Check auf loa1 gedeckelt ist, oder das Modul
-  verschwindet aus dem Betriebspfad (siehe P-2).
-- **Freischaltcode:** HMAC mit Pepper, ≥ 12 Zeichen, nach Nutzung verbraucht.
+- **Simulierte Verfahren über ihren Port-Vertrag:** `ident-eid` bleibt Simulation des eID-Servers
+  mit dessen Niveau; der Port-Vertrag hält fest, dass ein reales Ergebnis serverseitig vom
+  eID-Server kommt und nie aus Client-Angaben (ADR-35).
+- **Freischaltcode:** Der Port-Vertrag sagt zu, dass ein Code nach erfolgreicher Prüfung verbraucht
+  ist. Hash mit Pepper und Länge sind Sache des Fremdsystems (ADR-31, ADR-35).
 - **Ein ADR „Niveaus und ihre Nachweise“:** je Stufe, welcher Nachweis sie trägt und welcher Test
   das prüft.
 
@@ -215,20 +221,21 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 **Phase A – Ausnutzbares schließen (Tage)**
 
 1. ~~S-1 Tool-Replay~~ – erledigt 2026-09-25.
-1b. **ADR „Betriebsanspruch“** (P-2) – vorgezogen, weil die Antwort bestimmt, wie gründlich die
-    Schritte 3 und 4 sein müssen: Bleibt das Projekt Referenz, genügt es, den Migrationsclient nach
-    dem Setup zu deaktivieren und die OpenShift-Variante als erreichbare Demo zu härten; wird es
-    Produkt, braucht es getrennte Schlüssel und Mocks außerhalb des Betriebspfads. Kostet Nachdenken,
-    keinen Code.
+1b. ~~ADR „Betriebsanspruch“~~ – entschieden 2026-09-25 als
+    [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md): Backend-Kern
+    produktionsreif, Frontends und Umgebung später. Die Schritte unten sind danach zugeschnitten;
+    was in die Umgebung gehört, steht gesammelt in Phase G.
 2. **S-2** Keycloak-Sync: keinen fremden User übernehmen, `email` nur admin-editierbar,
    `accountId`-Mismatch → 409, eindeutiger `orchestratorAccountId`.
-3. **S-3** Ein Schlüssel je Keycloak-Client; Migrationsclient ohne dauerhafte Master-Admin-Rolle.
-4. **S-5 + S-4 + M-12** OpenShift-Härtung in einem Zug: Admin-Secret, Trust-all nur lokal,
-   DB-Passwort, H2-Konsole hinter Admin-Auth, Keycloak `start --optimized`.
+3. **S-3** Ein Schlüssel je Keycloak-Client (getrennte `purpose`-Schlüssel); Migrationsclient ohne
+   dauerhafte Master-Admin-Rolle. Nach ADR-35 die volle Trennung, nicht nur Deaktivieren.
+4. **S-4** Trust-all an einen ausdrücklichen Schalter im `keycloak-setup`-Parametersatz binden,
+   Start-Check gegen Trust-all bei nicht-lokalem Keycloak. (S-5 und M-12 sind Umgebung → Phase G.)
 5. **S-6** KVNR-Orakel: Mismatch als `Failed` mit `attemptedPersonId`.
 6. **S-7** Widerruf nur für EMAIL (`AnchorRule.userRetractable`), `announceChanged` und
    `lockForUpdate` im Widerruf.
-7. **S-8** Freischaltcode mit Pepper, verbraucht nach Nutzung.
+7. **S-8** Port-Vertrag des Personenverzeichnisses: Freischaltcode ist nach erfolgreicher Prüfung
+   verbraucht; die Simulation hält das ein. Hash und Länge bleiben Fremdsystem (ADR-35).
 8. **M-2** QR-Prüfcode in der App eingeben, `expiresAt` in beiden Pfaden.
 9. **M-8** `bruteForceProtected`, Mgmt-`set` nur bei vorhandener Passwortmethode,
    `enabled` nicht bei jedem Sync.
@@ -240,8 +247,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     noch Dinge, die kein Review sah – die werden hier eingeschoben.
 12. **ArchUnit `@BindingKey`-Regel** und **Invariantenregister** (P-1, Schicht 4) anlegen – zunächst
     mit leeren Mechanismus-Einträgen, die die Lücken zeigen.
-13. **ADR „Betriebsanspruch“** – siehe 1b; falls dort noch nicht entschieden, spätestens hier,
-    denn Phase E hängt daran.
+13. **ArchUnit-Grenze Kern ↔ Fremdsystem-Simulation:** Der Kern referenziert kein Mock-Modul
+    direkt; „demo-only“ im Kern ist ein Befund (ADR-35).
 
 **Phase C – Zustandsraum verkleinern und verbieten (eine Woche)**
 
@@ -260,34 +267,48 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 20. **`ToolOutcome.Failed` je Kategorie** (schließt S-6 strukturell).
 21. **`AccountInHand`** – räumt den toten Zweitkonto-Zweig mit auf; Doku 04 §2 angleichen.
 
-**Phase E – Niveaus und Keycloak (abhängig von Schritt 13)**
+**Phase E – Niveaus und Keycloak**
 
 22. **M-1** Gerätefaktor: `thumbprint ≠ bindingKeyRef`, Descriptor auf `{possession}` ohne
     Attestation; **ADR „Niveaus und ihre Nachweise“** (P-4).
 23. **M-3** `cnf.jkt` in Keycloak-Tokens – oder die Grenze in ADR-9 und docs/09 benennen.
 24. **M-7** Zweiter Faktor für destruktive Aktionen an unidentifizierten Konten – oder als ADR
     ausdrücklich abgewogen.
-25. **M-9 / M-10** Antwort an Keycloak signieren, Realm-Neuaufbau nur mit Schalter.
+25. **M-9 / M-10** Antwort an Keycloak signieren (TLS auf dem Hop ist Umgebung → Phase G),
+    Realm-Neuaufbau nur mit Schalter.
 26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.
-27. **P-2 Konsequenz:** Mocks in eigene Module (Produkt) oder Start-Checks für die Demo-Variante
-    (Referenz).
+27. **Port-Verträge der Fremdsysteme vervollständigen** (ADR-35): je Port, was ein reales System
+    zusagen muss (Einmaligkeit, Signatur, Frische, serverseitiges Ergebnis) – KOBIL, Nect, eID,
+    Personenverzeichnis.
 
 **Phase F – Härtung und Hygiene (nach Bedarf)**
 
 28. Niedrige Befunde nach Aufwand: Versanddrossel bei Aktivierung, Rufnummern-Allowlist, geteilte
     `DeviceEnrollment`-Zeile, `enrolledUnderAcr` je Instanz, Widerruf-`>=`, toter KVNR-Zweig,
     Namensvetter-Entscheidung (ADR-18), PBKDF2-Iterationen, KOBIL-Geheimnisse kürzer, `DPoP-Nonce`
-    in docs/09, `forward-headers-strategy` deklarieren, Fehlerantworten ohne Bibliotheksmeldungen,
-    CSP-Header, `jti` in der Konto-Assertion, JWKS-Backoff, Compose-Ports auf `127.0.0.1`.
+    in docs/09, Fehlerantworten ohne Bibliotheksmeldungen, `jti` in der Konto-Assertion,
+    JWKS-Backoff.
 29. **ADR „Audit“** und Umsetzung (Kaskaden entfernen, Append-only-Zeilen).
 30. Text-Schlüssel lesbar machen; Historie aus KDocs in ADRs verschieben.
+
+**Phase G – Frontends und Ausführungsumgebung (später, nach ADR-35)**
+
+Nicht Teil der jetzigen Runde. Bis sie erledigt ist, läuft keine Instanz mit echten Personendaten.
+
+31. **S-5** Admin-Geheimnis auf OpenShift per Secret, Start-Check gegen das Default-Passwort.
+32. **M-12** Keycloak `start --optimized` mit festem Hostnamen; H2-Konsole hinter Admin-Auth,
+    DB-Passwort per Secret.
+33. TLS zwischen Keycloak und Orchestrator (Rest von M-9); `forward-headers-strategy` mit
+    vertrauenswürdigen Proxies; Compose-Ports auf `127.0.0.1`.
+34. Frontend: CSP-Header, Web-Kanal-Tokens (Refresh-Token-Regel, `state`/`iss`),
+    Frontend-Thumbprint nach RFC 7638.
+35. Verwaltungs-APIs der simulierten Fremdsysteme hinter Admin-Auth oder per Profil abschaltbar.
 
 ---
 
 ## 5. Was dieses Dokument nicht entscheidet
 
-- Ob das Projekt produktiv geht (Schritt 1b). Die Reihenfolge ist so gebaut, dass Phasen A bis D
-  in beiden Fällen sinnvoll sind; die Antwort bestimmt nur die Tiefe der Schritte 3 und 4 und den
-  Inhalt von Phase E.
+- Den Betriebsanspruch entscheidet [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md),
+  nicht dieses Dokument; die Reihenfolge ist danach zugeschnitten.
 - Ob der Web-Kanal die Regel „Refresh-Token nie ins Frontend“ übernehmen soll – das ist eine
   Frage an den Anspruch des Web-Kanals, nicht an seine Sicherheit.

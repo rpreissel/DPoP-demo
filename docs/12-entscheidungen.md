@@ -48,6 +48,7 @@ als Diff mitten im Fließtext.
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
 | [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak |
+| [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md) | Betriebsanspruch – der Backend-Kern ist produktionsreif, Frontends und Umgebung folgen später |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

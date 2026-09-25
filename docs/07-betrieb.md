@@ -3,6 +3,11 @@
 Dieses Kapitel beschreibt den Fehlervertrag, was transaktional zugesagt ist und wie lange welche
 Daten aufbewahrt werden.
 
+> **Einschränkung ([ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md)):**
+> Produktionsreif ist der Backend-Kern. Frontends und Ausführungsumgebung (`compose.yml`,
+> `openshift/`, Admin-Zugang, H2-Konsole, Keycloak-Startmodus, TLS zwischen den Containern) sind
+> Vorführrahmen und werden später gehärtet. Bis dahin läuft keine Instanz mit echten Personendaten.
+
 ---
 
 ## 1) Fehlervertrag
