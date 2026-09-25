@@ -7,7 +7,8 @@ import { t } from '../../texts'
  * The frame every tool page shares, as in the FreeMarker templates: title and hint from the
  * tool's renderer factory, one form posting to Keycloak, and "Weiter" next to a way out that skips
  * the browser's field validation - "Zurück" (orchestrator_back: back to the selection, this tool
- * still on it) or, with `cancel`, "Abbrechen" (orchestrator_abandon: this tool declined).
+ * still on it) or, with `cancel`, "Abbrechen" (orchestrator_abandon: this tool declined). With
+ * `onBack`, "Zurück" stays on the page - a tool's own earlier view (ident-fsc's personal data).
  */
 export function ToolForm({
   kcContext,
@@ -16,6 +17,7 @@ export function ToolForm({
   children,
   submitLabel,
   cancel = false,
+  onBack,
 }: {
   kcContext: KcContext
   title: string
@@ -25,6 +27,8 @@ export function ToolForm({
   submitLabel?: string | null
   /** "Abbrechen" (decline the tool) instead of "Zurück" (back to the selection). */
   cancel?: boolean
+  /** "Zurück" handled on this page instead of leaving the tool. */
+  onBack?: () => void
 }) {
   return (
     <Layout kcContext={kcContext} title={title}>
@@ -37,7 +41,11 @@ export function ToolForm({
               {submitLabel ?? t('Weiter')}
             </button>
           )}
-          {cancel ? (
+          {onBack ? (
+            <button className="orc-button" type="button" onClick={onBack}>
+              {t('Zurück')}
+            </button>
+          ) : cancel ? (
             <button className="orc-button" type="submit" name="orchestrator_abandon" value="true" formNoValidate>
               {t('Abbrechen')}
             </button>

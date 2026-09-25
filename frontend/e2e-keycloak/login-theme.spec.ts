@@ -87,6 +87,29 @@ for (const theme of ['FREEMARKER', 'KEYCLOAKIFY'] as const) {
   })
 }
 
+for (const theme of ['FREEMARKER', 'KEYCLOAKIFY'] as const) {
+  test(`${MADE_WITH[theme]}: "Zurück" on the Freischaltcode page shows the personal details again`, async ({ page, request }) => {
+    await switchTheme(request, theme)
+    await page.goto(loginUrl())
+    await page.getByRole('link', { name: kc('Registrieren') }).click()
+    await page.getByRole('button', { name: kc('Freischaltcode'), exact: true }).click()
+
+    const personal = page.getByText(kc('Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:'))
+    const code = page.getByText(kc('Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben.'))
+    const visibleButton = (name: string) => page.getByRole('button', { name, exact: true }).filter({ visible: true })
+
+    await expect(personal).toBeVisible()
+    await visibleButton(kc('Weiter zur Freischaltcode-Eingabe')).click()
+    await expect(code).toBeVisible()
+
+    // Within the tool: back to the personal details, and on from there to the code again.
+    await visibleButton(kc('Zurück')).click()
+    await expect(personal).toBeVisible()
+    await visibleButton(kc('Weiter zur Freischaltcode-Eingabe')).click()
+    await expect(code).toBeVisible()
+  })
+}
+
 test('switching at runtime changes the very next page, without a restart', async ({ page, request }) => {
   await switchTheme(request, 'FREEMARKER')
   await page.goto(loginUrl())

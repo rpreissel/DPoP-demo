@@ -4,12 +4,13 @@
      one of demo.persons' fields, and prefills them from the first persona on load (the only prefill -
      the templates themselves carry no test values, so demo values off means empty forms, ADR-28). personsJson comes from AbstractWebToolRendererFactory#demoPersonsJson;
      fieldMapJson is a JSON object literal mapping input-element-id -> person field name, e.g.
-     '{"email":"email"}' or '{"kvnr":"kvnr","name":"name","vorname":"vorname","fsc":"fscCode"}'. -->
-<#macro personPicker personsJson fieldMapJson>
+     '{"email":"email"}' or '{"kvnr":"kvnr","name":"name","vorname":"vorname","fsc":"fscCode"}'.
+     pickerId only matters where one page carries two pickers (tool-ident-fsc's code page). -->
+<#macro personPicker personsJson fieldMapJson pickerId="demoPerson">
     <#if personsJson?? && personsJson != "null">
         <div class="${properties.kcFormGroupClass!} orchestrator-demo-picker">
-            <label for="demoPerson" class="${properties.kcLabelClass!}"><span class="orchestrator-demo-tag">${t.of("Demo")}</span> ${t.of("Testperson übernehmen")}</label>
-            <select id="demoPerson" class="${properties.kcInputClass!}">
+            <label for="${pickerId}" class="${properties.kcLabelClass!}"><span class="orchestrator-demo-tag">${t.of("Demo")}</span> ${t.of("Testperson übernehmen")}</label>
+            <select id="${pickerId}" class="${properties.kcInputClass!}">
                 <option value="">${t.of("— manuell eingeben —")}</option>
             </select>
         </div>
@@ -17,7 +18,7 @@
             (function () {
                 var persons = ${personsJson?no_esc};
                 var fieldMap = ${fieldMapJson?no_esc};
-                var select = document.getElementById('demoPerson');
+                var select = document.getElementById('${pickerId}');
                 persons.forEach(function (p, i) {
                     var opt = document.createElement('option');
                     opt.value = String(i);
