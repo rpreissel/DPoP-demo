@@ -90,24 +90,70 @@ gelesen. Deshalb werden sie aktiv gelöscht und nicht aufbewahrt.
 
 Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
 
-| Objekt | Frist beginnt mit | Richtwert | Grund |
-|---|---|---|---|
-| `<modul>.*_tool_session` (Moduldaten) | `createdAt` | 24 h (`tool-session.retention`) | Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: Dort liegen während einer laufenden Einrichtung KOBIL-PIN und Entsperrgeheimnis im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)) |
-| `kobil_mock.*` (Fremdsystem) | — | **kein** Aufräumen durch uns | `kobil_mock` simuliert KOBIL und unterliegt nicht unseren Aufbewahrungsregeln. Dass es seine Daten überhaupt speichert, ist nötig und keine Bequemlichkeit: Sonst würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt |
-| `nect_mock.*`, `ext_personenverzeichnis.*` (Fremdsysteme) | — | **kein** Aufräumen durch uns | simulierte Fremdsysteme wie `kobil_mock`. Auch die Briefe des Personenverzeichnisses mit den Freischaltcodes im Klartext bleiben dort, wie Papier beim Empfänger |
-| `QrLoginRequest` | `expiresAt` | 24 h | Kopplungsanfrage, nach Ablauf (5 Min.) wirkungslos; `AuthQrRetentionJob` räumt sie mit auf |
-| `DpopProofReplay` | `expiresAt` | sofort (minütlich) | Der Schutz vor wiederholten Proofs gilt nur in dem Zeitfenster, in dem ein Proof angenommen wird |
-| `orchestrator.tool_session` | `expiresAt` | 24 h | nur noch Angaben zum Lebenszyklus |
-| `AuthJourney` | `consumedAt` / `expiresAt` | 7 Tage | Zuordnung bei Rückfragen an den Support |
-| `AuthContext` | Abmeldung / Ende der `ChannelSession` | sofort | enthält Verweise auf Tokens |
-| `ChannelSession` | `expiresAt` / `LOGGED_OUT` | 30 Tage | `JourneyLogEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5) |
-| `SessionEvent` | `createdAt` | 90 Tage | eigene Frist für das Audit, überlebt die Sitzungen bewusst |
-| `JourneyLogEntry` | `createdAt` | 30 Tage | bewusst so lang wie `ChannelSession`, weil nur über die Menge der Kanäle abgefragt. Ablaufprotokoll für Fehlersuche und Demo, NICHT das Audit — das bleibt `SessionEvent` |
-| `*Enrollment` (Credentials der Module) | — | kein Aufräumen mit der Sitzung | lebt bis zur Löschung des Kontos (erreichbar über `account.auth_method`, auch deaktivierte Instanzen) |
-| `account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log) | — | kein Aufräumen mit der Sitzung | gehört dem Konto und wird mit ihm gelöscht. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Die Frist, nach der Claim- und Widerrufszeile gemeinsam gelöscht werden, ist noch nicht entschieden |
-| `DeviceAccountLink` | — | kein Aufräumen mit der Sitzung | Identität des Geräts (`bindingKeyRef -> accountId`), überlebt bewusst jede einzelne `ChannelSession` ([DPoP-Bindung](09-dpop.md) Abschnitt 3) |
-| `AttemptThrottle` | letzte Änderung des Zählers | 7 Tage | weit länger als das längste Zählfenster und die längste Sperre (15 Min.); ein Aufräumlauf löscht nie eine Zeile, deren Sperre noch läuft. Gilt für die Zähler aller Bereiche (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4) |
-| `orchestrator.keycloak_keypair` | — | kein Aufräumen mit der Sitzung | Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); wird bei `AccountDeleted` gelöscht, nicht über `RetentionJob` |
+- **`<modul>.*_tool_session` (Moduldaten)**
+  - *Frist beginnt mit:* `createdAt`
+  - *Richtwert:* 24 h (`tool-session.retention`)
+  - *Grund:* Personenbezug und TAN-Hash. Jedes Methodenmodul löscht seine eigenen Tabellen selbst (`*RetentionJob` implementiert `ToolSessionSweeper`); Frist und Intervall stehen dagegen nur einmal, in `tool_api/ToolSessionRetention.kt`. Bei `auth_kobil.enroll_tool_session` ist die Frist besonders wichtig: Dort liegen während einer laufenden Einrichtung KOBIL-PIN und Entsperrgeheimnis im Klartext ([ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md))
+- **`kobil_mock.*` (Fremdsystem)**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* **kein** Aufräumen durch uns
+  - *Grund:* `kobil_mock` simuliert KOBIL und unterliegt nicht unseren Aufbewahrungsregeln. Dass es seine Daten überhaupt speichert, ist nötig und keine Bequemlichkeit: Sonst würde nach jedem Neustart jede `auth_kobil.enrollment`-Zeile auf einen Nutzer zeigen, den es beim Anbieter nicht mehr gibt
+- **`nect_mock.*`, `ext_personenverzeichnis.*` (Fremdsysteme)**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* **kein** Aufräumen durch uns
+  - *Grund:* simulierte Fremdsysteme wie `kobil_mock`. Auch die Briefe des Personenverzeichnisses mit den Freischaltcodes im Klartext bleiben dort, wie Papier beim Empfänger
+- **`QrLoginRequest`**
+  - *Frist beginnt mit:* `expiresAt`
+  - *Richtwert:* 24 h
+  - *Grund:* Kopplungsanfrage, nach Ablauf (5 Min.) wirkungslos; `AuthQrRetentionJob` räumt sie mit auf
+- **`DpopProofReplay`**
+  - *Frist beginnt mit:* `expiresAt`
+  - *Richtwert:* sofort (minütlich)
+  - *Grund:* Der Schutz vor wiederholten Proofs gilt nur in dem Zeitfenster, in dem ein Proof angenommen wird
+- **`orchestrator.tool_session`**
+  - *Frist beginnt mit:* `expiresAt`
+  - *Richtwert:* 24 h
+  - *Grund:* nur noch Angaben zum Lebenszyklus
+- **`AuthJourney`**
+  - *Frist beginnt mit:* `consumedAt` / `expiresAt`
+  - *Richtwert:* 7 Tage
+  - *Grund:* Zuordnung bei Rückfragen an den Support
+- **`AuthContext`**
+  - *Frist beginnt mit:* Abmeldung / Ende der `ChannelSession`
+  - *Richtwert:* sofort
+  - *Grund:* enthält Verweise auf Tokens
+- **`ChannelSession`**
+  - *Frist beginnt mit:* `expiresAt` / `LOGGED_OUT`
+  - *Richtwert:* 30 Tage
+  - *Grund:* `JourneyLogEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5)
+- **`SessionEvent`**
+  - *Frist beginnt mit:* `createdAt`
+  - *Richtwert:* 90 Tage
+  - *Grund:* eigene Frist für das Audit, überlebt die Sitzungen bewusst
+- **`JourneyLogEntry`**
+  - *Frist beginnt mit:* `createdAt`
+  - *Richtwert:* 30 Tage
+  - *Grund:* bewusst so lang wie `ChannelSession`, weil nur über die Menge der Kanäle abgefragt. Ablaufprotokoll für Fehlersuche und Demo, NICHT das Audit — das bleibt `SessionEvent`
+- **`*Enrollment` (Credentials der Module)**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* kein Aufräumen mit der Sitzung
+  - *Grund:* lebt bis zur Löschung des Kontos (erreichbar über `account.auth_method`, auch deaktivierte Instanzen)
+- **`account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log)**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* kein Aufräumen mit der Sitzung
+  - *Grund:* gehört dem Konto und wird mit ihm gelöscht. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Die Frist, nach der Claim- und Widerrufszeile gemeinsam gelöscht werden, ist noch nicht entschieden
+- **`DeviceAccountLink`**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* kein Aufräumen mit der Sitzung
+  - *Grund:* Identität des Geräts (`bindingKeyRef -> accountId`), überlebt bewusst jede einzelne `ChannelSession` ([DPoP-Bindung](09-dpop.md) Abschnitt 3)
+- **`AttemptThrottle`**
+  - *Frist beginnt mit:* letzte Änderung des Zählers
+  - *Richtwert:* 7 Tage
+  - *Grund:* weit länger als das längste Zählfenster und die längste Sperre (15 Min.); ein Aufräumlauf löscht nie eine Zeile, deren Sperre noch läuft. Gilt für die Zähler aller Bereiche (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4)
+- **`orchestrator.keycloak_keypair`**
+  - *Frist beginnt mit:* —
+  - *Richtwert:* kein Aufräumen mit der Sitzung
+  - *Grund:* Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); wird bei `AccountDeleted` gelöscht, nicht über `RetentionJob`
 
 Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 
@@ -264,12 +310,22 @@ Gemeinsame Grundlage sind `AttemptThrottle` (Entität, Primärschlüssel `(scope
 (`ThrottleScope`) trennt mehrere Zählbereiche. Sie teilen sich denselben Mechanismus, nie aber
 dieselben Schlüssel. Jeder Bereich hat einen eigenen `@Service` mit eigenen Grenzen:
 
-| Service | Bereich | Zählt | Antwort, wenn die Grenze überschritten ist |
-|---|---|---|---|
-| `LoginThrottleService` | `ACCOUNT` | Fehlgeschlagene Anmeldeversuche an einem Konto | `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH. Bei LOOKUP_AUTH steckt die Sperre in der gewöhnlichen Antwort „E-Mail oder Code ungültig“; sonst ließe sich daraus ablesen, ob ein Konto existiert |
-| `IdentThrottleService` | `PERSON` | Fehlgeschlagene Identifizierungsversuche für eine Person (`ident-fsc` rät ein Geheimnis, und ein Treffer übernimmt das Konto). Zählt nur, wo der Versuch überhaupt eine Person benennt: `ident-eid` bestätigt seit ADR-18 nur die Karte und findet niemanden; seine PIN-Versuche begrenzt die erlaubte Zahl von Versuchen der Tool-Session | immer in der gewöhnlichen Fehlerantwort, nie als eigener Fehler |
-| `ChannelCreationThrottleService` | `BINDING_KEY` | Eröffnete Kanäle je DPoP-Schlüssel (gleitendes Zeitfenster, jeder Versuch zählt) | `429 Too Many Requests` |
-| `SendThrottleService` | `ACCOUNT_SEND` / `CONTACT_SEND` | **Versendete** TANs und Codes, egal ob sie später richtig eingegeben werden (gleitendes Zeitfenster, 3 in 10 Min.) | `ACCOUNT_SEND` (LOOKUP_AUTH) steckt in der gewöhnlichen Fehlerantwort. `CONTACT_SEND` (Einrichten durch den Nutzer selbst; der Schlüssel ist ein HMAC-SHA256 mit dem OTP-Pepper statt der Adresse im Klartext) darf offen als eigener Fehler zurückkommen |
+- **`LoginThrottleService`**
+  - *Bereich:* `ACCOUNT`
+  - *Zählt:* Fehlgeschlagene Anmeldeversuche an einem Konto
+  - *Antwort, wenn die Grenze überschritten ist:* `423 Locked` (`ACCOUNT_LOCKED`) bei IDENTIFIED_AUTH. Bei LOOKUP_AUTH steckt die Sperre in der gewöhnlichen Antwort „E-Mail oder Code ungültig“; sonst ließe sich daraus ablesen, ob ein Konto existiert
+- **`IdentThrottleService`**
+  - *Bereich:* `PERSON`
+  - *Zählt:* Fehlgeschlagene Identifizierungsversuche für eine Person (`ident-fsc` rät ein Geheimnis, und ein Treffer übernimmt das Konto). Zählt nur, wo der Versuch überhaupt eine Person benennt: `ident-eid` bestätigt seit ADR-18 nur die Karte und findet niemanden; seine PIN-Versuche begrenzt die erlaubte Zahl von Versuchen der Tool-Session
+  - *Antwort, wenn die Grenze überschritten ist:* immer in der gewöhnlichen Fehlerantwort, nie als eigener Fehler
+- **`ChannelCreationThrottleService`**
+  - *Bereich:* `BINDING_KEY`
+  - *Zählt:* Eröffnete Kanäle je DPoP-Schlüssel (gleitendes Zeitfenster, jeder Versuch zählt)
+  - *Antwort, wenn die Grenze überschritten ist:* `429 Too Many Requests`
+- **`SendThrottleService`**
+  - *Bereich:* `ACCOUNT_SEND` / `CONTACT_SEND`
+  - *Zählt:* **Versendete** TANs und Codes, egal ob sie später richtig eingegeben werden (gleitendes Zeitfenster, 3 in 10 Min.)
+  - *Antwort, wenn die Grenze überschritten ist:* `ACCOUNT_SEND` (LOOKUP_AUTH) steckt in der gewöhnlichen Fehlerantwort. `CONTACT_SEND` (Einrichten durch den Nutzer selbst; der Schlüssel ist ein HMAC-SHA256 mit dem OTP-Pepper statt der Adresse im Klartext) darf offen als eigener Fehler zurückkommen
 
 - **Warum das zusätzlich zu `ToolSession.retryCount` nötig ist** (Regel für Wiederholungen in
   [Orchestrierung](04-orchestrierung.md) Abschnitt 1): `retryCount` zählt nur innerhalb *eines*

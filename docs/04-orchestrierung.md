@@ -334,15 +334,13 @@ Ein `JourneyEvent` ist das, was der Journey gerade passiert ist:
 
 Eine `Transition` ist das, was als Nächstes passieren soll:
 
-| Transition | Bedeutung |
-|---|---|
-| `To(state)` | weiter zu diesem Zustand; er bringt sein Angebot selbst mit |
-| `RequireSubJourney(intent, seedWith, resumeWith)` | zuerst `intent` laufen lassen, beginnend bei `seedWith`, danach hier bei `resumeWith` weitermachen. `seedWith` baut die anfordernde Strategie über die Fabrikmethode des Zielzustands, z. B. `StepUpState.forSubJourney(...)` |
-| `Authenticated` | Ziel erreicht; die Journey ist damit verbraucht |
-| `Cancel` | Der Nutzer gibt auf – wie ein ausdrücklicher Abbruch, kein Fehler |
-| `Perform(action, resumeState)` | die `Action` ausführen und die Journey danach bei `resumeState` mit `ActionCompleted` fortsetzen |
-| `Logout` | den Kanal endgültig beenden (`LOGGED_OUT`, Endzustand) |
-| `Abort(reason)` | Es geht gar nicht weiter (410) – das bedeutet nie bloß „keine Kandidaten mehr" |
+- **`To(state)`** — weiter zu diesem Zustand; er bringt sein Angebot selbst mit
+- **`RequireSubJourney(intent, seedWith, resumeWith)`** — zuerst `intent` laufen lassen, beginnend bei `seedWith`, danach hier bei `resumeWith` weitermachen. `seedWith` baut die anfordernde Strategie über die Fabrikmethode des Zielzustands, z. B. `StepUpState.forSubJourney(...)`
+- **`Authenticated`** — Ziel erreicht; die Journey ist damit verbraucht
+- **`Cancel`** — Der Nutzer gibt auf – wie ein ausdrücklicher Abbruch, kein Fehler
+- **`Perform(action, resumeState)`** — die `Action` ausführen und die Journey danach bei `resumeState` mit `ActionCompleted` fortsetzen
+- **`Logout`** — den Kanal endgültig beenden (`LOGGED_OUT`, Endzustand)
+- **`Abort(reason)`** — Es geht gar nicht weiter (410) – das bedeutet nie bloß „keine Kandidaten mehr"
 
 `Perform` trennt die Entscheidung von der Wirkung. `JourneyService` führt die `action` aus, baut den
 `JourneyContext` danach neu auf und ruft `transition(resumeState, ActionCompleted, frischerCtx)`
@@ -360,18 +358,16 @@ beruhen alle besonderen Wege:
 
 Die Varianten von `Action`:
 
-| Action | Bedeutung |
-|---|---|
-| `RecordIdentification(tool, outcome)` | Eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) oder Zuordnung (`ident-kvnr`) hat eine Identität festgestellt. **Ein** Handler für beide Fälle: Ob schon ein Konto gebunden ist, liest er zur Laufzeit aus Journey und Kanal; die Strategie legt das nicht über die Variante fest |
-| `AdoptCredential(tool, outcome)` | Ein neues Verfahren wurde eingerichtet |
-| `AcceptProof(tool, outcome)` | Ein Nachweis wurde erbracht. Ob das Tool das Konto selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` und der aktuellen Bindung ab; widerspricht ein genanntes Konto einem schon gebundenen, gibt es `409` |
-| `AdoptAttestation(tool, outcome)` | Ein Attribut des Kontos wurde bestätigt (z. B. die E-Mail-Adresse). Das allein darf nie zu einem *anderen* Konto wechseln; dafür braucht es eine echte Identifizierung in derselben Sitzung |
-| `ApplyRestoredEvidence(source, methods)` | siehe „RestoreData als erster Übergang" unten |
-| `RecordApproval(tool, outcome)` | Ein `PEER_APPROVAL`-Tool hat über die Anfrage eines anderen Kanals entschieden (`CONFIRM_PEER_LOGIN`); das wird nur verbucht und ändert keinen eigenen Nachweis |
-| `RevokeAuthMethod(methodInstanceId)` | **Ein Anmeldeverfahren** widerrufen, also das Credential selbst, nicht nur einen Schalter. Wer sich damit aussperren würde, wird vom Automaten abgewiesen, nicht von der Strategie. Benannt nach dem, was es zerstört – neben `DeleteAccount`, das das ganze Konto zerstört |
-| `RetractAttribute(attributeType)` | Ein Attribut des Kontos (heute die bestätigte E-Mail-Adresse) zurücknehmen; was davon abhing (`requires`), fällt mit |
-| `LinkDevice` | Das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen. Nur auf diesem Weg darf auch *um*gebunden werden, weil ihm eine Zustimmung vorausgeht |
-| `DeleteAccount` | **Das ganze Konto** dieser Sitzung unwiderruflich löschen. Unmittelbar vor der Ausführung prüft der Executor `requiredAcr(account)` noch einmal gegen die aktuellen Nachweise |
+- **`RecordIdentification(tool, outcome)`** — Eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) oder Zuordnung (`ident-kvnr`) hat eine Identität festgestellt. **Ein** Handler für beide Fälle: Ob schon ein Konto gebunden ist, liest er zur Laufzeit aus Journey und Kanal; die Strategie legt das nicht über die Variante fest
+- **`AdoptCredential(tool, outcome)`** — Ein neues Verfahren wurde eingerichtet
+- **`AcceptProof(tool, outcome)`** — Ein Nachweis wurde erbracht. Ob das Tool das Konto selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` und der aktuellen Bindung ab; widerspricht ein genanntes Konto einem schon gebundenen, gibt es `409`
+- **`AdoptAttestation(tool, outcome)`** — Ein Attribut des Kontos wurde bestätigt (z. B. die E-Mail-Adresse). Das allein darf nie zu einem *anderen* Konto wechseln; dafür braucht es eine echte Identifizierung in derselben Sitzung
+- **`ApplyRestoredEvidence(source, methods)`** — siehe „RestoreData als erster Übergang" unten
+- **`RecordApproval(tool, outcome)`** — Ein `PEER_APPROVAL`-Tool hat über die Anfrage eines anderen Kanals entschieden (`CONFIRM_PEER_LOGIN`); das wird nur verbucht und ändert keinen eigenen Nachweis
+- **`RevokeAuthMethod(methodInstanceId)`** — **Ein Anmeldeverfahren** widerrufen, also das Credential selbst, nicht nur einen Schalter. Wer sich damit aussperren würde, wird vom Automaten abgewiesen, nicht von der Strategie. Benannt nach dem, was es zerstört – neben `DeleteAccount`, das das ganze Konto zerstört
+- **`RetractAttribute(attributeType)`** — Ein Attribut des Kontos (heute die bestätigte E-Mail-Adresse) zurücknehmen; was davon abhing (`requires`), fällt mit
+- **`LinkDevice`** — Das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen. Nur auf diesem Weg darf auch *um*gebunden werden, weil ihm eine Zustimmung vorausgeht
+- **`DeleteAccount`** — **Das ganze Konto** dieser Sitzung unwiderruflich löschen. Unmittelbar vor der Ausführung prüft der Executor `requiredAcr(account)` noch einmal gegen die aktuellen Nachweise
 
 **Sicherheitsprüfungen gehören nie in die Strategie.** Drei Lücken, über die sich fremde Konten
 übernehmen ließen, sind genau so entstanden: Die *Prüfung* lag im einzelnen Handler einer Action,

@@ -11,10 +11,23 @@
 Jeder Vorschlag ist ein eigener Schritt. Keiner soll nebenbei bei einer anderen Änderung passieren,
 weil jeder viele Aufrufer, Tests oder übertragene Formate berührt.
 
-| Heute | Vorschlag | Warum | Was dabei zu beachten ist |
-| --- | --- | --- | --- |
-| `AccountService.createUnidentifiedAccount()` | `createUnboundAccount()` | Eine fehlende PersonId heißt nur: keiner Person im Personenverzeichnis zugeordnet. Das Konto kann trotzdem schon eine bestätigte E-Mail-Adresse oder einen anderen Nachweis haben. | Betrifft `AccountService`, `JourneyActionExecutor`, den Demo-Seed und Tests. Die Code-Dokumentation muss sagen: keiner Person zugeordnet, aber an Kanal oder Gerät gebunden. Ein neues Statusfeld gibt es dafür nicht. Eindeutiger, aber länger wäre `createAccountWithoutPersonBinding`. |
-| `orchestrator.policy.AuthEvidence.factors` | `methodEvidence` | Ein Eintrag ist der Nachweis eines Verfahrens und kann mehrere `FactorType` enthalten; Verfahren und Faktor sind nicht dasselbe. | Richtlinie, Factory, `RestoreData` und Tests gemeinsam umstellen. Vorher prüfen, wo JSON übertragen wird; das übertragene Format bleibt gleich. |
-| `AuthEvidence` gleichnamig in `orchestrator.policy` und `orchestrator.session` | Das Wertobjekt der Richtlinie heißt `EvidenceSnapshot`, die gespeicherte Entität bleibt `AuthEvidence`. | Die gleichen Namen erzwingen heute Aliasnamen beim Import wie `CoreAuthEvidence`. | Viele Aufrufer. |
-| `AuthMethodView` | `AccountMethodRegistrationView` | Die Objekte beschreiben eine bestimmte eingerichtete Methodeninstanz, nicht die Art des Verfahrens – wichtig bei mehreren Geräten. | Nicht `Credential` nennen: Das Credential gehört dem Methodenmodul. Felder der API, IDs und `EnrollmentRef` bleiben. |
-| `ChannelSession.channelAnchor` | `peerFlowBinding` | Der Wert bindet einen Nachweis von Keycloak an genau einen Anmeldeablauf. Er ist weder ein Anker zum Finden eines Kontos noch die langlebige Keycloak-Sitzung. | Nur zusammen mit den Begriffen der Assertion zwischen den Servern prüfen. JWT-Claims, Datenbankspalten und die Prüfung der Bindung nicht nebenbei ändern. |
+- **`AccountService.createUnidentifiedAccount()`**
+  - *Vorschlag:* `createUnboundAccount()`
+  - *Warum:* Eine fehlende PersonId heißt nur: keiner Person im Personenverzeichnis zugeordnet. Das Konto kann trotzdem schon eine bestätigte E-Mail-Adresse oder einen anderen Nachweis haben.
+  - *Was dabei zu beachten ist:* Betrifft `AccountService`, `JourneyActionExecutor`, den Demo-Seed und Tests. Die Code-Dokumentation muss sagen: keiner Person zugeordnet, aber an Kanal oder Gerät gebunden. Ein neues Statusfeld gibt es dafür nicht. Eindeutiger, aber länger wäre `createAccountWithoutPersonBinding`.
+- **`orchestrator.policy.AuthEvidence.factors`**
+  - *Vorschlag:* `methodEvidence`
+  - *Warum:* Ein Eintrag ist der Nachweis eines Verfahrens und kann mehrere `FactorType` enthalten; Verfahren und Faktor sind nicht dasselbe.
+  - *Was dabei zu beachten ist:* Richtlinie, Factory, `RestoreData` und Tests gemeinsam umstellen. Vorher prüfen, wo JSON übertragen wird; das übertragene Format bleibt gleich.
+- **`AuthEvidence` gleichnamig in `orchestrator.policy` und `orchestrator.session`**
+  - *Vorschlag:* Das Wertobjekt der Richtlinie heißt `EvidenceSnapshot`, die gespeicherte Entität bleibt `AuthEvidence`.
+  - *Warum:* Die gleichen Namen erzwingen heute Aliasnamen beim Import wie `CoreAuthEvidence`.
+  - *Was dabei zu beachten ist:* Viele Aufrufer.
+- **`AuthMethodView`**
+  - *Vorschlag:* `AccountMethodRegistrationView`
+  - *Warum:* Die Objekte beschreiben eine bestimmte eingerichtete Methodeninstanz, nicht die Art des Verfahrens – wichtig bei mehreren Geräten.
+  - *Was dabei zu beachten ist:* Nicht `Credential` nennen: Das Credential gehört dem Methodenmodul. Felder der API, IDs und `EnrollmentRef` bleiben.
+- **`ChannelSession.channelAnchor`**
+  - *Vorschlag:* `peerFlowBinding`
+  - *Warum:* Der Wert bindet einen Nachweis von Keycloak an genau einen Anmeldeablauf. Er ist weder ein Anker zum Finden eines Kontos noch die langlebige Keycloak-Sitzung.
+  - *Was dabei zu beachten ist:* Nur zusammen mit den Begriffen der Assertion zwischen den Servern prüfen. JWT-Claims, Datenbankspalten und die Prüfung der Bindung nicht nebenbei ändern.

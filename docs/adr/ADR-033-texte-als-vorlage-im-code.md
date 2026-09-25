@@ -72,11 +72,18 @@ nur die neuen, geänderten und verwaisten Einträge. Die Dateien werden eingeche
 Dasselbe Prinzip, dieselben Prompts, dieselbe Berechnung der ID. Je Quelle unterscheiden sich nur die
 Markierung, das Werkzeug zum Einsammeln und der Ort des Wortlauts:
 
-| Quelle | Markierung | Eingesammelt von | Wortlaut liegt in |
-|---|---|---|---|
-| React-Frontend | `t("…")`, `<Tx text="… {x} …" x={<strong>…</strong>} />` | `frontend/scripts/text-catalog.mjs` (Syntaxbaum von oxc, nur Literale erlaubt) | den bestehenden Bundles: `entries/nect` → `nect`, `entries/personenverzeichnis` → `personenverzeichnis`, `kobilSdk.ts` → `kobil`, sonst `app` |
-| Keycloak-Java | `KcText.t("…")`, `KcTexts.of(session, "…")` | `KcTextCatalog` (ASM) | `theme/orchestrator/login/messages/messages_<lang>.properties` |
-| Keycloak-Templates | `${t.of("…")}`, `${t.of("… {x}", {"x": wert})}` | `KcTextCatalog` (strenger eigener Leser, weil FreeMarker keinen öffentlichen Syntaxbaum hat) | ebenda |
+- **React-Frontend**
+  - *Markierung:* `t("…")`, `<Tx text="… {x} …" x={<strong>…</strong>} />`
+  - *Eingesammelt von:* `frontend/scripts/text-catalog.mjs` (Syntaxbaum von oxc, nur Literale erlaubt)
+  - *Wortlaut liegt in:* den bestehenden Bundles: `entries/nect` → `nect`, `entries/personenverzeichnis` → `personenverzeichnis`, `kobilSdk.ts` → `kobil`, sonst `app`
+- **Keycloak-Java**
+  - *Markierung:* `KcText.t("…")`, `KcTexts.of(session, "…")`
+  - *Eingesammelt von:* `KcTextCatalog` (ASM)
+  - *Wortlaut liegt in:* `theme/orchestrator/login/messages/messages_<lang>.properties`
+- **Keycloak-Templates**
+  - *Markierung:* `${t.of("…")}`, `${t.of("… {x}", {"x": wert})}`
+  - *Eingesammelt von:* `KcTextCatalog` (strenger eigener Leser, weil FreeMarker keinen öffentlichen Syntaxbaum hat)
+  - *Wortlaut liegt in:* ebenda
 
 - **Frontend über den Orchestrator:** Die Texte des Frontends liegen im selben Bundle wie die Texte des
   Backends für diesen Client und kommen mit ihm per ETag, in einer einzigen Anfrage. Sie lassen sich

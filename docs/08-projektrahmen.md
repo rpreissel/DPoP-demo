@@ -54,28 +54,26 @@ Anmeldung mit DPoP abgesichert werden. Das System besteht aus:
 
 ## 3) Module
 
-| Nr. | Modul | Verantwortung |
-|-----|-------|---------------|
-| M1 | `orchestrator` | Verwaltet den Zustand von Sitzungen und Journeys, die Regeln und die Wiederholungen; stellt die REST-API der Kanäle bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs` |
-| M2 | `id_fsc` | Identifizierung (Tool `ident-fsc`); eigener `@RestController`; prüft den Freischaltcode direkt beim Personenverzeichnis (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) — eine ausdrücklich erlaubte Abhängigkeit zum Fremdsystem wie `auth_kobil → kobil_mock` und `id_nect → nect_mock` |
-| M3 | `auth_sms` | SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); eigene `@RestController` |
-| M4 | `account` | Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory` |
-| M5 | `ext_personenverzeichnis` | Simuliertes **Personenverzeichnis** (Fremdsystem): verwaltet `Person`-Entitäten (Schlüssel ist die Partnernummer, `P` und neun Ziffern, zufällig vergeben; Versicherungsnummer nur für Versicherte, KVNR nur zusammen mit ihr, beide änderbar) mit Adressdaten, stellt Freischaltcodes aus (ADR-31) und meldet Änderungen als `PersonChanged` (ADR-34). Drei Schnittstellen: den `tool_api`-Port `PersonDirectory`, die Klasse `Freischaltcodes` für `id_fsc` und die HTTP-Schnittstelle `/mock-personenverzeichnis/*` für die Seite `/personenverzeichnis/`; der Orchestrator liest zusätzlich die Klasse `Personenverzeichnis` direkt (Demo-Personen, Keycloak-Abgleich) |
-| M6 | `auth_password` | Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`); setzt über `ToolDescriptor.requires` eine bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) ([Tool-Architektur](03-tool-architektur.md)) |
-| M7 | `auth_email` | E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account` |
-| M8 | `tool_api` | Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …). Enthält bewusst keinen Controller: `tool_api` ist ein Vertrag, keine Web-Schicht, und jedes Methodenmodul hängt davon ab ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4) |
-| M9 | `tool_spi` | Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), einzige Abhängigkeit `texts` — jedes Modul, auch `tool_api`, darf darauf zugreifen |
-| M10 | `id_eid` | Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bestätigt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController` |
-| M10a | `id_kvnr` | Zuordnung einer bestätigten Identität zu ihrer Person im Personenverzeichnis (per KVNR, sonst Partnernummer) (Tool `ident-kvnr`, ADR-18); eigener `@RestController` |
-| M11 | `auth_qr` | Anmeldung per QR-Code auf der Website, bestätigt in der App (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [`CONFIRM_PEER_LOGIN`](journeys/confirm-peer-login.md)); speichert `QrLoginRequest` selbst, kein Zugriff auf `account`; eigene `@RestController` |
-| M12 | `auth_device` | Geräteschlüssel als eigenes Anmeldeverfahren (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine Abhängigkeit von `account` |
-| M13 | `demo_seed` | Nur für die Demo: Legt für die Testpersonen des `keycloak`-Profils je ein Konto an, mit bestätigter Adresse und den Verfahren `password` (KNOWLEDGE), `sms` (POSSESSION) und `qr` (Zustimmung zum QR-Login). `password` und `sms` zusammen reichen für einen Step-up auf loa2. Es legt nur an und ändert nie: Gibt es für eine Testperson schon ein Konto mit ihrem PERSON_ID- oder EMAIL-Anker, wird sie übersprungen. Dafür nutzt es `AccountService` aus `account` (`recordClaim`, `recordClaims`, `addAuthenticationMethod`, `createUnidentifiedAccount`, `resolveAccountByPersonId`, `resolveAccountByEmail`) und aus `tool_api` die Ports `PasswordCredentialPort`, `SmsCredentialPort`, `QrCredentialPort` und `PersonDirectory`. Die Claims zu PERSON_ID, EMAIL und PHONE_NUMBER tragen `ClaimSource.DEMO_BOOTSTRAP`; alles geschieht in einer Transaktion. Stellt `DemoAccountSeed` bereit, das der Orchestrator nach dem Zurücksetzen der Demo erneut aufruft; kein `@RestController` |
-| M14 | `auth_kobil` | Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); im Backend verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Unterressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber eine ausdrücklich erlaubte Abhängigkeit zum Fremdsystem `kobil_mock` (wie `id_fsc` und `id_nect`) |
-| M1a | `orchestrator.kernel` | Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: die gemeinsamen Begriffe (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Es hängt von nichts ab, und genau das ist seine Aufgabe. Es gibt das Paket, weil fast jeder Paketzyklus im Orchestrator nur ein *Name* am falschen Ort war: `AmrSource` sagt zum Beispiel, woher ein Nachweis stammt (eine Frage der Richtlinie), lag aber neben der JPA-Entität, die den Nachweis speichert |
-| M15 | `kobil_mock` | Simuliertes **Fremdsystem**, kein Tool-Modul: einzige Abhängigkeit `texts` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Schnittstelle `/mock-kobil/*` für die App (Gegenstück zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung |
-| M16 | `id_nect` | Identifizierung über Nect (Tool `ident-nect`): Der Nutzer wechselt auf die Seite von Nect und kommt mit einer Vorgangsnummer zurück; das Ergebnis holt das Backend selbst ab. Bestätigt wie `id_eid` nur die Daten des Dokuments (ADR-18); `amr` je Verfahren `nect-eid`/`nect-epass`/`nect-eudi`. Erlaubte Abhängigkeit zum Fremdsystem: `nect_mock` |
-| M17 | `nect_mock` | Simulierter **Identifizierungsdienst** Nect, kein Tool-Modul: einzige Abhängigkeit `texts`, eigenes Schema, zwei Schnittstellen — `NectIdent` für unser Backend und die HTTP-Schnittstelle `/mock-nect/*` für die Sprungseite `/nect/` (eID, Reisepass, EUDI-Wallet). Untersteht nicht unserer Aufbewahrung |
-| M18 | `texts` | Bibliothek für mehrsprachige Nutzertexte (ADR-33): `Text` (deutsche Vorlage im Code, ausgeliefert als Referenz) und `TextBundle` (Sprachdateien per ETag). `allowedDependencies = []`; jedes Modul mit Nutzertexten deklariert diese Abhängigkeit, auch die simulierten Fremdsysteme |
+- **M1** `orchestrator` — Verwaltet den Zustand von Sitzungen und Journeys, die Regeln und die Wiederholungen; stellt die REST-API der Kanäle bereit und implementiert die `tool_api`-Ports `ToolEndpoint`/`DeviceProofs`
+- **M2** `id_fsc` — Identifizierung (Tool `ident-fsc`); eigener `@RestController`; prüft den Freischaltcode direkt beim Personenverzeichnis (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) — eine ausdrücklich erlaubte Abhängigkeit zum Fremdsystem wie `auth_kobil → kobil_mock` und `id_nect → nect_mock`
+- **M3** `auth_sms` — SMS-Verfahren (Tools `enroll-sms`, `auth-sms`, `auth-sms-lookup`); eigene `@RestController`
+- **M4** `account` — Konten, Identifikationen und Authentifizierungsmethoden; implementiert den `tool_api`-Port `AccountDirectory`
+- **M5** `ext_personenverzeichnis` — Simuliertes **Personenverzeichnis** (Fremdsystem): verwaltet `Person`-Entitäten (Schlüssel ist die Partnernummer, `P` und neun Ziffern, zufällig vergeben; Versicherungsnummer nur für Versicherte, KVNR nur zusammen mit ihr, beide änderbar) mit Adressdaten, stellt Freischaltcodes aus (ADR-31) und meldet Änderungen als `PersonChanged` (ADR-34). Drei Schnittstellen: den `tool_api`-Port `PersonDirectory`, die Klasse `Freischaltcodes` für `id_fsc` und die HTTP-Schnittstelle `/mock-personenverzeichnis/*` für die Seite `/personenverzeichnis/`; der Orchestrator liest zusätzlich die Klasse `Personenverzeichnis` direkt (Demo-Personen, Keycloak-Abgleich)
+- **M6** `auth_password` — Passwort-Verfahren (Tools `enroll-password`, `auth-password`, `auth-password-lookup`); setzt über `ToolDescriptor.requires` eine bestätigte Adresse voraus (`ClaimRequirement(EMAIL, PROVEN)`) ([Tool-Architektur](03-tool-architektur.md))
+- **M7** `auth_email` — E-Mail-Verfahren (Tools `enroll-email`, `auth-email`, `auth-email-lookup`) mit eigenem `EmailCodeGenerator`. Abhängigkeiten nur auf `tool_api`/`tool_spi`: liest Account-IDs und Ankerwerte über `AccountDirectory`, liefert `EMAIL`-Claims; kein direkter Zugriff auf `account`
+- **M8** `tool_api` — Gemeinsame SPI zwischen Orchestrator und Methodenmodulen: `ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`, Envelope-DTOs (`ChannelResponse`, `Next`, …). Enthält bewusst keinen Controller: `tool_api` ist ein Vertrag, keine Web-Schicht, und jedes Methodenmodul hängt davon ab ([Tool-Architektur](03-tool-architektur.md) Abschnitt 4)
+- **M9** `tool_spi` — Selbstbeschreibung eines Tools (`ToolDescriptor`, `ToolOutcome`, `FactorType`), einzige Abhängigkeit `texts` — jedes Modul, auch `tool_api`, darf darauf zugreifen
+- **M10** `id_eid` — Zweite Identifizierung (Tool `ident-eid`, Mock der Online-Ausweisfunktion); bestätigt nur die Kartendaten, löst niemanden auf (ADR-18); eigener `@RestController`
+- **M10a** `id_kvnr` — Zuordnung einer bestätigten Identität zu ihrer Person im Personenverzeichnis (per KVNR, sonst Partnernummer) (Tool `ident-kvnr`, ADR-18); eigener `@RestController`
+- **M11** `auth_qr` — Anmeldung per QR-Code auf der Website, bestätigt in der App (Tools `enroll-qr`, `auth-qr`, `auth-qr-lookup`, `confirm-qr-login`, [`CONFIRM_PEER_LOGIN`](journeys/confirm-peer-login.md)); speichert `QrLoginRequest` selbst, kein Zugriff auf `account`; eigene `@RestController`
+- **M12** `auth_device` — Geräteschlüssel als eigenes Anmeldeverfahren (Tools `enroll-device`, `auth-device`); eigene `@RestController`, keine Abhängigkeit von `account`
+- **M13** `demo_seed` — Nur für die Demo: Legt für die Testpersonen des `keycloak`-Profils je ein Konto an, mit bestätigter Adresse und den Verfahren `password` (KNOWLEDGE), `sms` (POSSESSION) und `qr` (Zustimmung zum QR-Login). `password` und `sms` zusammen reichen für einen Step-up auf loa2. Es legt nur an und ändert nie: Gibt es für eine Testperson schon ein Konto mit ihrem PERSON_ID- oder EMAIL-Anker, wird sie übersprungen. Dafür nutzt es `AccountService` aus `account` (`recordClaim`, `recordClaims`, `addAuthenticationMethod`, `createUnidentifiedAccount`, `resolveAccountByPersonId`, `resolveAccountByEmail`) und aus `tool_api` die Ports `PasswordCredentialPort`, `SmsCredentialPort`, `QrCredentialPort` und `PersonDirectory`. Die Claims zu PERSON_ID, EMAIL und PHONE_NUMBER tragen `ClaimSource.DEMO_BOOTSTRAP`; alles geschieht in einer Transaktion. Stellt `DemoAccountSeed` bereit, das der Orchestrator nach dem Zurücksetzen der Demo erneut aufruft; kein `@RestController`
+- **M14** `auth_kobil` — Gerätebindung über den externen Dienstleister KOBIL (Tools `enroll-kobil`, `auth-kobil`, [Abläufe](06-ablaeufe.md) Abschnitt 7); im Backend verwahrter PIN (ADR-21/ADR-22), PIN-Freigabe als eigene Unterressource; eigene `@RestController`, keine `account`-Abhängigkeit — aber eine ausdrücklich erlaubte Abhängigkeit zum Fremdsystem `kobil_mock` (wie `id_fsc` und `id_nect`)
+- **M1a** `orchestrator.kernel` — Kein eigenes Modulith-Modul, sondern das unterste Paket **innerhalb** von `orchestrator`: die gemeinsamen Begriffe (`AuthIntent`, `AmrSource`, `AcrLevels`, `OrchestratorException`, `FeatureFlagProvider`). Es hängt von nichts ab, und genau das ist seine Aufgabe. Es gibt das Paket, weil fast jeder Paketzyklus im Orchestrator nur ein *Name* am falschen Ort war: `AmrSource` sagt zum Beispiel, woher ein Nachweis stammt (eine Frage der Richtlinie), lag aber neben der JPA-Entität, die den Nachweis speichert
+- **M15** `kobil_mock` — Simuliertes **Fremdsystem**, kein Tool-Modul: einzige Abhängigkeit `texts` (kennt weder `tool_spi` noch `tool_api` noch die Journey), eigenes Schema, zwei Schnittstellen — die HTTP-Schnittstelle `/mock-kobil/*` für die App (Gegenstück zum MC SDK) und `KobilSsms` für unser Backend. Untersteht nicht unserer Aufbewahrung
+- **M16** `id_nect` — Identifizierung über Nect (Tool `ident-nect`): Der Nutzer wechselt auf die Seite von Nect und kommt mit einer Vorgangsnummer zurück; das Ergebnis holt das Backend selbst ab. Bestätigt wie `id_eid` nur die Daten des Dokuments (ADR-18); `amr` je Verfahren `nect-eid`/`nect-epass`/`nect-eudi`. Erlaubte Abhängigkeit zum Fremdsystem: `nect_mock`
+- **M17** `nect_mock` — Simulierter **Identifizierungsdienst** Nect, kein Tool-Modul: einzige Abhängigkeit `texts`, eigenes Schema, zwei Schnittstellen — `NectIdent` für unser Backend und die HTTP-Schnittstelle `/mock-nect/*` für die Sprungseite `/nect/` (eID, Reisepass, EUDI-Wallet). Untersteht nicht unserer Aufbewahrung
+- **M18** `texts` — Bibliothek für mehrsprachige Nutzertexte (ADR-33): `Text` (deutsche Vorlage im Code, ausgeliefert als Referenz) und `TextBundle` (Sprachdateien per ETag). `allowedDependencies = []`; jedes Modul mit Nutzertexten deklariert diese Abhängigkeit, auch die simulierten Fremdsysteme
 
 ### Modulabhängigkeiten (C4 Component View)
 
@@ -122,12 +120,14 @@ Anmeldung mit DPoP abgesichert werden. Das System besteht aus:
 
 ### Anforderungen an die Modulstruktur
 
-| ID | Anforderung | Kriterium |
-|----|-------------|-----------|
-| M-1 | Jedes Modul hat ein eigenes Paket. | Paketstruktur unter `com.example.dpop.<modul>` |
-| M-2 | Jedes Modul mit Laufzeitlogik stellt sie als Spring-Bean bereit. | `@Service`/`@Component`/`@RestController` im Modul; `texts`, `tool_spi` und `tool_api` sind reine Verträge ohne Bean |
-| M-3 | Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` verbunden, nie direkt. | Konstruktor-Injection nur mit `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (ADR-31), `id_nect → nect_mock` |
-| M-4 | Die Modulstruktur ist verifizierbar. | `ApplicationModules.verify()` in Tests |
+- **M-1** — Jedes Modul hat ein eigenes Paket.
+  - *Kriterium:* Paketstruktur unter `com.example.dpop.<modul>`
+- **M-2** — Jedes Modul mit Laufzeitlogik stellt sie als Spring-Bean bereit.
+  - *Kriterium:* `@Service`/`@Component`/`@RestController` im Modul; `texts`, `tool_spi` und `tool_api` sind reine Verträge ohne Bean
+- **M-3** — Methodenmodule und Orchestrator sind nur über die gemeinsame SPI `tool_api` verbunden, nie direkt.
+  - *Kriterium:* Konstruktor-Injection nur mit `tool_api`-Interfaces (`ToolEndpoint`, `AccountDirectory`, `PersonDirectory`, `DeviceProofs`); kein Methodenmodul importiert `orchestrator` und umgekehrt. Benannte Ausnahmen, jeweils zu einem simulierten Fremdsystem: `auth_kobil → kobil_mock`, `id_fsc → ext_personenverzeichnis` (ADR-31), `id_nect → nect_mock`
+- **M-4** — Die Modulstruktur ist verifizierbar.
+  - *Kriterium:* `ApplicationModules.verify()` in Tests
 
 ---
 
@@ -168,14 +168,18 @@ Container braucht, kopiert die Datei aus dem gestoppten Volume `orchestrator-dat
 `web-allow-others` einzuschalten kommt nicht in Frage: Der Port ist auf dem Rechner nach außen
 freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugriff.
 
-| ID | Anforderung | Kriterium |
-|----|-------------|-----------|
-| P-1 | H2 als Datei im Betrieb und im Arbeitsspeicher für Tests. | `application.yml` und `application-test.yml` entsprechend konfiguriert |
-| P-2 | Das Schema baut Flyway auf, mit einem Migrationsordner je Modul. | `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst |
-| P-3 | Auf Personen wird über Spring Data JPA zugegriffen. | `PersonRepository extends JpaRepository` |
-| P-4 | Die Adresse einer Person ist in einzelne Attribute aufgeteilt. | Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bestätigt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), so wie eID und PID sie liefern; das Personenverzeichnis setzt `strassenzeile` an seiner Schnittstelle zusammen |
-| P-5 | Testdaten werden beim Start eingespielt. | Flyway-Migration oder Initialisierungsroutine vorhanden |
-| P-6 | Freischaltcodes zum Testen stehen beim Start zur Verfügung. | Eine Flyway-Migration legt gültige Freischaltcodes für die Testpersonen an |
+- **P-1** — H2 als Datei im Betrieb und im Arbeitsspeicher für Tests.
+  - *Kriterium:* `application.yml` und `application-test.yml` entsprechend konfiguriert
+- **P-2** — Das Schema baut Flyway auf, mit einem Migrationsordner je Modul.
+  - *Kriterium:* `src/main/resources/db/migration/<modul>/`; `ModuleMigrationLocations` findet die Ordner selbst
+- **P-3** — Auf Personen wird über Spring Data JPA zugegriffen.
+  - *Kriterium:* `PersonRepository extends JpaRepository`
+- **P-4** — Die Adresse einer Person ist in einzelne Attribute aufgeteilt.
+  - *Kriterium:* Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bestätigt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), so wie eID und PID sie liefern; das Personenverzeichnis setzt `strassenzeile` an seiner Schnittstelle zusammen
+- **P-5** — Testdaten werden beim Start eingespielt.
+  - *Kriterium:* Flyway-Migration oder Initialisierungsroutine vorhanden
+- **P-6** — Freischaltcodes zum Testen stehen beim Start zur Verfügung.
+  - *Kriterium:* Eine Flyway-Migration legt gültige Freischaltcodes für die Testpersonen an
 
 ---
 

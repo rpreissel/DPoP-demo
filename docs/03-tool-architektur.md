@@ -257,13 +257,28 @@ Zentral bleibt nur, was ein Modul nicht wissen *kann*: welches Niveau sich aus e
 das Ergebnis danach selbst ab (`NectIdent.redeem`). Nur im App-Kanal. Nect veröffentlicht keine
 Feldliste; was es weitergeben **kann**, begrenzt das Dokument selbst:
 
-| | Online-Ausweis ([§18 PAuswG](https://www.gesetze-im-internet.de/pauswg/__18.html)) | Reisepass ([ICAO 9303](https://www.icao.int/publications/doc-series/doc-9303), DG1) | EUDI-Wallet ([PID-Rulebook](https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md)) |
-|---|---|---|---|
-| Auswahl der Daten | je Zugriffsrecht | keine – der Chip wird ganz gelesen | je Attribut; der Nutzer darf ablehnen |
-| Name, Vorname, Geburtsdatum | ✓ | ✓ in MRZ-Schreibweise (`MUELLER`, ggf. gekürzt) | ✓ |
-| Anschrift | ✓, Straße und Hausnummer in einem Feld | ✗ | optional |
-| Anker | Pseudonym der Karte – je Diensteanbieter verschieden, bei Nect also Nects eigenes (`NECT_RESTRICTED_ID`, nicht das von `ident-eid`) | Dokumentnummer + Ausstellerstaat (noch nicht als Anker genutzt) | ✗ – die PID trägt kein Pseudonym |
-| Niveau / Faktorarten | `loa3`, Besitz + Wissen | `loa2`, Besitz + Biometrie (Lichtbildabgleich) | `loa3`, Besitz + Wissen |
+Quellen: Online-Ausweis nach [§18 PAuswG](https://www.gesetze-im-internet.de/pauswg/__18.html), Reisepass nach [ICAO 9303](https://www.icao.int/publications/doc-series/doc-9303) (DG1), EUDI-Wallet nach dem [PID-Rulebook](https://github.com/eu-digital-identity-wallet/eudi-doc-attestation-rulebooks-catalog/blob/main/rulebooks/pid/pid-rulebook.md).
+
+- **Auswahl der Daten**
+  - *Online-Ausweis:* je Zugriffsrecht
+  - *Reisepass:* keine – der Chip wird ganz gelesen
+  - *EUDI-Wallet:* je Attribut; der Nutzer darf ablehnen
+- **Name, Vorname, Geburtsdatum**
+  - *Online-Ausweis:* ✓
+  - *Reisepass:* ✓ in MRZ-Schreibweise (`MUELLER`, ggf. gekürzt)
+  - *EUDI-Wallet:* ✓
+- **Anschrift**
+  - *Online-Ausweis:* ✓, Straße und Hausnummer in einem Feld
+  - *Reisepass:* ✗
+  - *EUDI-Wallet:* optional
+- **Anker**
+  - *Online-Ausweis:* Pseudonym der Karte – je Diensteanbieter verschieden, bei Nect also Nects eigenes (`NECT_RESTRICTED_ID`, nicht das von `ident-eid`)
+  - *Reisepass:* Dokumentnummer + Ausstellerstaat (noch nicht als Anker genutzt)
+  - *EUDI-Wallet:* ✗ – die PID trägt kein Pseudonym
+- **Niveau / Faktorarten**
+  - *Online-Ausweis:* `loa3`, Besitz + Wissen
+  - *Reisepass:* `loa2`, Besitz + Biometrie (Lichtbildabgleich)
+  - *EUDI-Wallet:* `loa3`, Besitz + Wissen
 
 `ident-nect` fragt dasselbe an wie `ident-eid`: Name, Vorname, Geburtsdatum, Anschrift und den Anker
 des Dokuments. Nect gibt nur weiter, was angefragt **und** vom Dokument lieferbar ist. Eine Person im
