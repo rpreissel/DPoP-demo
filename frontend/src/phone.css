@@ -520,3 +520,29 @@
   flex: none;
   width: 100%;
 }
+
+/* A section's journey diagram, moved out of the phone: one line per section. */
+.demo-diagram {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-h);
+}
+
+.demo-slot .status-list {
+  margin: 0;
+}
+
+/* The test person picker, now in the dark demo column. */
+.demo-area .demo-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.demo-area .demo-picker label {
+  color: var(--text-h);
+}

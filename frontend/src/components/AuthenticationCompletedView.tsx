@@ -5,6 +5,7 @@ import type { DpopKeyPair } from '../dpop.ts'
 import type { ActiveMethodView, DemoInfo, IdTokenClaims } from '../types'
 import { getIdClaims } from '../api.ts'
 import { DiagramHint } from './DiagramHint'
+import { Demo } from './DemoArea'
 import { Disclosure } from './Disclosure'
 import { JOURNEY_DIAGRAMS } from '../journeyDiagrams'
 import { TokenPanel } from './TokenPanel'
@@ -55,17 +56,25 @@ function acrDetailLabel(method: ActiveMethodView): string | undefined {
     : t('{wirksam} (max. {max})', { wirksam: method.effectiveAcr ?? method.maxAcr, max: method.maxAcr })
 }
 
-/** A section heading with a hover/focus-revealed diagram of that section's journey shape - same trigger as JourneyStructureView's in-progress hint. */
+/**
+ * A section heading; the diagram of that section's journey shape goes to the demo column next to
+ * the phone (DemoArea) - a real app shows the heading, not how the orchestrator runs it.
+ */
 function SectionHeading({ text, diagram }: { text: string; diagram: keyof typeof JOURNEY_DIAGRAMS }) {
   return (
-    <h3 className="section-heading">
-      {text}
-      <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
-        <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: text })}>
-          ℹ️
-        </span>
-      </DiagramHint>
-    </h3>
+    <>
+      <h3 className="section-heading">{text}</h3>
+      <Demo>
+        <p className="demo-diagram">
+          {text}
+          <DiagramHint spec={JOURNEY_DIAGRAMS[diagram]} inline>
+            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: text })}>
+              ℹ️
+            </span>
+          </DiagramHint>
+        </p>
+      </Demo>
+    </>
   )
 }
 
@@ -170,19 +179,25 @@ export function AuthenticationCompletedView({
             <span className="value">{currentAmr.join(', ')}</span>
           </li>
         )}
-        {demo?.accountId != null && (
-          <li>
-            <span className="label">{t('Konto-ID (Demo)')}</span>
-            <span className="value">{demo.accountId}</span>
-          </li>
-        )}
-        {demo?.personId != null && (
-          <li>
-            <span className="label">{t('Personen-ID (Demo)')}</span>
-            <span className="value">{demo.personId}</span>
-          </li>
-        )}
       </ul>
+      {(demo?.accountId != null || demo?.personId != null) && (
+        <Demo>
+          <ul className="status-list">
+            {demo?.accountId != null && (
+              <li>
+                <span className="label">{t('Konto-ID (Demo)')}</span>
+                <span className="value">{demo.accountId}</span>
+              </li>
+            )}
+            {demo?.personId != null && (
+              <li>
+                <span className="label">{t('Personen-ID (Demo)')}</span>
+                <span className="value">{demo.personId}</span>
+              </li>
+            )}
+          </ul>
+        </Demo>
+      )}
 
       {canStepUpToLoa2 && (
         <>
@@ -222,20 +237,30 @@ export function AuthenticationCompletedView({
         <ul className="status-list">
           {activeMethods.map((method) => (
             <li key={method.id}>
-              <span className="label">
-                {labelFor(method)}
-                {/* The method itself, not only the name: a user-chosen label ("Mein Handy") says
-                    nothing about WHICH procedure it is, and several methods can be device-bound. */}
-                <span className="method-detail-hint">
-                  {[method.method, acrDetailLabel(method), factorTypesLabel(method)].filter(Boolean).join(' · ')}
-                </span>
-              </span>
+              <span className="label">{labelFor(method)}</span>
               <button className="secondary" onClick={() => onDeactivateMethod(method.id)}>
                 {t('Deaktivieren')}
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {/* The method itself, not only the name: a user-chosen label ("Mein Handy") says nothing
+          about WHICH procedure it is, and several methods can be device-bound - shown next to the
+          phone, it is how the orchestrator sees each one. */}
+      {activeMethods && activeMethods.length > 0 && (
+        <Demo>
+          <ul className="status-list">
+            {activeMethods.map((method) => (
+              <li key={method.id}>
+                <span className="label">{labelFor(method)}</span>
+                <span className="value method-detail-hint">
+                  {[method.method, acrDetailLabel(method), factorTypesLabel(method)].filter(Boolean).join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Demo>
       )}
       <div className="form-actions">
         <button onClick={onAddMethod}>{t('Weiteres Verfahren hinzufügen')}</button>
@@ -253,21 +278,25 @@ export function AuthenticationCompletedView({
           in TokenPanel: the two headline facts (name + Kontostatus) live in the identity row,
           everything else only on demand. */}
       {claims && (
-        <Disclosure summary={t('ID-Token-Claims')}>
-          <ul className="status-list">
-            {Object.entries(claims)
-              .filter(([, value]) => value !== null && value !== undefined)
-              .map(([key, value]) => (
-                <li key={key}>
-                  <span className="label">{key}</span>
-                  <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
-                </li>
-              ))}
-          </ul>
-        </Disclosure>
+        <Demo>
+          <Disclosure summary={t('ID-Token-Claims')}>
+            <ul className="status-list">
+              {Object.entries(claims)
+                .filter(([, value]) => value !== null && value !== undefined)
+                .map(([key, value]) => (
+                  <li key={key}>
+                    <span className="label">{key}</span>
+                    <span className="value">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
+                  </li>
+                ))}
+            </ul>
+          </Disclosure>
+        </Demo>
       )}
     </div>
-    <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
+    <Demo>
+      <TokenPanel dpop={dpop} channelSessionId={channelSessionId} />
+    </Demo>
     </>
   )
 }
