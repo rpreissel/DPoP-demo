@@ -26,7 +26,11 @@ export function WebChannelApp() {
   return (
     <WebChannelLayout>
       {keycloak && <WebChannelView keycloak={keycloak} />}
-      {keycloak === null && <WebChannelUnavailable />}
+      {keycloak === null && (
+        <div className="web-page">
+          <WebChannelUnavailable />
+        </div>
+      )}
     </WebChannelLayout>
   )
 }

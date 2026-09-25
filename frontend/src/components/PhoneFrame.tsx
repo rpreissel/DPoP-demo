@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { chooseLanguage, language, supportedLanguages, t } from '../texts'
+import { language } from '../texts'
+import { LanguageSwitch } from './LanguageSwitch'
 
 /**
  * An implied smartphone: a rounded frame with a status bar, the app's dark blue head and a white
@@ -20,30 +21,11 @@ export function PhoneFrame({ title, children }: { title: string; children: React
         </div>
         <header className="phone__head">
           <span className="phone__title">{title}</span>
-          <LanguageSwitch />
+          <LanguageSwitch className="phone__languages" buttonClassName="phone__language" />
         </header>
         <div className="phone__sheet">{children}</div>
         <div className="phone__home" aria-hidden="true" />
       </div>
-    </div>
-  )
-}
-
-/** DE | EN in the app's head, like a real app's language setting - applies to the whole demo. */
-function LanguageSwitch() {
-  const current = language()
-  return (
-    <div className="phone__languages" role="group" aria-label={t('Sprache')}>
-      {supportedLanguages.map((lang) => (
-        <button
-          key={lang}
-          className="phone__language"
-          aria-pressed={lang === current}
-          onClick={() => lang !== current && chooseLanguage(lang)}
-        >
-          {lang.toUpperCase()}
-        </button>
-      ))}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { language } from './texts'
 import type { KeycloakInfo } from './api'
 import { t } from './texts'
 
@@ -87,7 +88,7 @@ export type WebOidc = ReturnType<typeof createWebOidc>
 export function createWebOidc(config: WebOidcConfig) {
   const realmBase = `${config.baseUrl}/realms/${encodeURIComponent(config.realm)}/protocol/openid-connect`
 
-  /** Redirects the browser to Keycloak's own login - `acrValue` picks the LoA-1/LoA-2 Condition-LoA branch (infra/tofu/keycloak/main.tf's orchestrator_loa_1/orchestrator_loa_2 subflows), which Keycloak's extension forwards to the orchestrator as targetAcr. `clientId` defaults to the normal browser client; redirectToQrTestLogin passes the QR test client instead. */
+  /** Redirects the browser to Keycloak's own login - `acrValue` picks the LoA-1/LoA-2 Condition-LoA branch (infra/tofu/keycloak/main.tf's orchestrator_loa_1/orchestrator_loa_2 subflows), which Keycloak's extension forwards to the orchestrator as targetAcr. `clientId` defaults to the normal browser client; the demo column can switch the website to the QR test client (qrTestClientId), whose loa1 is orchestrator-driven instead of Keycloak's own password. */
   async function redirectToLogin(acrValue: '1' | '2', clientId: string = config.browserClientId) {
     const codeVerifier = randomString(64)
     const codeChallenge = await sha256Base64Url(codeVerifier)
@@ -98,6 +99,8 @@ export function createWebOidc(config: WebOidcConfig) {
     url.searchParams.set('client_id', clientId)
     url.searchParams.set('redirect_uri', uri)
     url.searchParams.set('response_type', 'code')
+    // Keycloak's pages in the language chosen in the demo (LanguageSwitch), not only the browser's.
+    url.searchParams.set('ui_locales', language())
     url.searchParams.set('scope', 'openid')
     url.searchParams.set('acr_values', acrValue)
     url.searchParams.set('code_challenge', codeChallenge)
@@ -110,16 +113,6 @@ export function createWebOidc(config: WebOidcConfig) {
     return redirectToLogin('2', clientId)
   }
 
-  /**
-   * Demo/Test-only: Login über den zweiten Client (qrTestClientId), dessen LoA-1 orchestrator-
-   * driven ist - einziger Weg, `auth-qr-lookup` (Kalt-Einstieg, kein bekannter Account) am Browser zu
-   * sehen, ohne vorher ein natives Passwort einzugeben. `acr_values=1` reicht hier immer (kein
-   * Step-up), der zweite Client hat trotzdem eine LoA-2-Ebene für den Fall, dass ein bereits über
-   * diesen Client authentifizierter Kanal später stept-uppt.
-   */
-  function redirectToQrTestLogin() {
-    return redirectToLogin('1', config.qrTestClientId)
-  }
 
   /**
    * Web-Kanal-Selbstbedienung "Anmeldeverfahren verwalten" (docs/05-api.md, "Anmeldeverfahren
@@ -141,6 +134,8 @@ export function createWebOidc(config: WebOidcConfig) {
     url.searchParams.set('client_id', clientId)
     url.searchParams.set('redirect_uri', uri)
     url.searchParams.set('response_type', 'code')
+    // Keycloak's pages in the language chosen in the demo (LanguageSwitch), not only the browser's.
+    url.searchParams.set('ui_locales', language())
     url.searchParams.set('scope', 'openid')
     url.searchParams.set('kc_action', 'orchestrator-manage-methods')
     url.searchParams.set('code_challenge', codeChallenge)
@@ -217,7 +212,6 @@ export function createWebOidc(config: WebOidcConfig) {
   return {
     redirectToLogin,
     redirectToStepUp,
-    redirectToQrTestLogin,
     redirectToManageMethods,
     completeLoginIfRedirected,
     refreshTokens,

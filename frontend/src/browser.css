@@ -1,0 +1,367 @@
+/* The Web channel as a website in a browser window next to the demo column (WebChannelView). The
+   website borrows the login pages' look (warm greys, square edges, dark buttons - see the login
+   theme's tokens.css), so leaving the portal for Keycloak and coming back reads as one site. */
+
+.app-stage--web {
+  grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+}
+
+.app-stage__browser {
+  position: sticky;
+  top: 1rem;
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .app-stage--web {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+  }
+
+  .app-stage__browser {
+    position: static;
+  }
+}
+
+/* ---- The window ------------------------------------------------------------------------------ */
+
+.browser {
+  --site-text: #454542;
+  --site-strong: #333332;
+  --site-muted: #6f6e6b;
+  --site-stage: #eceae8;
+  --site-soft: #f5f2ef;
+  --site-line: #dcdad7;
+  --site-action: #454542;
+  --site-action-hover: #2f2f2d;
+  --site-on-action: #f5f2ef;
+
+  overflow: hidden;
+  border: 1px solid #c9c7c4;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
+.browser__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #e4e2df;
+  border-bottom: 1px solid #cfccc8;
+}
+
+.browser__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.browser__dots i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #c5c2be;
+}
+
+.browser__dots i:first-child {
+  background: #ee6a5f;
+}
+
+.browser__dots i:nth-child(2) {
+  background: #f5be4f;
+}
+
+.browser__dots i:nth-child(3) {
+  background: #61c554;
+}
+
+.browser__address {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: #fff;
+  color: #5b5a57;
+  font-size: 13px;
+}
+
+.browser__lock {
+  font-size: 11px;
+}
+
+.browser__page {
+  min-height: min(760px, calc(100vh - 8rem));
+  background: var(--site-stage);
+}
+
+/* ---- The website inside it ------------------------------------------------------------------- */
+
+.portal {
+  color: var(--site-text);
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.portal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--site-line);
+}
+
+.portal-brand {
+  color: var(--site-strong);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.portal-main {
+  display: grid;
+  gap: 16px;
+  padding: 28px 24px 36px;
+}
+
+.portal h1 {
+  margin: 0;
+  color: var(--site-strong);
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: normal;
+}
+
+.portal h2 {
+  margin: 0 0 6px;
+  color: var(--site-strong);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.portal p {
+  margin: 0 0 10px;
+}
+
+.portal-hero p {
+  margin-top: 8px;
+  color: var(--site-muted);
+}
+
+.portal button {
+  min-height: 42px;
+  padding: 8px 18px;
+  border: 1px solid var(--site-action);
+  border-radius: 0;
+  background: var(--site-action);
+  color: var(--site-on-action);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.portal button:hover {
+  background: var(--site-action-hover);
+}
+
+.portal button.secondary {
+  background: #fff;
+  color: var(--site-action);
+}
+
+.portal button.small {
+  min-height: 34px;
+  padding: 4px 14px;
+  font-size: 14px;
+}
+
+.portal-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.portal-tile,
+.portal-section {
+  padding: 18px 18px 20px;
+  background: #fff;
+  border: 1px solid var(--site-line);
+}
+
+.portal-tile--protected {
+  border-top: 3px solid var(--site-action);
+}
+
+.portal-note {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--site-soft);
+  border-left: 3px solid var(--site-line);
+  color: var(--site-muted);
+  font-size: 14px;
+}
+
+.portal-menu {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--site-line);
+}
+
+.portal-menu li + li {
+  border-top: 1px solid var(--site-line);
+}
+
+.portal .portal-menu button {
+  position: relative;
+  display: grid;
+  justify-content: start;
+  justify-items: start;
+  gap: 2px;
+  width: 100%;
+  padding: 14px 44px 14px 18px;
+  border: 0;
+  background: #fff;
+  color: var(--site-text);
+  font-weight: 400;
+  text-align: left;
+}
+
+.portal .portal-menu button:hover {
+  background: var(--site-soft);
+}
+
+.portal .portal-menu button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--site-strong);
+  border-right: 2px solid var(--site-strong);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.portal-menu strong {
+  color: var(--site-strong);
+  font-size: 16px;
+}
+
+.portal-menu span {
+  color: var(--site-muted);
+  font-size: 14px;
+}
+
+.portal .portal-back {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--site-strong);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.portal .portal-back:hover {
+  background: none;
+}
+
+.portal-list {
+  margin: 0;
+  padding: 4px 18px;
+  background: #fff;
+  border: 1px solid var(--site-line);
+}
+
+.portal-list li {
+  border-color: var(--site-line);
+}
+
+.portal-list .label {
+  color: var(--site-muted);
+}
+
+.portal-list .value {
+  color: var(--site-strong);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+/* ---- Demo column: which Keycloak client the website uses ------------------------------------- */
+
+.client-choice {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.client-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.client-choice label:has(input:checked) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.client-choice input {
+  margin-top: 0.3rem;
+}
+
+.client-choice span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.client-choice strong {
+  color: var(--text-h);
+}
+
+.client-choice span span {
+  font-size: 0.88rem;
+}
+
+.portal-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portal-languages {
+  display: flex;
+  border: 1px solid var(--site-line);
+}
+
+.portal .portal-language {
+  min-height: 0;
+  padding: 3px 9px;
+  border: 0;
+  background: #fff;
+  color: var(--site-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.portal .portal-language:hover {
+  background: var(--site-soft);
+}
+
+.portal .portal-language[aria-pressed='true'] {
+  background: var(--site-action);
+  color: var(--site-on-action);
+}

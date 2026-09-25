@@ -46,6 +46,7 @@ import { Demo, DemoArea, DemoProvider } from '../../components/DemoArea'
 import { PhoneFrame } from '../../components/PhoneFrame'
 import { AuthenticationCompletedView, type AccountView } from '../../components/AuthenticationCompletedView'
 import { StepExplanation } from '../../components/StepExplanation'
+import { ButtonDiagrams } from '../../components/ButtonDiagrams'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { SelectMethodView } from '../../components/SelectMethodView'
 import { JourneyStructureView } from '../../components/JourneyStructureView'
@@ -73,30 +74,6 @@ const INTENT_TO_START_MODE: Record<string, 'auto' | 'login' | 'register' | 'conf
   lookup_login: 'login',
   register: 'register',
   confirm_peer_login: 'confirmPeerLogin',
-}
-
-/**
- * The journeys behind the start screen's buttons, as diagrams in the demo column - the phone shows
- * the buttons a real app has, the demo column what each one sets going.
- */
-function ButtonDiagrams({ entries }: { entries: Array<{ label: string; diagram: keyof typeof JOURNEY_DIAGRAMS }> }) {
-  return (
-    <Demo>
-      <div className="button-diagrams">
-        <p className="button-diagrams__title">{t('Abläufe hinter den Buttons')}</p>
-        {entries.map((entry) => (
-          <p className="demo-diagram" key={entry.diagram}>
-            {entry.label}
-            <DiagramHint spec={JOURNEY_DIAGRAMS[entry.diagram]} inline openDown>
-              <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: entry.label })}>
-                ℹ️
-              </span>
-            </DiagramHint>
-          </p>
-        ))}
-      </div>
-    </Demo>
-  )
 }
 
 export function AppChannelApp() {
