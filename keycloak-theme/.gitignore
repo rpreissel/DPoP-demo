@@ -1,0 +1,6 @@
+node_modules/
+dist/
+build_keycloak/
+dist_keycloak/
+# Written by keycloakify on every build/dev start.
+src/kc.gen.tsx

@@ -53,14 +53,17 @@ durch ein React-Bundle), nicht diese Logik; der Java-Code bliebe unverändert.
   die Technik der Darstellung wechselt.
 - Es passt zur bestehenden Regel, `stepData` unverändert durchzureichen und nicht vorab einzelne
   Werte herauszuziehen: Das Grundgerüst `orchestrator-tool.ftl` (ein Eingabefeld je Eintrag in
-  `stepData.missingFields`) lässt sich direkt als allgemeine React-Komponente nachbauen, die immer
-  dann greift, wenn es für eine `pageId` keine eigene Seite gibt.
+  `stepData.missingFields`) lässt sich direkt als allgemeine React-Komponente nachbauen.
 
 ## 4) Parallelbetrieb: realmweit umschalten
 
 - **Zwei Themes nebeneinander:** `orchestrator` (FreeMarker, wie heute) und
   `orchestrator-keycloakify` (React). Beide stecken immer im Keycloak-Image; der Name ist neutral und
   trägt keinen Markennamen.
+- **Das FreeMarker-Theme ist das Eltern-Theme des Keycloakify-Themes** (`parent=orchestrator` statt
+  `parent=keycloak`, im ersten Versuch gegen Keycloak 26.6 geprüft). Jede Seite, für die es noch
+  keine React-Komponente gibt, zeigt Keycloak deshalb mit der FreeMarker-Vorlage, im selben Aussehen.
+  So lässt sich Seite für Seite umstellen, ohne dass eine Seite fehlt.
 - **Umgeschaltet wird das Login-Theme des Realms** über die Admin-API von Keycloak:
   `PUT /admin/realms/{realm}` mit nur `{ "loginTheme": "…" }`. Keycloak übernimmt dabei nur die
   gesetzten Felder, der Rest des Realms bleibt, wie er ist.
@@ -102,17 +105,18 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
 
 ## 6) Was beide Themes teilen müssen
 
-- **Texte:** `KcTexts` liest die Texte aus den Messages des *gerade aktiven* Login-Themes. Das
-  Keycloakify-Theme muss also dieselben `messages/messages_{de,en}.properties` mitbringen. Der Build
-  kopiert sie aus `theme/orchestrator/login/messages/`; es bleibt bei einer Quelle.
-- **`t` ist ein Java-Objekt:** Die Vorlagen rufen `${t.of("…")}` auf, `t` ist
-  `KcTexts.TemplateTexts`. Ein solches Objekt mit Methoden übersteht den Weg in den `kcContext` von
-  Keycloakify nicht. In React braucht es deshalb ein `t("…")`, das den Schlüssel wie `KcText.idOf`
-  bildet und in den Messages nachschlägt. Das Einsammeln der Vorlagen für `/translate-texts` (heute
-  `KcTextCatalog` für `.ftl`, im Frontend `t("…")` und `<Tx>`) wird auf `keycloak-theme/src`
-  erweitert. Offen für den ersten Versuch: ob Keycloakify die Messages des Themes selbst in den
-  `kcContext` bringt. Wenn nicht, setzt `WebFormRenderer` zusätzlich ein Attribut `textBundle`
-  (Schlüssel → Text); FreeMarker ignoriert es.
+- **Texte auf dem Server:** `KcTexts` liest die Texte aus den Messages des *gerade aktiven*
+  Login-Themes. Keycloak führt die Messages entlang der Eltern-Themes zusammen; das Keycloakify-Theme
+  erbt sie also vom FreeMarker-Theme, ohne Kopie.
+- **Texte im Browser:** Die Vorlagen rufen `${t.of("…")}` auf, `t` ist `KcTexts.TemplateTexts`. Im
+  `kcContext` kommt davon nur ein leeres Objekt an, und Keycloakify bringt nur seine eigenen
+  Message-Schlüssel mit, nicht unsere. Deshalb bündelt `keycloak-theme/src/texts.ts` die
+  `messages_{de,en}.properties` des FreeMarker-Themes beim Build ins JavaScript und bildet den
+  Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie im Frontend). Die Sprache kommt aus
+  `kcContext.locale`. Kein zusätzliches Attribut in `WebFormRenderer` nötig.
+- **Offen:** Das Einsammeln der Vorlagen für `/translate-texts` (heute `KcTextCatalog` für `.ftl`, im
+  Frontend `t("…")` und `<Tx>`) muss auf `keycloak-theme/src` erweitert werden. Solange die
+  React-Seiten nur Vorlagen nutzen, die es in den `.ftl`-Dateien auch gibt, fehlt nichts.
 - **Seitenvertrag:** Jede Seite bekommt dieselben Attribute, egal welches Theme sie zeigt. Neben `t`:
   - `orchestrator-select`: `title`, `description`, `options`, `optionLabels`, `offerRegistration`
   - `orchestrator-tool`: `toolId`, `fields` (aus `stepData.missingFields`)
@@ -169,12 +173,12 @@ beide Themes später direkt nebeneinander vergleichen.
 - **Eigenes npm-Paket `keycloak-theme/`**, nicht in `frontend/`: Es gibt keinen npm-Workspace und
   kein `package.json` im obersten Verzeichnis. Die Zielgruppe ist eine andere (Theme für Keycloak statt
   Demo-Oberfläche). Gleiche Werkzeuge wie `frontend/`: React 19, Vite, TypeScript, Vitest.
-- **Ausgabe als entpacktes Theme-Verzeichnis** `orchestrator-keycloakify`, das neben `orchestrator`
-  liegt.
+- **Ausgabe als JAR:** `keycloakify build` (braucht Maven) erzeugt
+  `dist_keycloak/orchestrator-keycloakify-theme.jar`, nur für Keycloak 26. Das JAR gehört nach
+  `/opt/keycloak/providers/`; Keycloak findet das Theme darin selbst.
 - **Gradle:** nach dem Muster von `npmInstall`/`npmBuild` für `frontend/` eigene Tasks für
-  `keycloak-theme/`; `stageKeycloakArtifact` kopiert das Ergebnis zusätzlich nach
-  `build/podman/keycloak/theme/orchestrator-keycloakify`, das Keycloak-`Dockerfile` bekommt ein
-  zweites `COPY`.
+  `keycloak-theme/`; `stageKeycloakArtifact` kopiert das JAR zusätzlich nach `build/podman/keycloak/`,
+  das Keycloak-`Dockerfile` bekommt ein zweites `COPY` nach `providers/`.
 - **Theme im JAR:** Das FreeMarker-Theme liegt heute auch im Shadow-JAR der `keycloak-extension`, und
   `exportTexts`/`KcTextCatalog` lesen seine `.ftl`-Dateien. Daran ändert sich nichts; das
   Keycloakify-Theme gehört nicht ins JAR.
@@ -206,12 +210,13 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
 
 1. **FreeMarker im neuen Aussehen:** `tokens.css` anlegen, `orchestrator.css` darauf umstellen. Geht
    sofort und unabhängig von allem anderen.
-2. **Erster Versuch mit Keycloakify:** `keycloak-theme/` anlegen, Theme `orchestrator-keycloakify`
-   als Verzeichnis ausgeben; klären, wie Messages und Texte in den `kcContext` kommen (Abschnitt 6).
+2. **Erster Versuch mit Keycloakify (erledigt):** `keycloak-theme/` mit `orchestrator-select` und
+   `orchestrator-tool` als React-Seiten; alle anderen Seiten kommen vom FreeMarker-Eltern-Theme.
+   Gegen Keycloak geprüft: Auswahl (React), Passwortseite (FreeMarker), Fehlermeldung von `KcTexts`.
 3. **Schalter im Orchestrator:** `KeycloakLoginTheme` über den Migrations-Client, Endpunkt,
    Abgleich beim Start, Admin-Seite, `ServerInfo`, Demo-Reset. Voreinstellung FreeMarker.
-4. **Allgemeine Seiten:** die Entsprechung von `orchestrator-tool.ftl` sowie
-   `orchestrator-select/confirm/error`. Jede `pageId` ohne eigene Seite zeigt die allgemeine Seite.
+4. **Restliche allgemeine Seiten:** `orchestrator-confirm` und `orchestrator-error`. Jede `pageId`
+   ohne React-Komponente zeigt weiter die FreeMarker-Vorlage.
 5. **Tool für Tool** eigene Seiten, zuletzt `orchestrator-manage-methods`.
 6. **Build:** Gradle-Tasks, `stageKeycloakArtifact`, `Dockerfile` (Abschnitt 8).
 7. **Ende-zu-Ende-Tests** mit Playwright gegen ein echtes Keycloak (Podman Compose): dieselben

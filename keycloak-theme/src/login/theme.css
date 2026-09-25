@@ -1,0 +1,264 @@
+/* The look of the FreeMarker theme, rebuilt on the same tokens (docs/ideen/keycloakify-statt-freemarker.md,
+   section 7). tokens.css is the FreeMarker theme's own file - one source for both. */
+@import '../../../keycloak-extension/src/main/resources/theme/orchestrator/login/resources/css/tokens.css';
+
+html,
+body {
+  margin: 0;
+  background: var(--orc-color-stage);
+  font-family: var(--orc-font-family);
+  font-size: var(--orc-font-size);
+  line-height: var(--orc-line-height);
+  color: var(--orc-color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.orc-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.orc-topbar {
+  height: var(--orc-header-height);
+  background: var(--orc-color-surface);
+}
+
+.orc-main {
+  flex: 1;
+  width: 100%;
+  max-width: calc(var(--orc-page-width) + 2rem);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.orc-realm {
+  margin: 0;
+  padding: 4.5rem 0 2.5rem;
+  font-size: var(--orc-font-size-h1);
+  font-weight: var(--orc-font-weight-light);
+  line-height: 1.3;
+}
+
+.orc-card {
+  padding: 1.875rem 2.5rem 2.5rem;
+  background: var(--orc-color-surface);
+  border-radius: var(--orc-radius);
+}
+
+.orc-title {
+  margin: 0 0 1.875rem;
+  font-size: var(--orc-font-size-h2);
+  font-weight: var(--orc-font-weight-light);
+  line-height: 1.3;
+  color: var(--orc-color-text-strong);
+}
+
+.orc-subtitle {
+  margin: 0 0 1.5rem;
+}
+
+.orc-alert {
+  margin-bottom: 1.5rem;
+  padding: 0.875rem 1rem;
+  border-left: 4px solid var(--orc-color-text);
+  background: var(--orc-color-surface-soft);
+  font-size: var(--orc-font-size-label);
+  color: var(--orc-color-text-strong);
+}
+
+.orc-alert-error {
+  border-left-color: var(--orc-color-danger);
+  background: var(--orc-color-danger-subtle);
+}
+
+.orc-alert-warning {
+  border-left-color: var(--orc-color-warning);
+  background: var(--orc-color-warning-subtle);
+}
+
+.orc-field {
+  margin: 0 0 1.25rem;
+}
+
+.orc-field label {
+  display: block;
+  margin-bottom: 0.2rem;
+  padding-left: 2px;
+  font-size: var(--orc-font-size-label);
+  font-weight: var(--orc-font-weight-bold);
+}
+
+.orc-field input,
+.orc-field select {
+  display: block;
+  width: 100%;
+  height: var(--orc-control-height);
+  padding: 0.75rem 0.8rem 0.75rem 0.625rem;
+  border: 1px solid var(--orc-color-border);
+  border-radius: var(--orc-radius);
+  background: var(--orc-color-surface);
+  font: inherit;
+  color: var(--orc-color-text);
+}
+
+.orc-field input:hover,
+.orc-field select:hover {
+  border-color: var(--orc-color-text);
+}
+
+.orc-field input:focus,
+.orc-field select:focus {
+  outline: none;
+  border-color: var(--orc-color-text);
+  box-shadow: var(--orc-focus-ring);
+}
+
+.orc-actions {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.875rem;
+}
+
+.orc-actions-start {
+  flex-direction: row;
+}
+
+.orc-button {
+  position: relative;
+  min-height: 50px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--orc-color-border);
+  border-radius: var(--orc-radius);
+  background: var(--orc-color-surface-soft);
+  font: inherit;
+  font-weight: var(--orc-font-weight-light);
+  line-height: 1.3;
+  color: var(--orc-color-text);
+  cursor: pointer;
+}
+
+.orc-button:hover {
+  border-color: var(--orc-color-text);
+  color: var(--orc-color-text-strong);
+}
+
+.orc-button:focus-visible,
+.orc-choice:focus-visible,
+.orc-page a:focus-visible {
+  outline: none;
+  box-shadow: var(--orc-focus-ring);
+}
+
+.orc-button-primary {
+  padding-right: 3.5rem;
+  border-color: var(--orc-color-action);
+  background: var(--orc-color-action);
+  color: var(--orc-color-on-action);
+}
+
+.orc-button-primary:hover {
+  border-color: var(--orc-color-action-hover);
+  background: var(--orc-color-action-hover);
+  color: var(--orc-color-on-action);
+}
+
+.orc-button-primary::after,
+.orc-choice::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 1.25rem;
+  width: 12px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: currentColor;
+  -webkit-mask: var(--orc-chevron) center / contain no-repeat;
+  mask: var(--orc-chevron) center / contain no-repeat;
+}
+
+.orc-choices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--orc-color-border-subtle);
+}
+
+.orc-choice {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 1rem 2.5rem 1rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--orc-color-border-subtle);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--orc-color-text);
+  cursor: pointer;
+}
+
+.orc-choice::after {
+  right: 0.5rem;
+  width: 10px;
+  height: 20px;
+}
+
+.orc-choice:hover {
+  background: var(--orc-color-surface-soft);
+  text-decoration: underline;
+}
+
+.orc-info {
+  margin-top: 1.875rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--orc-color-border-subtle);
+}
+
+.orc-page a,
+.orc-page a:hover {
+  color: var(--orc-color-text);
+  text-underline-offset: 2px;
+}
+
+.orc-band {
+  height: 5.25rem;
+  margin-top: 5rem;
+  background: var(--orc-color-band);
+}
+
+.orc-footer {
+  height: 7.75rem;
+  background: var(--orc-color-footer);
+}
+
+@media (max-width: 767px) {
+  .orc-topbar {
+    height: 56px;
+  }
+
+  .orc-realm {
+    padding: 2rem 0 1.25rem;
+    font-size: 32px;
+  }
+
+  .orc-card {
+    padding: 1.5rem 1.25rem 1.75rem;
+  }
+
+  .orc-title {
+    font-size: 24px;
+  }
+
+  .orc-actions {
+    flex-direction: column;
+  }
+}
