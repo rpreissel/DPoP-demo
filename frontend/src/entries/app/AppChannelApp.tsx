@@ -857,14 +857,17 @@ export function AppChannelApp() {
                             : t('Dieses Gerät ist mit Ihrem Konto verbunden.')}
                         </p>
                         {/* The device's own way in first; the two without it (a lookup login, a
-                            fresh registration) stay reachable - same wording as on an unlinked device. */}
+                            fresh registration) stay reachable - same wording as on an unlinked device.
+                            Each label says what it does: whose account, by which means, or a new one. */}
                         <div className="form-actions app-home__actions">
-                          <button onClick={() => handleStart('auto')}>{t('Anmelden')}</button>
+                          <button onClick={() => handleStart('auto')}>
+                            {deviceLink.personName ? t('Als {name} anmelden', { name: deviceLink.personName }) : t('Mit diesem Gerät anmelden')}
+                          </button>
                           <button className="secondary" onClick={() => handleStart('login')}>
-                            {t('Neu anmelden')}
+                            {t('Mit E-Mail-Adresse anmelden')}
                           </button>
                           <button className="secondary" onClick={() => handleStart('register')}>
-                            {t('Neu registrieren')}
+                            {t('Neues Konto anlegen')}
                           </button>
                         </div>
                       </>
@@ -873,9 +876,9 @@ export function AppChannelApp() {
                         <h2>{t('Willkommen')}</h2>
                         <p>{t('Melden Sie sich mit Ihrem Konto an, oder legen Sie ein neues an.')}</p>
                         <div className="form-actions app-home__actions">
-                          <button onClick={() => handleStart('login')}>{t('Neu anmelden')}</button>
+                          <button onClick={() => handleStart('login')}>{t('Mit E-Mail-Adresse anmelden')}</button>
                           <button className="secondary" onClick={() => handleStart('register')}>
-                            {t('Neu registrieren')}
+                            {t('Neues Konto anlegen')}
                           </button>
                         </div>
                       </>
