@@ -34,8 +34,13 @@ public class EnrollQrRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-qr-enroll.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"enroll".equals(ctx.step())) return null;
-        return form.createForm("tool-qr-enroll.ftl");
+        return form.createForm(template());
     }
 }

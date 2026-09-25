@@ -28,11 +28,16 @@ public class PasswordEnrollRendererFactory extends AbstractWebToolRendererFactor
     }
 
     @Override
+    public String template() {
+        return "tool-password-enroll.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"enroll".equals(ctx.step())) return null;
         JsonNode demoPassword = ctx.demo().get("password");
         return form
                 .setAttribute("demoPassword", demoPassword != null ? demoPassword.asText() : null)
-                .createForm("tool-password-enroll.ftl");
+                .createForm(template());
     }
 }

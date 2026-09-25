@@ -21,7 +21,7 @@ public final class KcTexts {
 
     private static final Logger LOG = Logger.getLogger(KcTexts.class);
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z][A-Za-z0-9_]*)}");
-    private static final Pattern OWN_ID = Pattern.compile("[0-9a-f]{12}");
+    private static final String BROWSER_TEXTS_PREFIX = "orchestratorTexts.";
 
     private KcTexts() {
     }
@@ -55,19 +55,31 @@ public final class KcTexts {
 
     /**
      * The same texts for a theme that renders in the browser (Keycloakify): a plain map, which -
-     * unlike {@link TemplateTexts} - survives the trip into its kcContext. Only this extension's own
-     * ids (12 hex digits of {@link KcText#idOf}), not Keycloak's own messages, in the login's
-     * language; the browser fills placeholders itself. Read at every render, so a reworded
-     * messages file shows without rebuilding that theme.
+     * unlike {@link TemplateTexts} - survives the trip into its kcContext. Only what the page
+     * {@code template} uses: the active login theme names those ids in its theme.properties
+     * ({@code orchestratorTexts.<template>=id,id,...}, written by that theme's build). A theme
+     * without that entry - the FreeMarker theme, or a page the Keycloakify theme leaves to it - gets
+     * none. In the login's language, placeholders left for the browser; read at every render, so a
+     * reworded messages file shows without rebuilding that theme.
      */
-    public static Map<String, String> forBrowser(KeycloakSession session) {
-        return ownTexts(messages(session));
+    public static Map<String, String> forBrowser(KeycloakSession session, String template) {
+        if (template == null) return Map.of();
+        try {
+            Theme theme = session.theme().getTheme(Theme.Type.LOGIN);
+            String ids = theme.getProperties().getProperty(BROWSER_TEXTS_PREFIX + template);
+            return ids == null ? Map.of() : pick(messages(session), ids);
+        } catch (Exception e) {
+            LOG.warnf("Login theme properties not available: %s", e.getMessage());
+            return Map.of();
+        }
     }
 
-    static Map<String, String> ownTexts(Properties messages) {
+    /** The wordings of the comma-separated [ids] that [messages] has. */
+    static Map<String, String> pick(Properties messages, String ids) {
         Map<String, String> texts = new TreeMap<>();
-        for (String key : messages.stringPropertyNames()) {
-            if (OWN_ID.matcher(key).matches()) texts.put(key, messages.getProperty(key));
+        for (String id : ids.split(",")) {
+            String wording = messages.getProperty(id.trim());
+            if (wording != null) texts.put(id.trim(), wording);
         }
         return texts;
     }

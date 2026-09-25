@@ -176,6 +176,8 @@ val keycloakThemeBuild = tasks.register<Exec>("keycloakThemeBuild") {
     dependsOn(keycloakThemeNpmInstall)
     workingDir = keycloakThemeDir
     inputs.dir(keycloakThemeDir.resolve("src"))
+    // scripts/texts-per-page.mjs schreibt beim Build, welche Texte jede Seite braucht.
+    inputs.dir(keycloakThemeDir.resolve("scripts"))
     inputs.files(keycloakThemeDir.resolve("index.html"), keycloakThemeDir.resolve("vite.config.ts"), keycloakThemeDir.resolve("package.json"))
     // Gebuendelt aus dem FreeMarker-Theme: die gemeinsamen Tokens. Die Texte nicht - die setzt die
     // Extension zur Laufzeit in jede Seite (kcContext.texts).

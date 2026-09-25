@@ -28,6 +28,11 @@ public class PasswordLookupRendererFactory extends AbstractWebToolRendererFactor
     }
 
     @Override
+    public String template() {
+        return "tool-password-lookup.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"auth".equals(ctx.step())) return null;
         JsonNode demoEmail = ctx.demo().get("email");
@@ -36,6 +41,6 @@ public class PasswordLookupRendererFactory extends AbstractWebToolRendererFactor
                 .setAttribute("demoEmail", demoEmail != null ? demoEmail.asText() : null)
                 .setAttribute("demoPassword", demoPassword != null ? demoPassword.asText() : null)
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm("tool-password-lookup.ftl");
+                .createForm(template());
     }
 }

@@ -28,11 +28,16 @@ public class EmailAuthRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-email-auth.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"auth".equals(ctx.step())) return null;
         JsonNode demoTan = ctx.demo().get("tan");
         return form
                 .setAttribute("demoTan", demoTan != null ? demoTan.asText() : null)
-                .createForm("tool-email-auth.ftl");
+                .createForm(template());
     }
 }

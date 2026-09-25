@@ -34,6 +34,11 @@ public class EmailLookupRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-email-lookup.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!SUPPORTED_STEPS.contains(ctx.step())) return null;
         JsonNode demoEmail = ctx.demo().get("email");
@@ -43,6 +48,6 @@ public class EmailLookupRendererFactory extends AbstractWebToolRendererFactory {
                 .setAttribute("demoEmail", demoEmail != null ? demoEmail.asText() : null)
                 .setAttribute("demoTan", demoTan != null ? demoTan.asText() : null)
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm("tool-email-lookup.ftl");
+                .createForm(template());
     }
 }

@@ -112,10 +112,19 @@ Er folgt dem Vorbild „Enrollment zuerst“ (`RegistrationOrderController`, `Fe
 - **Texte im Browser:** Die Vorlagen rufen `${t.of("…")}` auf, `t` ist `KcTexts.TemplateTexts`. Im
   `kcContext` kommt davon nur ein leeres Objekt an, und Keycloakify bringt nur seine eigenen
   Message-Schlüssel mit, nicht unsere. Deshalb setzt `WebFormRenderer` neben `t` ein zweites
-  Attribut `texts`: dieselben Texte als einfache Map (Schlüssel → Text in der Sprache der Anmeldung),
-  nur unsere eigenen Schlüssel (`KcTexts.forBrowser`). `keycloak-theme/src/texts.ts` bildet den
-  Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie im Frontend) und schlägt dort nach. Ändert
-  `/translate-texts` die Messages, zeigt das Keycloakify-Theme den neuen Text ohne neuen Build.
+  Attribut `texts`: die Texte, die die React-Seite braucht, als einfache Map (Schlüssel → Text in der
+  Sprache der Anmeldung).
+  - **Nur die der Seite:** Der Theme-Build (`keycloak-theme/scripts/texts-per-page.mjs`) sammelt je
+    Seite alle `t("…")`-Vorlagen der Komponente und ihrer Importe und schreibt sie als
+    `orchestratorTexts.<pageId>=id,id,…` in die `theme.properties`. `KcTexts.forBrowser` liest diesen
+    Eintrag aus dem aktiven Theme und schickt nur diese Texte, bei der Auswahlseite z. B. 4 statt 83.
+    Das FreeMarker-Theme hat keinen solchen Eintrag und bekommt keine.
+  - **Der Seitenname vor dem Rendern:** Jede Tool-Factory nennt ihre Seite über
+    `WebToolRendererFactory.template()`.
+  - **Live:** Ändert `/translate-texts` einen Text, zeigt ihn das Theme ohne neuen Build. Neu bauen
+    muss man es nur, wenn eine React-Seite eine neue Vorlage bekommt.
+  - `keycloak-theme/src/texts.ts` bildet den Schlüssel wie `KcText.idOf` (synchrones SHA-256 wie
+    im Frontend).
 - **Offen:** Das Einsammeln der Vorlagen für `/translate-texts` (heute `KcTextCatalog` für `.ftl`, im
   Frontend `t("…")` und `<Tx>`) muss auf `keycloak-theme/src` erweitert werden. Solange die
   React-Seiten nur Vorlagen nutzen, die es in den `.ftl`-Dateien auch gibt, fehlt nichts.

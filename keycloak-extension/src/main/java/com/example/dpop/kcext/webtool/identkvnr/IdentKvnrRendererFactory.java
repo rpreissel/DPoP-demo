@@ -31,10 +31,15 @@ public class IdentKvnrRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-ident-kvnr.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"input".equals(ctx.step())) return null;
         return form
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm("tool-ident-kvnr.ftl");
+                .createForm(template());
     }
 }

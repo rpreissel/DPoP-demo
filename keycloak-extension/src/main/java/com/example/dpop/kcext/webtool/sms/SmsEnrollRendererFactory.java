@@ -31,12 +31,17 @@ public class SmsEnrollRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-sms-enroll.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!SUPPORTED_STEPS.contains(ctx.step())) return null;
         JsonNode demoTan = ctx.demo().get("tan");
         return form
                 .setAttribute("step", ctx.step())
                 .setAttribute("demoTan", demoTan != null ? demoTan.asText() : null)
-                .createForm("tool-sms-enroll.ftl");
+                .createForm(template());
     }
 }

@@ -17,4 +17,11 @@ public interface WebToolRendererFactory extends ProviderFactory<WebToolRenderer>
 
     /** Short hint, shown under the title - the kc-facade's counterpart to React's {@code ToolMeta.hint}. */
     KcText hint();
+
+    /**
+     * The page this tool renders - what its {@code render} passes to {@code createForm}. Known
+     * before rendering, so the page gets exactly the texts the Keycloakify theme's component for it
+     * uses (docs/ideen/keycloakify-statt-freemarker.md).
+     */
+    String template();
 }

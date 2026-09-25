@@ -27,6 +27,13 @@ import java.util.Map;
  */
 final class WebFormRenderer {
 
+    /** The orchestrator's own pages - also the keys of the Keycloakify theme's per-page texts. */
+    private static final String SELECT_PAGE = "orchestrator-select.ftl";
+    private static final String TOOL_PAGE = "orchestrator-tool.ftl";
+    private static final String CONFIRM_PAGE = "orchestrator-confirm.ftl";
+    private static final String ERROR_PAGE = "orchestrator-error.ftl";
+    private static final String MANAGE_METHODS_PAGE = "orchestrator-manage-methods.ftl";
+
     private WebFormRenderer() {
     }
 
@@ -49,7 +56,7 @@ final class WebFormRenderer {
         String backendTitle = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("title")) : null;
         String title = backendTitle != null ? backendTitle : KcTexts.of(session, "Anmeldemethode wählen");
         String description = response != null ? OrchestratorTexts.resolve(session, response.stepData().get("description")) : null;
-        var built = withTexts(session, form)
+        var built = withTexts(session, form, SELECT_PAGE)
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
                 .setAttribute("description", description)
@@ -57,7 +64,7 @@ final class WebFormRenderer {
                 .setAttribute("optionLabels", optionLabels)
                 .setAttribute("offerRegistration", offerRegistration);
         if (error != null) built.setError(error);
-        return built.createForm("orchestrator-select.ftl");
+        return built.createForm(SELECT_PAGE);
     }
 
     static Response toolForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession,
@@ -74,7 +81,7 @@ final class WebFormRenderer {
         WebToolRenderer renderer = session.getProvider(WebToolRenderer.class, next.toolId());
         if (renderer != null) {
             WebToolRendererFactory factory = rendererFactoryFor(session, next.toolId());
-            var built = withTexts(session, form)
+            var built = withTexts(session, form, factory != null ? factory.template() : null)
                     .setAuthenticationSession(authSession)
                     .setAttribute("toolId", next.toolId())
                     .setAttribute("title", factory != null ? KcTexts.resolve(session, factory.title()) : next.toolId())
@@ -95,12 +102,12 @@ final class WebFormRenderer {
         if (missingFields != null && missingFields.isArray()) {
             missingFields.forEach(fieldName -> fields.put(fieldName.asText(), ""));
         }
-        var built = withTexts(session, form)
+        var built = withTexts(session, form, TOOL_PAGE)
                 .setAuthenticationSession(authSession)
                 .setAttribute("toolId", next.toolId())
                 .setAttribute("fields", fields);
         if (effectiveError != null) built.setError(effectiveError);
-        return built.createForm("orchestrator-tool.ftl");
+        return built.createForm(TOOL_PAGE);
     }
 
     /**
@@ -113,13 +120,13 @@ final class WebFormRenderer {
         String title = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("title")) : null, KcTexts.of(session, "Bestätigung erforderlich"));
         String confirmLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("confirmLabel")) : null, KcTexts.of(session, "Ja"));
         String cancelLabel = orDefault(prompt != null ? OrchestratorTexts.resolve(session, prompt.get("cancelLabel")) : null, KcTexts.of(session, "Nein"));
-        var built = withTexts(session, form)
+        var built = withTexts(session, form, CONFIRM_PAGE)
                 .setAuthenticationSession(authSession)
                 .setAttribute("title", title)
                 .setAttribute("confirmLabel", confirmLabel)
                 .setAttribute("cancelLabel", cancelLabel);
         if (error != null) built.setError(error);
-        return built.createForm("orchestrator-confirm.ftl");
+        return built.createForm(CONFIRM_PAGE);
     }
 
     private static String orDefault(String value, String fallback) {
@@ -127,7 +134,7 @@ final class WebFormRenderer {
     }
 
     static Response errorForm(KeycloakSession session, LoginFormsProvider form, AuthenticationSessionModel authSession, String message) {
-        return withTexts(session, form).setAuthenticationSession(authSession).setError(message).createForm("orchestrator-error.ftl");
+        return withTexts(session, form, ERROR_PAGE).setAuthenticationSession(authSession).setError(message).createForm(ERROR_PAGE);
     }
 
     /**
@@ -148,22 +155,23 @@ final class WebFormRenderer {
             row.put("label", m.label());
             rows.add(row);
         }
-        var built = withTexts(session, form)
+        var built = withTexts(session, form, MANAGE_METHODS_PAGE)
                 .setAuthenticationSession(authSession)
                 .setAttribute("methods", rows);
         if (notice != null) built.setInfo(notice);
-        return built.createForm("orchestrator-manage-methods.ftl");
+        return built.createForm(MANAGE_METHODS_PAGE);
     }
 
     /**
      * Every orchestrator page gets {@code t}: its own texts are written as German templates,
      * {@code ${t.of("Weiter")}}, and resolved in the login's language (docs/adr/ADR-033). And
-     * {@code texts}, the same wordings as a plain map, for the Keycloakify theme, which renders in
-     * the browser and cannot call {@code t} (docs/ideen/keycloakify-statt-freemarker.md).
+     * {@code texts}, the wordings the Keycloakify theme's component for {@code template} uses, as a
+     * plain map - that theme renders in the browser and cannot call {@code t}
+     * (docs/ideen/keycloakify-statt-freemarker.md).
      */
-    private static LoginFormsProvider withTexts(KeycloakSession session, LoginFormsProvider form) {
+    private static LoginFormsProvider withTexts(KeycloakSession session, LoginFormsProvider form, String template) {
         return form.setAttribute("t", KcTexts.forTemplates(session))
-                .setAttribute("texts", KcTexts.forBrowser(session));
+                .setAttribute("texts", KcTexts.forBrowser(session, template));
     }
 
     private static WebToolRendererFactory rendererFactoryFor(KeycloakSession session, String toolId) {

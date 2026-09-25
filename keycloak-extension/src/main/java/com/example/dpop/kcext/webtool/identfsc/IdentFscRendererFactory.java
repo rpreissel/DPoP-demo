@@ -40,6 +40,11 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-ident-fsc.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"input".equals(ctx.step())) return null;
         JsonNode missing = ctx.stepData().get("missingFields");
@@ -54,6 +59,6 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
         return form
                 .setAttribute("personalienPage", personalienPage)
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm("tool-ident-fsc.ftl");
+                .createForm(template());
     }
 }

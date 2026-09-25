@@ -17,6 +17,11 @@ import java.nio.charset.StandardCharsets;
 abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
 
     @Override
+    public String template() {
+        return "tool-qr-wait.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!"waitForApp".equals(ctx.step())) return null;
 
@@ -38,6 +43,6 @@ abstract class QrWaitRendererFactory extends AbstractWebToolRendererFactory {
                 .setAttribute("verificationCode", verificationCode)
                 .setAttribute("deepLink", deepLink)
                 .setAttribute("qrDataUri", QrImageEncoder.dataUri(deepLink))
-                .createForm("tool-qr-wait.ftl");
+                .createForm(template());
     }
 }

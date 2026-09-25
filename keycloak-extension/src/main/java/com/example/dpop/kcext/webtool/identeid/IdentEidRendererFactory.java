@@ -35,11 +35,16 @@ public class IdentEidRendererFactory extends AbstractWebToolRendererFactory {
     }
 
     @Override
+    public String template() {
+        return "tool-ident-eid.ftl";
+    }
+
+    @Override
     public Response render(LoginFormsProvider form, WebToolRenderContext ctx) {
         if (!SUPPORTED_STEPS.contains(ctx.step())) return null;
         return form
                 .setAttribute("step", ctx.step())
                 .setAttribute("demoPersonsJson", demoPersonsJson(ctx))
-                .createForm("tool-ident-eid.ftl");
+                .createForm(template());
     }
 }
