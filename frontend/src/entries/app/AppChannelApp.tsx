@@ -854,7 +854,6 @@ export function AppChannelApp() {
                           </DiagramHint>
                         )
                       }
-                      onLeave={channelSessionId && channelState !== 'AUTHENTICATED' ? handleClearChannel : undefined}
                     />
                   </Demo>
                 )}

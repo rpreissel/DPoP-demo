@@ -16,8 +16,6 @@ interface StepExplanationProps {
   journeyTitle?: string
   /** The diagram trigger for that journey, next to its name. */
   journeyDiagram?: ReactNode
-  /** Demo way out: forget the session locally and go back to the start screen. */
-  onLeave?: () => void
 }
 
 /**
@@ -25,25 +23,18 @@ interface StepExplanationProps {
  * (the journey's purpose, from the backend - DemoStepReason), what the step does and who is acting
  * on it right now (from the tool module itself, ToolModule.explain).
  */
-export function StepExplanation({ journeys, idleReason, does, actor, technical, journeyTitle, journeyDiagram, onLeave }: StepExplanationProps) {
+export function StepExplanation({ journeys, idleReason, does, actor, technical, journeyTitle, journeyDiagram }: StepExplanationProps) {
   const innermost = journeys?.at(-1)
   const outer = (journeys ?? []).slice(0, -1).filter((j) => j.purpose)
   const why = innermost?.purpose ? resolveText(innermost.purpose) : idleReason
 
   return (
     <>
-    {(journeyTitle || onLeave) && (
+    {journeyTitle && (
       <div className="step-explanation__journey">
-        {journeyTitle && (
-          <span>
-            <Tx text="Journey: {name}" name={<strong>{journeyTitle}</strong>} /> {journeyDiagram}
-          </span>
-        )}
-        {onLeave && (
-          <button className="secondary small" onClick={onLeave} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
-            {t('Zur Startseite')}
-          </button>
-        )}
+        <span>
+          <Tx text="Journey: {name}" name={<strong>{journeyTitle}</strong>} /> {journeyDiagram}
+        </span>
       </div>
     )}
     <dl className="step-explanation">
