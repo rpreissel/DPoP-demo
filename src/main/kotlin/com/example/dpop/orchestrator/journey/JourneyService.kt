@@ -255,8 +255,15 @@ class JourneyService(
         journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
+    /**
+     * Only a RUNNING journey has a current tool. `active` survives in the stored state of a
+     * consumed/cancelled/failed/suspended journey (nothing clears it on the way out), so without the
+     * lifecycle check a finished tool could be completed a second time - e.g. replaying the auth-sms
+     * PATCH after a logout re-authenticated the LOGGED_OUT channel.
+     */
     fun isCurrent(journey: AuthJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
-        codec.read(journey).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false
+        journey.lifecycle == JourneyLifecycle.STARTED &&
+            codec.read(journey).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false
 
     fun applyOutcome(
         journey: AuthJourney,

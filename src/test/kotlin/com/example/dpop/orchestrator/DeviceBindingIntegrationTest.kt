@@ -189,13 +189,10 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
             exception.statusCode shouldBe HttpStatus.UNAUTHORIZED
         }
         then("Enroll device replaying the same proof re-runs nothing - the tool session is already consumed") {
-            // A successfully completed enroll-device tool session is done. Since the address is
-            // confirmed before any enrollment, the device credential now also FINISHES the run
-            // (it carries possession, knowledge and inherence by itself), so the replay no longer
-            // hits requireCurrentTool mid-journey but the consumed journey itself: it is answered
-            // with the finished channel state and never re-enters the handler. DeviceProofValidator's
-            // own jti+thumbprint replay protection stays defense-in-depth underneath, same posture
-            // already accepted for ordinary DPoP proofs in this app.
+            // A successfully completed enroll-device tool session is done: it expires the moment it
+            // completes, so the replay is refused outright and never re-enters the handler.
+            // DeviceProofValidator's own jti+thumbprint replay protection stays defense-in-depth
+            // underneath, same posture already accepted for ordinary DPoP proofs in this app.
             val channelSessionId = identifyAndConfirmEmail()
             val deviceKey = ECKeyGenerator(Curve.P_256).generate()
             val enrollToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-device").nextRaw()["toolSessionId"] as String
@@ -204,13 +201,13 @@ class DeviceBindingIntegrationTest : IntegrationTestSupport() {
 
             patch(patchUrl, """{"deviceProof":"$proof"}""")
 
-            val replay = restTemplate.exchange(
-                "http://localhost:$port$patchUrl", HttpMethod.PATCH,
-                HttpEntity("""{"deviceProof":"$proof"}""", headers()), mapType
-            )
-            replay.statusCode shouldBe HttpStatus.OK
-            @Suppress("UNCHECKED_CAST")
-            (replay.body!!["next"] as Map<String, Any?>)["step"] shouldBe "authenticated"
+            val replay = org.junit.jupiter.api.assertThrows<HttpClientErrorException> {
+                restTemplate.exchange(
+                    "http://localhost:$port$patchUrl", HttpMethod.PATCH,
+                    HttpEntity("""{"deviceProof":"$proof"}""", headers()), mapType
+                )
+            }
+            replay.statusCode shouldBe HttpStatus.NOT_FOUND
 
             // The point of the guarantee: exactly ONE device credential exists, the replay created none.
             @Suppress("UNCHECKED_CAST")

@@ -53,11 +53,11 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 // selection page, not which identification methods the catalog happens to have.
                 (cancelled.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid")
 
-                // The old ident-fsc tool session is no longer part of any active process.
+                // The old ident-fsc tool session is gone: it ended the moment it completed.
                 val exception = assertThrows<HttpClientErrorException> {
                     patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
                 }
-                exception.statusCode shouldBe HttpStatus.CONFLICT
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
 
 
                 }
@@ -145,11 +145,11 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                 // Direct DELETE logs out without confirmation (non-authenticated channel).
                 deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
 
-                // The old ident-fsc tool session is no longer part of any active process.
+                // The old ident-fsc tool session is gone: it ended the moment it completed.
                 val exception = assertThrows<HttpClientErrorException> {
                     patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
                 }
-                exception.statusCode shouldBe HttpStatus.CONFLICT
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
 
                 // Half-registered isn't a returning user (same rule as plain Cancel, docs/06-ablaeufe.md
                 // via ProcessCancellationService): no account was ever fully provisioned, so the new
@@ -174,6 +174,52 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
                     deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId")
                 }
                 exception.statusCode shouldBe HttpStatus.FORBIDDEN
+
+
+                }
+            }
+        }
+
+        given("an sms user who authenticated and then logged out") {
+            `when`("the completed auth-sms PATCH is replayed with the same TAN") {
+                then("it is rejected and the channel stays logged out") {
+
+                registerWithSmsOnly()
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                val (tan, activation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+                }
+                val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+                patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+                    .channel()["state"] shouldBe "AUTHENTICATED"
+
+                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
+
+                assertThrows<HttpClientErrorException> {
+                    patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+                }
+                get("/orchestrator/api/v1/channels/$channelSessionId").channel()["state"] shouldBe "LOGGED_OUT"
+
+
+                }
+            }
+        }
+
+        given("an sms user who just authenticated") {
+            `when`("the completed auth-sms PATCH is replayed on the still-open channel") {
+                then("the finished tool session is no longer usable") {
+
+                registerWithSmsOnly()
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                val (tan, activation) = captureMockTan {
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+                }
+                val toolSessionId = activation.nextRaw()["toolSessionId"] as String
+                patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+
+                assertThrows<HttpClientErrorException> {
+                    patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"$tan"}""")
+                }
 
 
                 }

@@ -218,6 +218,9 @@ class ToolControllerSupport(
         val channel = resolveChannel(ctx, journey)
         val descriptor = toolRegistry.descriptorOf(ToolId(ctx.toolId))
         chargeThrottles(channel.accountId, descriptor.role.category, outcome)
+        // A completed tool is done for good: its ToolSession must not be completable again, even
+        // while the journey keeps running (an action's resumeState can still name it as active).
+        if (outcome is ToolOutcome.Completed) sessionManagementService.expireToolSession(ctx.toolSessionId)
 
         val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)
 
@@ -331,7 +334,12 @@ class ToolControllerSupport(
         if (journeyChannelId != context.channelSessionId) {
             throw OrchestratorException.invalidState(Text("Tool context no longer matches its journey channel"))
         }
-        return channelAccessGuard.requireChannel(journeyChannelId, context.bindingKeyRef)
+        val channel = channelAccessGuard.requireChannel(journeyChannelId, context.bindingKeyRef)
+        // LOGGED_OUT/EXPIRED is final (docs/02-domaenenmodell.md #3): no tool may move it again.
+        if (channel.state?.isTerminal == true) {
+            throw OrchestratorException.invalidState(Text("This channel session has ended"), "state=${channel.state}")
+        }
+        return channel
     }
 
     /**
