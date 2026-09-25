@@ -525,6 +525,10 @@ components:
           description: 'Demo-only: why this journey''s current step looks the way it does - either why its tool became the
             automatic choice, or why a selection among several is being shown at all. Null whenever the step already explains
             itself (e.g. a Prompt), never part of the production contract.'
+        purpose:
+          $ref: '#/components/schemas/TextRef'
+          description: 'Demo-only: what this journey''s current position is for - the orchestrator''s reason for being here
+            at all, set for every journey in the chain. Never part of the production contract.'
         stateType:
           example: ConfirmPending
           type: string

@@ -47,6 +47,15 @@ class AuthPasswordLookupToolHandlerTest : BehaviorSpec({
             }
         }
 
+        `when`("the form is read before anything is entered") {
+            then("it carries the demo password, so the login form comes pre-filled like auth-password's") {
+                val outcome = handler.read(toolSessionId)
+
+                outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
+                (outcome as ToolOutcome.InProgress).demo?.get("password") shouldBe "Demo1234!"
+            }
+        }
+
         `when`("the email never resolved to anything (enumeration protection)") {
             then("it fails with the same constant-shape message, naming no account") {
                 val outcome = handler.patch(toolSessionId, email = "unknown@example.com", password = "hunter2", accountId = null, enrollmentRef = null)

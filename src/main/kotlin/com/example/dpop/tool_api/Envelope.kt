@@ -130,7 +130,13 @@ data class JourneyDebugStep(
             "shown at all. Null whenever the step already explains itself (e.g. a Prompt), never " +
             "part of the production contract.",
     )
-    val note: Text? = null
+    val note: Text? = null,
+    @field:Schema(
+        description = "Demo-only: what this journey's current position is for - the orchestrator's " +
+            "reason for being here at all, set for every journey in the chain. Never part of the " +
+            "production contract.",
+    )
+    val purpose: Text? = null
 )
 
 /**

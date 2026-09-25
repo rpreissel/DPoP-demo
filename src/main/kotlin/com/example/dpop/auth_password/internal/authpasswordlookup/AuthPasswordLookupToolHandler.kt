@@ -88,6 +88,6 @@ class AuthPasswordLookupToolHandler(
 
     private fun outcomeFor(missingFields: List<String> = listOf("email", "password")): ToolOutcome.InProgress {
         val (step, fields) = AuthPasswordLookupFlow.describe(missingFields)
-        return ToolOutcome.InProgress(nextStep = step, stepData = fields)
+        return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = AuthPasswordLookupFlow.demo())
     }
 }

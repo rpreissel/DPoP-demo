@@ -591,3 +591,45 @@
 .phone__screen .status-list .value {
   font-family: inherit;
 }
+
+/* ---- Demo column: why / what / who for the current step (StepExplanation) --------------------- */
+
+.step-explanation {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.step-explanation dt {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.step-explanation dt:first-child {
+  margin-top: 0;
+}
+
+.step-explanation dd {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.step-explanation__note {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.step-explanation .step-explanation__technical {
+  margin-top: 0.5rem;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  color: var(--text);
+}

@@ -8,6 +8,10 @@ import { t } from '../../texts'
 export const identFsc: ToolModule = {
   toolId: 'ident-fsc',
   meta: { icon: '🪪', label: t('Freischaltcode'), hint: t('Persönliche Daten und Freischaltcode') },
+  explain: () => ({
+    does: t('Ihre Angaben werden im Personenverzeichnis gesucht. Der Freischaltcode aus dem Brief bestätigt, dass Sie diese Person sind.'),
+    actor: t('Sie in der App, danach das Tool ident-fsc mit einer Anfrage an das Personenverzeichnis (simuliert).'),
+  }),
   render(ctx) {
     if (ctx.step === 'input') {
       return (

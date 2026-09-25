@@ -7,7 +7,7 @@ import '../../phone.css'
 import type { ActiveMethodView, ChannelResponse, DemoInfo, DeviceLinkResponse, Next, StepData } from '../../types'
 import { confirmPromptOf, stepDataOf } from '../../types'
 import { getUIComponent } from '../../routing.ts'
-import { knownToolIds, metaFor, renderToolStep } from '../../tools/registry'
+import { explainToolStep, knownToolIds, metaFor, renderToolStep } from '../../tools/registry'
 import type { ToolRenderContext } from '../../tools/types'
 import {
   abandonTool,
@@ -42,9 +42,10 @@ import { storeReturnedNectCase } from '../../tools/nect/returnedCase'
 import { dropStaleKobilData } from '../../tools/kobil/localData'
 import { shorten } from '../../format.ts'
 import { ChannelNav } from '../../components/ChannelNav'
-import { DemoArea, DemoProvider } from '../../components/DemoArea'
+import { Demo, DemoArea, DemoProvider } from '../../components/DemoArea'
 import { PhoneFrame } from '../../components/PhoneFrame'
 import { AuthenticationCompletedView, type AccountView } from '../../components/AuthenticationCompletedView'
+import { StepExplanation } from '../../components/StepExplanation'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
 import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
 import { SelectMethodView } from '../../components/SelectMethodView'
@@ -761,6 +762,59 @@ export function AppChannelApp() {
         }
       : undefined
 
+  // The demo column's "why / what / who" for whatever the phone shows right now (StepExplanation):
+  // a tool step explains itself (ToolModule.explain), the orchestrator's own screens are explained here.
+  const stepExplanation = ((): { idleReason?: string; does: string; actor: string; technical?: string } | undefined => {
+    if (toolCtx) {
+      const explained = explainToolStep(toolCtx.toolId, toolCtx.step)
+      return explained && { ...explained, technical: `Tool ${toolCtx.toolId} · ${toolCtx.step}` }
+    }
+    const technical = next?.type === 'orchestrator' ? `Orchestrator ${next.context} · ${next.step}` : undefined
+    if (!channelSessionId) {
+      if (pendingPairingCode) {
+        return {
+          idleReason: t('Die App wurde über den QR-Code eines Browsers geöffnet.'),
+          does: t('Bestätigen eröffnet eine Sitzung beim Orchestrator, um die wartende Anmeldung im Browser freizugeben.'),
+          actor: t('Sie. Noch läuft keine Sitzung.'),
+        }
+      }
+      return deviceLink?.linked
+        ? {
+            idleReason: t('Dieses Gerät ist mit einem Konto verbunden - deshalb bietet die App gleich das Anmelden an.'),
+            does: t('Anmelden eröffnet eine Sitzung beim Orchestrator, der das Verfahren dieses Geräts vorschlägt.'),
+            actor: t('Sie. Noch läuft keine Sitzung.'),
+          }
+        : {
+            idleReason: t('Dieses Gerät gehört noch zu keinem Konto.'),
+            does: t('Anmelden sucht ein bestehendes Konto, Registrieren legt ein neues an. Beides eröffnet eine Sitzung beim Orchestrator.'),
+            actor: t('Sie. Noch läuft keine Sitzung.'),
+          }
+    }
+    if (uiComponent === 'select-method') {
+      return {
+        does: t('Der Orchestrator zeigt die Verfahren, die dieser Schritt zulässt - nur solche, die diese App kann und die noch nicht abgelehnt wurden.'),
+        actor: t('Sie wählen. Der Orchestrator wartet.'),
+        technical,
+      }
+    }
+    if (uiComponent === 'prompt') {
+      return {
+        does: t('Eine Ja/Nein-Rückfrage des Orchestrators. Ihr Text kommt vom Backend, damit er sich ohne neue App-Version ändern lässt.'),
+        actor: t('Sie antworten. Der Orchestrator wartet.'),
+        technical,
+      }
+    }
+    if (uiComponent === 'authentication-completed') {
+      return {
+        idleReason: t('Die Anmeldung ist abgeschlossen, gerade läuft kein Vorgang.'),
+        does: t('Die App ruft Daten mit ihrem AccessToken ab. Das Token ist an den Schlüssel der App gebunden (DPoP) und nützt ohne ihn nichts.'),
+        actor: t('Sie. Sicherheitsniveau erhöhen, Verfahren ändern oder Abmelden starten je einen neuen Vorgang.'),
+        technical,
+      }
+    }
+    return undefined
+  })()
+
   return (
     <DemoProvider>
       {(setDemoTarget) => (
@@ -769,6 +823,11 @@ export function AppChannelApp() {
           <div className="app-stage">
             <div className="app-stage__phone">
               <PhoneFrame title="Demo">
+                {stepExplanation && (
+                  <Demo>
+                    <StepExplanation journeys={demo?.journeys} {...stepExplanation} />
+                  </Demo>
+                )}
                 {error && (
                   <div className="card error-card">
                     <h2>{t('Fehler')}</h2>
@@ -797,8 +856,16 @@ export function AppChannelApp() {
                             ? t('Dieses Gerät ist mit dem Konto von {name} verbunden.', { name: deviceLink.personName })
                             : t('Dieses Gerät ist mit Ihrem Konto verbunden.')}
                         </p>
-                        <div className="form-actions">
+                        {/* The device's own way in first; the two without it (a lookup login, a
+                            fresh registration) stay reachable - same wording as on an unlinked device. */}
+                        <div className="form-actions app-home__actions">
                           <button onClick={() => handleStart('auto')}>{t('Anmelden')}</button>
+                          <button className="secondary" onClick={() => handleStart('login')}>
+                            {t('Neu anmelden')}
+                          </button>
+                          <button className="secondary" onClick={() => handleStart('register')}>
+                            {t('Neu registrieren')}
+                          </button>
                         </div>
                       </>
                     ) : (
@@ -806,9 +873,9 @@ export function AppChannelApp() {
                         <h2>{t('Willkommen')}</h2>
                         <p>{t('Melden Sie sich mit Ihrem Konto an, oder legen Sie ein neues an.')}</p>
                         <div className="form-actions app-home__actions">
-                          <button onClick={() => handleStart('login')}>{t('Anmelden')}</button>
+                          <button onClick={() => handleStart('login')}>{t('Neu anmelden')}</button>
                           <button className="secondary" onClick={() => handleStart('register')}>
-                            {t('Registrieren')}
+                            {t('Neu registrieren')}
                           </button>
                         </div>
                       </>

@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react'
-import type { ToolMeta, ToolModule, ToolRenderContext } from './types'
+import type { StepExplanation, ToolMeta, ToolModule, ToolRenderContext } from './types'
 
 /**
  * Auto-discovers every tool folder's default export (its ToolModule[]) - adding or removing a
@@ -18,6 +18,11 @@ export const knownToolIds: string[] = TOOL_MODULES.map((module) => module.toolId
 
 export function metaFor(toolId: string): ToolMeta {
   return BY_ID[toolId]?.meta ?? { icon: '🔐', label: toolId, hint: '' }
+}
+
+/** What `step` of `toolId` does and who is at it - undefined for a tool this client doesn't know. */
+export function explainToolStep(toolId: string, step: string): StepExplanation | undefined {
+  return BY_ID[toolId]?.explain(step)
 }
 
 /** Renders the current step of `ctx.toolId`'s own module, or null if that tool/step is unknown. */

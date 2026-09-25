@@ -200,7 +200,8 @@ class JourneyService(
                 intent = it.intent!!.name,
                 lifecycle = it.lifecycle.name,
                 stateType = it.stateType!!,
-                note = if (it == innermost) innermostNote else null
+                note = if (it == innermost) innermostNote else null,
+                purpose = DemoStepReason.purpose(codec.read(it))
             )
         }
     }

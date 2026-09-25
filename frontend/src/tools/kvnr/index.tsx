@@ -17,6 +17,10 @@ export const identKvnr: ToolModule = {
     // heisst zugleich: Dieses Tool zeichnet den Ausweg selbst, die Rahmen-UI laesst ihn weg.
     skipLabel: SKIP_LABEL,
   },
+  explain: () => ({
+    does: t('Mit der Versichertennummer wird Ihr Konto einer versicherten Person im Personenverzeichnis zugeordnet. Der Schritt ist freiwillig.'),
+    actor: t('Sie in der App, danach das Tool ident-kvnr mit einer Anfrage an das Personenverzeichnis (simuliert).'),
+  }),
   render(ctx) {
     if (ctx.step === 'input') {
       return (

@@ -880,6 +880,12 @@ export interface JourneyDebugStep {
      */
     note?: TextRef;
     /**
+     * Demo-only: what this journey's current position is for - the orchestrator's reason for being here at all, set for every journey in the chain. Never part of the production contract.
+     * @type {TextRef}
+     * @memberof JourneyDebugStep
+     */
+    purpose?: TextRef;
+    /**
      * 
      * @type {string}
      * @memberof JourneyDebugStep

@@ -51,10 +51,21 @@ export interface ToolMeta {
   skipLabel?: string
 }
 
+/**
+ * Demo column (StepExplanation): what a step of this tool does and who is acting on it right now -
+ * the tool knows its own steps, so it says so itself rather than a central list that could miss one.
+ */
+export interface StepExplanation {
+  does: string
+  actor: string
+}
+
 /** One toolId's registration: its display meta and its own step -> form rendering. */
 export interface ToolModule {
   toolId: string
   meta: ToolMeta
+  /** Required, so a new tool cannot leave the demo column silent about its steps. */
+  explain(step: string): StepExplanation
   /** Returns null when `ctx.step` isn't one of this tool's own steps. */
   render(ctx: ToolRenderContext): ReactNode | null
 }

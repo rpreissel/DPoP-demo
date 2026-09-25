@@ -12,6 +12,16 @@ const LABEL = t('E-Mail')
 export const confirmEmailTool: ToolModule = {
   toolId: 'confirm-email',
   meta: { icon: ICON, label: LABEL, hint: t('E-Mail-Adresse bestätigen') },
+  explain: (step) =>
+    step === 'codeInput'
+      ? {
+          does: t('Der Code aus der E-Mail beweist, dass die Adresse Ihnen gehört. Danach gilt sie als bestätigt.'),
+          actor: t('Sie geben den Code ein, das Tool confirm-email prüft ihn.'),
+        }
+      : {
+          does: t('Sie nennen eine E-Mail-Adresse, das Tool schickt einen Code dorthin (hier nur simuliert).'),
+          actor: t('Sie in der App, danach das Tool confirm-email im Orchestrator.'),
+        },
   render(ctx) {
     if (ctx.step === 'input') {
       return (
@@ -43,6 +53,10 @@ export const confirmEmailTool: ToolModule = {
 export const authEmail: ToolModule = {
   toolId: 'auth-email',
   meta: { icon: ICON, label: LABEL, hint: t('Code an die bestätigte E-Mail-Adresse') },
+  explain: () => ({
+    does: t('Ein Code geht an die bestätigte E-Mail-Adresse des Kontos. Wer ihn eingibt, hat Zugriff auf das Postfach.'),
+    actor: t('Sie geben den Code ein, das Tool auth-email prüft ihn.'),
+  }),
   render(ctx) {
     if (ctx.step === 'auth') {
       return <EmailCodeInputForm onSubmit={(code) => submitEmailCode(ctx, code)} error={attemptError(ctx)} demoTan={ctx.demo?.tan} />
@@ -54,6 +68,16 @@ export const authEmail: ToolModule = {
 export const authEmailLookup: ToolModule = {
   toolId: 'auth-email-lookup',
   meta: { icon: ICON, label: LABEL, hint: t('E-Mail-Adresse + Bestätigungscode') },
+  explain: (step) =>
+    step === 'codeInput'
+      ? {
+          does: t('Der Code beweist den Zugriff auf das Postfach - und damit, dass das gefundene Konto Ihres ist.'),
+          actor: t('Sie geben den Code ein, das Tool auth-email-lookup prüft ihn.'),
+        }
+      : {
+          does: t('Die E-Mail-Adresse sucht das Konto. Die Antwort sieht immer gleich aus, ob es die Adresse gibt oder nicht - so lässt sich nichts ausforschen.'),
+          actor: t('Sie in der App, danach das Tool auth-email-lookup im Orchestrator.'),
+        },
   render(ctx) {
     if (ctx.step === 'auth') {
       return (
@@ -79,6 +103,10 @@ export const authEmailLookup: ToolModule = {
 export const enrollEmailTool: ToolModule = {
   toolId: 'enroll-email',
   meta: { icon: ICON, label: LABEL, hint: t('Ihre bestätigte E-Mail-Adresse, ohne Code') },
+  explain: () => ({
+    does: t('Die schon bestätigte E-Mail-Adresse wird zum Anmeldeverfahren - ohne neuen Code, denn der Nachweis liegt schon vor.'),
+    actor: t('Das Tool enroll-email im Orchestrator, ohne Eingabe.'),
+  }),
   render() {
     return null
   },
