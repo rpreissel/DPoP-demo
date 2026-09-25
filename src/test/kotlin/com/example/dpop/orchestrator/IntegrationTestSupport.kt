@@ -76,29 +76,35 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
     protected var currentBindingKeyRef: String = ""
 
     init {
-        beforeEach {
-            // Children first (FK order); ext_personenverzeichnis.person/freischaltcode seed data is left
-            // untouched. The union of every table any suite ever touches - deleting from one a
-            // given test never populated is a harmless no-op. account's own children cascade.
-            listOf(
-                "id_fsc.ident_tool_session", "id_eid.ident_tool_session",
-                "auth_sms.enroll_tool_session", "auth_sms.auth_tool_session", "auth_sms.lookup_tool_session", "auth_sms.enrollment",
-                "auth_password.enroll_tool_session", "auth_password.auth_tool_session", "auth_password.lookup_tool_session", "auth_password.enrollment",
-                "auth_email.confirm_tool_session", "auth_email.enroll_tool_session", "auth_email.auth_tool_session", "auth_email.lookup_tool_session",
-                "auth_device.enroll_tool_session", "auth_device.auth_tool_session", "auth_device.enrollment",
-                "auth_kobil.enroll_tool_session", "auth_kobil.auth_tool_session", "auth_kobil.enrollment",
-                // The foreign system's own rows. Wiped too, not because our retention covers them
-                // (it does not - kobil_mock is not ours) but because a test must not inherit a
-                // device binding from the previous one.
-                "kobil_mock.ssms_assertion", "kobil_mock.ssms_user",
-                "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
-                "auth_qr.login_request", "auth_qr.enrollment",
-                "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.session_event", "orchestrator.journey_log",
-                "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
-                "orchestrator.device_account_link", "orchestrator.attempt_throttle", "orchestrator.tool_availability", "orchestrator.dpop_proof_replay",
-                "orchestrator.feature_flag"
-            ).forEach { jdbcTemplate.update("DELETE FROM $it") }
-        }
+        beforeEach { resetDatabase() }
+    }
+
+    /**
+     * Wipes every table a suite may touch - run before each test, and by suites that need a clean
+     * slate more often than that (the model-based test resets before every generated run).
+     */
+    protected fun resetDatabase() {
+        // Children first (FK order); ext_personenverzeichnis.person/freischaltcode seed data is left
+        // untouched. The union of every table any suite ever touches - deleting from one a
+        // given test never populated is a harmless no-op. account's own children cascade.
+        listOf(
+            "id_fsc.ident_tool_session", "id_eid.ident_tool_session",
+            "auth_sms.enroll_tool_session", "auth_sms.auth_tool_session", "auth_sms.lookup_tool_session", "auth_sms.enrollment",
+            "auth_password.enroll_tool_session", "auth_password.auth_tool_session", "auth_password.lookup_tool_session", "auth_password.enrollment",
+            "auth_email.confirm_tool_session", "auth_email.enroll_tool_session", "auth_email.auth_tool_session", "auth_email.lookup_tool_session",
+            "auth_device.enroll_tool_session", "auth_device.auth_tool_session", "auth_device.enrollment",
+            "auth_kobil.enroll_tool_session", "auth_kobil.auth_tool_session", "auth_kobil.enrollment",
+            // The foreign system's own rows. Wiped too, not because our retention covers them
+            // (it does not - kobil_mock is not ours) but because a test must not inherit a
+            // device binding from the previous one.
+            "kobil_mock.ssms_assertion", "kobil_mock.ssms_user",
+            "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
+            "auth_qr.login_request", "auth_qr.enrollment",
+            "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.session_event", "orchestrator.journey_log",
+            "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
+            "orchestrator.device_account_link", "orchestrator.attempt_throttle", "orchestrator.tool_availability", "orchestrator.dpop_proof_replay",
+            "orchestrator.feature_flag"
+        ).forEach { jdbcTemplate.update("DELETE FROM $it") }
     }
 
     /**

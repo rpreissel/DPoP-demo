@@ -239,8 +239,10 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 **Phase B – Sicherheitsnetz spannen, bevor umgebaut wird (Tage)**
 
-11. **Modellbasierter Test** (P-1, Schicht 3) mit den ersten sechs Invarianten. Erwartung: findet
-    noch Dinge, die kein Review sah – die werden hier eingeschoben.
+11. ~~Modellbasierter Test~~ – erledigt 2026-09-25: `ModelBasedJourneyTest` (200 Seeds,
+    Schrumpfen auf die kürzeste Folge) prüft I-1 bis I-4, I-13, I-14 nach jedem Schritt. Gegenprobe:
+    ohne den S-1-Fix findet er S-1 selbst. Gefunden hat er M-5 – eingeschoben und behoben
+    (`JourneyService.start` bricht die laufende Kette ab).
 12. ~~ArchUnit `@BindingKey`-Regel und Invariantenregister~~ – erledigt 2026-09-25:
     `ApiBoundaryArchitectureTest`, [invarianten.md](invarianten.md) mit `InvariantRegisterTest`.
 13. ~~ArchUnit-Grenze Kern ↔ Fremdsystem-Simulation~~ – erledigt 2026-09-25:
@@ -250,7 +252,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 **Phase C – Zustandsraum verkleinern und verbieten (eine Woche)**
 
 14. **Schicht 0:** `active_tool_session_id` als Spalte, `ToolSession.status`.
-15. **Schicht 2:** die vier Constraints (M-5 wird hier endgültig).
+15. **Schicht 2:** die Constraints, soweit H2 sie ausdrücken kann (M-5 ist im Code behoben; ein
+    partieller Unique-Index geht mit H2 nicht).
 16. **M-4** Refresh verlangt erneute Anmeldung, Leerlauf-Ablauf, ein gemeinsamer Logout-Pfad,
     der Refresh-Token löscht und Keycloak-Session beendet.
 17. **M-6** eine Aussperr-Schwelle; **M-13** `deleteProvisionalAccount`, Vorgänger über

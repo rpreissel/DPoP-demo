@@ -274,6 +274,12 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-5 Mehrere laufende Journeys pro Kanal möglich
 
+> **Behoben (2026-09-25):** Vom modellbasierten Test (`ModelBasedJourneyTest`) ohne Vorwissen
+> gefunden und auf sieben Schritte geschrumpft (Verwaltung, Abbruch, Verwaltung, Peer-Login).
+> `JourneyService.start` bricht jetzt bei jeder neuen Journey auf oberster Ebene die noch laufende
+> samt pausierter Eltern ab – wie `startLogout` es schon tat. Ein partieller Unique-Index geht mit
+> H2 nicht; die Regel steht als I-3 im Invariantenregister.
+
 - **Wo:** `orchestrator/journey/JourneyService.kt:104-120` – `start` prüft nie `findActive`;
   `startManage`, `startPeerLogin`, `startDeleteAccount`, `raiseRequiredAcr` prüfen nur
   `state == AUTHENTICATED`. Kein DB-Constraint.

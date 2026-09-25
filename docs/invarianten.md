@@ -21,15 +21,17 @@ sie schließen soll.
 ## Kanal und Journey
 
 - **I-1 Ein beendeter Kanal (`LOGGED_OUT`, `EXPIRED`) wird nie wieder `AUTHENTICATED`.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`
+  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`
   - Lücke: kein Typ, kein Constraint – Fahrplan Phase C (Constraint) und D (`LiveChannel`).
 - **I-2 Eine verbrauchte, abgebrochene oder fehlgeschlagene Journey nimmt keine Tool-Ergebnisse mehr an.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`
+  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`
   - Lücke: gesichert durch `isCurrent` und das Ablaufen der ToolSession, nicht durch einen Typ – Phase D (`RunningJourney`).
 - **I-3 Ein Kanal hat höchstens eine laufende (`STARTED`) Journey.**
-  - Lücke: nur Konvention (Review M-5) – Phase C (partieller Unique-Index).
+  - Mechanismus: `test:ModelBasedJourneyTest` (fand die Verletzung, Review M-5), `type:JourneyService` (`start` bricht die laufende Kette ab)
+  - Lücke: kein DB-Constraint – H2 kennt keine partiellen Indizes; mit einer anderen Datenbank Phase C.
 - **I-4 Ein `AUTHENTICATED`-Kanal hat Evidenz mit mindestens einem Faktor.**
-  - Lücke: nur Konvention – Phase B (modellbasierter Test), Phase C (Constraint).
+  - Mechanismus: `test:ModelBasedJourneyTest`
+  - Lücke: kein Constraint – Phase C.
 - **I-5 Ein Kanal wechselt nie still das Konto; ein anderes Konto ist ein Fehler, kein Umbinden.**
   - Mechanismus: `test:KcChannelIntegrationTest`
 
@@ -54,9 +56,11 @@ sie schließen soll.
   - Mechanismus: `test:IdentKvnrToolHandlerTest`, `test:IdentEidAssignmentIntegrationTest`
   - Lücke: das Subjekt im `Failed` ist nicht per Typ erzwungen – Phase D.
 - **I-13 Je Konto höchstens eine aktive Instanz einer Singleton-Methode (z. B. Passwort).**
-  - Lücke: nur Konvention in `AccountService.addAuthenticationMethod` – Phase B (modellbasierter Test).
+  - Mechanismus: `test:ModelBasedJourneyTest` (für das Passwort)
+  - Lücke: kein Constraint, nur `AccountService.addAuthenticationMethod` – Phase C.
 - **I-14 Kein Gerätelink zeigt auf ein gelöschtes Konto.**
-  - Lücke: nur Konvention (Review M-13) – Phase C.
+  - Mechanismus: `test:ModelBasedJourneyTest`
+  - Lücke: kein Fremdschlüssel (Schemas je Modul, ADR-16), Review M-13 – Phase C.
 
 ## Keycloak
 

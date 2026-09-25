@@ -181,7 +181,10 @@ Registrierung oder ein Login war, erkennt man erst am tatsächlich gegangenen We
 ### Journey
 
 Eine **`AuthJourney`** ist ein laufender Durchlauf zu einem Intent. Sie gehört zu genau einer
-`ChannelSession` und lebt kürzer als diese; je Kanal ist immer höchstens eine Journey aktiv.
+`ChannelSession` und lebt kürzer als diese; je Kanal ist immer höchstens eine Journey aktiv. Beginnt
+eine neue Journey auf oberster Ebene, bricht `JourneyService.start` die noch laufende samt der für sie
+pausierten Eltern ab; nur eine Sub-Journey läuft neben ihrer pausierten Eltern-Journey
+([Invarianten](invarianten.md) I-3).
 
 Die Journey hält, was für den ganzen Weg gilt (Intent, Konto, Versuchsbudget, Lebenszyklus), aber
 nicht, wo der Nutzer gerade steht. Das steht im `JourneyState`.

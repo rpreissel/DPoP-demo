@@ -108,6 +108,14 @@ class JourneyService(
         parentJourneyId: UUID? = null,
         seedAction: Action? = null
     ): Step {
+        // One running journey per channel (docs/invarianten.md I-3, review 2026-09 M-5). A new
+        // top-level journey replaces whatever is still running on the channel - the whole chain,
+        // including a parent suspended for a sub-journey - exactly as startLogout always did by
+        // hand. A sub-journey (parentJourneyId set) is the one legitimate second journey: its parent
+        // was suspended for it on purpose and is not STARTED.
+        if (parentJourneyId == null) {
+            findActive(checkNotNull(channel.channelSessionId))?.let { cancelChain(it, channel) }
+        }
         val journey = AuthJourney(channel.channelSessionId, intent, Instant.now().plus(JOURNEY_TTL))
         journey.accountId = channel.accountId
         journey.parentJourneyId = parentJourneyId
@@ -212,6 +220,18 @@ class JourneyService(
     fun cancel(journey: AuthJourney, channel: ChannelSession) {
         markCancelled(journey, channel)
         fallBack(journey, channel)
+    }
+
+    /** Cancels [running] and every ancestor suspended for it - nothing of the chain is left waiting. */
+    private fun cancelChain(running: AuthJourney, channel: ChannelSession) {
+        cancel(running, channel)
+        var parentId = running.parentJourneyId
+        while (parentId != null) {
+            val parent = journeyRepository.findByIdOrNull(parentId) ?: break
+            if (parent.lifecycle != JourneyLifecycle.SUSPENDED) break
+            markCancelled(parent, channel)
+            parentId = parent.parentJourneyId
+        }
     }
 
     private fun markCancelled(journey: AuthJourney, channel: ChannelSession) {
