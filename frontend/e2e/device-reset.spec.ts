@@ -13,7 +13,9 @@ test('resetting a linked device leads to the start screen of an unknown device',
 
   // Once on the welcome, once more to answer the backend's own "really sign out?" prompt.
   await phone.getByRole('button', { name: ui('Abmelden'), exact: true }).click()
-  await expect(phone.getByRole('heading', { name: /./ }).first()).toBeVisible()
+  // The prompt replaces the welcome - wait for that, or the second click hits the welcome's own
+  // button again (it did on the slower CI machine).
+  await expect(phone.getByRole('heading', { name: new RegExp(`^${ui('Willkommen, {name}!').split('{name}')[0]}`) })).toBeHidden()
   await phone.getByRole('button', { name: ui('Abmelden'), exact: true }).click()
   // Signing out lands straight on the start screen - no page in between.
   await expect(phone.getByRole('button', { name: ui('Anderes Konto benutzen') })).toBeVisible()
