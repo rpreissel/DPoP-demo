@@ -326,9 +326,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 25. ~~M-9 / M-10~~ – erledigt 2026-09-25: Antworten an Keycloak signiert und von der Extension
     geprüft (TLS auf dem Hop bleibt Phase G); Realm-Neuaufbau nur im Demomodus.
 26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.
-27. **Port-Verträge der Fremdsysteme vervollständigen** (ADR-35): je Port, was ein reales System
-    zusagen muss (Signatur, Frische, serverseitiges Ergebnis, Ablage ohne Klartext-Rückschluss) –
-    KOBIL, Nect, eID, Personenverzeichnis.
+27. ~~Port-Verträge der Fremdsysteme~~ – erledigt 2026-09-25: [port-vertraege.md](port-vertraege.md)
+    für Personenverzeichnis, KOBIL, Nect, eID-Server und die Zustellung von TAN/Code.
 
 **Phase F – Härtung und Hygiene (nach Bedarf)**
 
