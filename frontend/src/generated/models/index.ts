@@ -936,6 +936,67 @@ export interface JourneyDebugStep {
     stateType: string;
 }
 /**
+ * 
+ * @export
+ * @interface KcAccountView
+ */
+export interface KcAccountView {
+    /**
+     * 
+     * @type {number}
+     * @memberof KcAccountView
+     */
+    accountId: number;
+    /**
+     * 
+     * @type {{ [key: string]: string; }}
+     * @memberof KcAccountView
+     */
+    attributes: { [key: string]: string; };
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof KcAccountView
+     */
+    authMethods: Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof KcAccountView
+     */
+    email?: string;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof KcAccountView
+     */
+    emailVerified: boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof KcAccountView
+     */
+    firstName: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KcAccountView
+     */
+    lastName: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KcAccountView
+     */
+    publicKeyJwk?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof KcAccountView
+     */
+    username: string;
+}
+/**
  * Upsert body for the kc-facade's one facade-specific endpoint (docs/05-api.md Abschnitt 3). All fields are optional. accountId is the account Keycloak already knows (sub vorhanden) - the channel is bound to it immediately, once, never overwritten by a later call. targetAcr is Keycloak's requested LoA level, already translated into an orchestrator ACR string, and only raises the channel's floor, never lowers it. amr lists which native Keycloak authenticators (never orchestrator tools) just proved something THIS flow run, one entry per proof - method/loa/factorTypes are resolved server-side from a NativeAuthenticatorDescriptor (see AmrEntry), the kc-facade's own mirror of a ToolDescriptor, not resolved from the orchestrator's own catalog (which stays entirely ignorant of native authenticators). Merged into the channel's evidence and re-checked against the current floor exactly like any other proof; no separate 'combined native acr' field exists, since the orchestrator derives that itself.
  * @export
  * @interface KcChannelUpsertRequest

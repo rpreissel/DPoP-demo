@@ -105,22 +105,14 @@ class KcTokenProvider(
      * assertion claims instead - `AccountTokenGrantType` (keycloak-extension) copies them onto the
      * Keycloak session so the real token ends up with the same acr/amr.
      *
-     * Self-healing on purpose: [accountKeypairService] generates the keypair on demand rather than
-     * requiring it to already exist, and every full re-mint re-pushes the public key onto Keycloak
-     * regardless. `KeycloakAccountSyncListener`'s own generation (at account-sync time) is normally
-     * long done before any token is ever requested - but a brand-new account's very first
-     * `.../token` call can race ahead of that `AFTER_COMMIT` listener (observed live: a fresh
-     * registration's first token request failed with "no keypair", a retry moments later
-     * succeeded). Rather than chase that ordering, this method just never depends on it: it holds
-     * everything needed to generate and publish the keypair itself, so first use is always
-     * correct instead of relying on a sync that is best-effort by design anyway.
+     * [accountKeypairService] generates the keypair on demand. Nothing is pushed to Keycloak: the
+     * grant reads the public key through the account lookup (`KcAccountLookupController`, review
+     * 2026-09 P-3), so the key exists for Keycloak the moment it exists here.
      */
     private fun signAssertion(authContext: AuthContext): String {
         val accountId = checkNotNull(authContext.accountId)
         val keypair = accountKeypairService.keypairFor(accountId)
         val account = accountService.findAccount(accountId)
-        val activeMethods = account?.activeAuthenticationMethods?.map { it.method }?.distinct().orEmpty()
-        keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)
         val evidence = authContext.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence()
 
         val privateKey = ECKey.parse(keypair.privateKeyJwk)

@@ -57,6 +57,9 @@ bekommt bei der nächsten Journey dieselben Befunde in neuer Form.
 
 ### P-3 Die Keycloak-Anbindung führt zwei Wahrheiten
 
+> **Behoben (2026-09-25):** Keycloak liest die Konten statt sie zu spiegeln
+> ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)).
+
 - **Beobachtung:** Orchestrator-Konto und Keycloak-User werden per Best-Effort-Event
   synchronisiert, das Verknüpfungsattribut `orchestratorAccountId` ist nicht eindeutig, E-Mail
   dient als Fallback-Schlüssel (S-2), ein Signaturschlüssel trägt drei Rollen (S-3), die Antwort
@@ -325,7 +328,10 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 24. ~~M-7~~ – entschieden 2026-09-25: bleibt, abgewogen in ADR-37.
 25. ~~M-9 / M-10~~ – erledigt 2026-09-25: Antworten an Keycloak signiert und von der Extension
     geprüft (TLS auf dem Hop bleibt Phase G); Realm-Neuaufbau nur im Demomodus.
-26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.
+26. ~~P-3: Keycloak liest statt spiegelt~~ – erledigt 2026-09-25 ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)):
+    Nutzer-Federation ohne Import, feste Komponenten-Id (stabiles `sub`), Cache höchstens 60 s,
+    Public Key wird gelesen statt hochgeladen; es bleibt nur das Lösch-Ereignis. Voll-Abgleich,
+    Spiegel-Konfliktregeln und `findOrCreateUser` entfallen – ausgelegt auf 10 Millionen Konten und mehr.
 27. ~~Port-Verträge der Fremdsysteme~~ – erledigt 2026-09-25: [port-vertraege.md](port-vertraege.md)
     für Personenverzeichnis, KOBIL, Nect, eID-Server und die Zustellung von TAN/Code.
 

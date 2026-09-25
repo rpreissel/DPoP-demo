@@ -58,7 +58,7 @@ public class OrchestratorStorageProviderFactory implements UserStorageProviderFa
 
     @Override
     public OrchestratorStorageProvider create(KeycloakSession session, ComponentModel model) {
-        return new OrchestratorStorageProvider(OrchestratorSettings.from(model).newClient());
+        return new OrchestratorStorageProvider(session, model, OrchestratorSettings.from(model).newClient());
     }
 
     /**

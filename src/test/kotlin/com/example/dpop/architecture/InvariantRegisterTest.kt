@@ -20,10 +20,14 @@ class InvariantRegisterTest : BehaviorSpec({
     val register = root.resolve("docs/invarianten.md").readText()
 
     fun filesUnder(dir: String, vararg extensions: String): List<Path> =
-        Files.walk(root.resolve(dir)).use { paths -> paths.filter { it.extension in extensions }.toList() }
+        if (!Files.exists(root.resolve(dir))) emptyList()
+        else Files.walk(root.resolve(dir)).use { paths -> paths.filter { it.extension in extensions }.toList() }
 
-    val testClasses = filesUnder("src/test", "kt", "java").map { it.name.substringBeforeLast('.') }.toSet()
-    val mainClasses = filesUnder("src/main", "kt", "java").map { it.name.substringBeforeLast('.') }.toSet() +
+    // The Keycloak extension and the realm migrations belong to the core as well (ADR-35) - an
+    // invariant may rest on a type or test there.
+    val modules = listOf("", "keycloak-extension/", "keycloak-migrations/")
+    val testClasses = modules.flatMap { filesUnder("${it}src/test", "kt", "java") }.map { it.name.substringBeforeLast('.') }.toSet()
+    val mainClasses = modules.flatMap { filesUnder("${it}src/main", "kt", "java") }.map { it.name.substringBeforeLast('.') }.toSet() +
         filesUnder("src/main/kotlin", "kt").flatMap { file ->
             Regex("""(?m)^(?:[a-z ]*)(?:class|interface|object|annotation class|data class|enum class) (\w+)""")
                 .findAll(file.readText()).map { it.groupValues[1] }.toList()

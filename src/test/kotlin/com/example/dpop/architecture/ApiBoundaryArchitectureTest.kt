@@ -39,7 +39,6 @@ class ApiBoundaryArchitectureTest : BehaviorSpec({
     val guardedByAdminLogin = setOf(
         "com.example.dpop.orchestrator.admin.AdminAccountsController",
         "com.example.dpop.orchestrator.admin.AdminJourneyLogController",
-        "com.example.dpop.orchestrator.admin.KeycloakSyncController",
         "com.example.dpop.orchestrator.admin.LoginThemeController",
         "com.example.dpop.orchestrator.admin.RegistrationOrderController",
         "com.example.dpop.orchestrator.admin.ToolAvailabilityController",
@@ -47,6 +46,7 @@ class ApiBoundaryArchitectureTest : BehaviorSpec({
     val guardedByPeerAuth = setOf(
         "com.example.dpop.orchestrator.api.v1.kc.KcChannelController",
         "com.example.dpop.orchestrator.api.v1.kc.MgmtPasswordController",
+        "com.example.dpop.orchestrator.api.v1.kc.KcAccountLookupController",
     )
     val publicByDesign = mapOf(
         "com.example.dpop.orchestrator.api.v1.TextsController" to "the wordings every client renders, before any channel exists",

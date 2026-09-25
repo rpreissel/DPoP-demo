@@ -237,6 +237,36 @@ final class OrchestratorClient {
         send("POST", path, String.valueOf(accountId), body);
     }
 
+    /**
+     * The account behind a federated user, read through (review 2026-09, P-3) - by id, the peer-auth
+     * anchor naming the account like the password endpoints do. {@code null} when there is no such account.
+     */
+    KcAccount accountById(long accountId) throws IOException, InterruptedException {
+        return lookup("/orchestrator/api/v1/kc/accounts/" + accountId, String.valueOf(accountId));
+    }
+
+    /** By exact email - never a list; {@code null} when no account holds this address. */
+    KcAccount accountByEmail(String email) throws IOException, InterruptedException {
+        return lookup("/orchestrator/api/v1/kc/accounts?email=" + urlEncode(email), ACCOUNT_LOOKUP_ANCHOR);
+    }
+
+    /** By username ({@code account-<id>} or the email); {@code null} when there is none. */
+    KcAccount accountByUsername(String username) throws IOException, InterruptedException {
+        return lookup("/orchestrator/api/v1/kc/accounts?username=" + urlEncode(username), ACCOUNT_LOOKUP_ANCHOR);
+    }
+
+    /** The peer-auth anchor of a search by address - {@code KcAccountLookupController.LOOKUP_ANCHOR}. */
+    private static final String ACCOUNT_LOOKUP_ANCHOR = "account-lookup";
+
+    private KcAccount lookup(String path, String anchor) throws IOException, InterruptedException {
+        try {
+            return KcAccount.from(send("GET", path, anchor, null));
+        } catch (OrchestratorApiException e) {
+            if (e.status == 404) return null;
+            throw e;
+        }
+    }
+
     private JsonNode send(String method, String path, String channelSessionId, JsonNode body) throws IOException, InterruptedException {
         String url = baseUrl + path;
         String assertion = signer.sign(method, url, channelSessionId);

@@ -64,8 +64,8 @@ sie schließen soll.
 
 ## Keycloak
 
-- **I-15 Der Account-Sync übernimmt nie den Keycloak-User eines anderen, noch bestehenden Kontos.**
-  - Mechanismus: `test:KeycloakMirrorResolutionTest`, `test:KeycloakAccountSyncServiceTest`
+- **I-15 Ein Konto ist genau ein Keycloak-Nutzer, und kein Nutzer steht für ein anderes Konto.**
+  - Mechanismus: `type:OrchestratorUser` (die Nutzer-Id ist `f:<Komponente>:<accountId>`, berechnet statt gesucht; es gibt keine Kopie, die ein anderes Konto tragen könnte), `test:OrchestratorUserTest`, `test:KcAccountLookupIntegrationTest`
 - **I-16 Jeder Keycloak-Client des Orchestrators signiert mit seinem eigenen Schlüssel.**
   - Mechanismus: `test:OrchestratorClientAssertionSignerTest`
 - **I-17 Das Vertrauen in ein selbstsigniertes Keycloak-Zertifikat gilt nie JVM-weit.**

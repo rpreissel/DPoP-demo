@@ -215,42 +215,38 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
   über Hunderte Kandidaten Zeilensperren so lange halten, wie Keycloak zum Antworten braucht.
   `OrchestratorArchitectureTest` prüft diese Regel inzwischen für den ganzen Orchestrator.
 
-## 3a) Keycloak-Spiegelung: offene Zustellungen stehen in einer Tabelle
+## 3a) Keycloak liest die Konten – keine Spiegelung
 
-Nicht nur Änderungen am Konto lösen die Spiegelung aus, sondern auch Änderungen im
-Personenverzeichnis: `PersonChanged` → Konto (`applyDirectoryChange`) → `AccountChanged(changed)`
-→ Keycloak. Beide Schritte stehen als Einträge in dieser Tabelle (ADR-34). Betrifft die Änderung
-nichts, was nach Keycloak gespiegelt wird, unterbleibt der Aufruf.
+Keycloak hält keine Kopie der Konten. Seine Nutzer-Federation (`OrchestratorStorageProvider`, ohne
+Import) liest ein Konto bei Bedarf beim Orchestrator nach (`KcAccountLookupController`): nach
+Konto-Id, exakter E-Mail-Adresse oder Benutzername, jeweils ein einzelner Zugriff über Primärschlüssel
+oder den eindeutigen E-Mail-Anker. Eine Liste aller Konten gibt es nicht; die Suche der Admin-Konsole
+findet nur exakte Treffer ([ADR-38](adr/ADR-038-keycloak-liest-konten.md), Review 2026-09 P-3).
 
-Jedes Konto mit bestätigter E-Mail-Adresse wird als Nutzer in Keycloak gespiegelt
-(`KeycloakAccountSyncListener`, nur im `keycloak`-Profil). Ohne Adresse fehlt Keycloak der
-Benutzername; die Spiegelung folgt dann mit der ersten Bestätigung.
+- **Was Keycloak zeigt:** Benutzername (die bestätigte E-Mail, sonst `account-<id>`), E-Mail, Vor- und
+  Nachname und die Attribute hinter den Token-Claims (`personId`, `kvnr`, `versnr`, `geburtsdatum`,
+  `strasse`, `plz`, `ort`). Für ein Konto mit Person gelten nur die Werte des Personenverzeichnisses,
+  für einen Interessenten der stärkste bestätigte Wert aus dem Konto; ein Konto ohne beides zeigt
+  Platzhalternamen. Alles davon ist in Keycloak schreibgeschützt.
+- **Frische:** Keycloak cacht einen föderierten Nutzer höchstens 60 Sekunden (Migration V2). Eine
+  geänderte Adresse oder ein geänderter Name ist spätestens dann sichtbar.
+- **Nutzer-Id und `sub`:** `f:orch-accounts:<accountId>`. Die Komponenten-Id ist fest
+  (`USER_STORAGE_COMPONENT_ID`); eine neu gewürfelte Id würde jedes `sub` ändern.
+- **Was Keycloak selbst hält:** Sitzungen, Fehlversuche (Brute-Force-Schutz), Zustimmungen und
+  sonstige föderierte Daten eines Nutzers.
+- **Konto gelöscht:** `KeycloakAccountSyncListener` räumt genau diese Keycloak-eigenen Daten ab
+  (`DELETE /admin/realms/{realm}/orchestrator-accounts/{accountId}`, `AccountRemoval`). Das ist das
+  einzige Ereignis, das Keycloak noch erreicht; eine Änderung am Konto braucht keinen Aufruf mehr.
 
-Gespiegelt werden Vor- und Nachname sowie die Attribute `personId`, `kvnr`, `versnr`,
-`geburtsdatum`, `strasse` (die ganze Straßenzeile), `plz` und `ort`. Für ein Konto, das einer Person
-zugeordnet ist, gelten nur die Werte des Personenverzeichnisses; ein dort geleertes Feld bleibt auch
-in Keycloak leer. Für einen Interessenten gilt der stärkste bestätigte Wert aus dem Konto; ein Konto
-ohne beides behält Platzhalternamen. `personId`, `kvnr` und `versnr` gibt es nur bei zugeordneten
-Konten. Sie läuft erst nach dem
-Festschreiben und bewusst ohne Garantie: Ein fehlgeschlagener Aufruf bei Keycloak darf eine bereits
-abgeschlossene Kontoänderung nicht nachträglich scheitern lassen.
+Das Abräumen nach einer Löschung läuft über die **Event Publication Registry** von Spring Modulith
+([ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md)), damit ein fehlgeschlagener
+Aufruf nicht spurlos verloren geht:
 
-Früher blieb bei einem Fehler aber gar nichts zurück. Wiederholt wurde nur, wenn sich das Konto
-irgendwann noch einmal änderte, bei einem Konto, das sich nie wieder ändert, also nie. Das Konto
-existierte, der Nutzer in Keycloak fehlte, eine Anmeldung war unmöglich, und nirgends stand, dass
-es so war.
-
-Dafür gibt es jetzt die **Event Publication Registry** von Spring Modulith
-([ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md)):
-
-- Der Listener ist ein `@ApplicationModuleListener`. Bevor die Transaktion der Kontoänderung
+- Der Listener ist ein `@ApplicationModuleListener`. Bevor die Transaktion der Löschung
   festgeschrieben wird, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
 - Die Zeile wird erst abgeschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
   Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt“.
-- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), also ein Abgleich nach dem
-  anderen, über alle Konten hinweg. Die Registry garantiert nur, dass zugestellt wird, nicht in
-  welcher Reihenfolge. Mit dem gemeinsamen Async-Pool von Spring liefen die Abgleiche mehrerer
-  Konten parallel, und Keycloak lehnte gleichzeitige Anlagen in einem frischen Realm teilweise ab.
+- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), eine Löschung nach der anderen.
 - Offene Zeilen werden nach fünf Minuten erneut zugestellt (`spring.modulith.events.staleness.*`),
   ebenso beim Neustart (`republish-outstanding-events-on-restart`).
 - Die Zeile enthält den Status, die Zahl der Zustellversuche und den Zeitpunkt der letzten
@@ -276,8 +272,8 @@ Zwei Dinge sollte man wissen:
   Modulith-Version muss man sie damit vergleichen.
 
 `KeycloakSessionLogoutListener` nutzt die Registry bewusst nicht. Eine nicht beendete Sitzung in
-Keycloak läuft nach wenigen Minuten von selbst ab; ein fehlender Nutzer in Keycloak fehlt dagegen
-dauerhaft. Nur der zweite Fall braucht eine Wiederholung.
+Keycloak läuft nach wenigen Minuten von selbst ab; die Sitzungen eines gelöschten Kontos dagegen
+nicht. Nur der zweite Fall braucht eine Wiederholung.
 
 ## 3b) Das System läuft als eine einzige Instanz
 

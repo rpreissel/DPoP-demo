@@ -7,7 +7,7 @@ import { ApiError, fetchLoginTheme, setLoginTheme, type LoginTheme } from '../ap
  * Switches Keycloak's login pages between the FreeMarker and the Keycloakify theme
  * (docs/ideen/keycloakify-statt-freemarker.md) - realm-wide and at once, even for a login already
  * under way. The endpoint only exists under the `keycloak` Spring profile; a 404 means "no
- * Keycloak here", like KeycloakSyncView.
+ * Keycloak here".
  */
 export function AdminLoginThemeView() {
   const [theme, setTheme] = useState<LoginTheme | null>(null)

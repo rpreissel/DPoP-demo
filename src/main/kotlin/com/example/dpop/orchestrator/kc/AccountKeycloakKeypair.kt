@@ -10,8 +10,8 @@ import java.time.Instant
 
 /**
  * One asymmetric keypair per account, used only by the `keycloak` profile's real
- * token grant: the public half is mirrored onto the account's Keycloak user as a genuine Credential
- * ([KeycloakAdminClient.setPublicKeyCredential]), the private half signs the assertion
+ * token grant: Keycloak reads the public half through the account lookup ([KcAccountViews]), the
+ * private half signs the assertion
  * [com.example.dpop.orchestrator.session.KcTokenProvider] presents to Keycloak's custom
  * `urn:dpop-demo:account-token` grant. Demo-only: [privateKeyJwk] is plaintext, not
  * encrypted at rest - it is never returned by any API, only ever read back by

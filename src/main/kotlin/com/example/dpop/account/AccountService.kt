@@ -601,7 +601,7 @@ class AccountService(
     fun findAccount(accountId: Long): AccountProfile? =
         accountRepository.findByIdOrNull(accountId)?.let { toProfile(it) }
 
-    /** Every account id that currently exists - the full-reconciliation counterpart of the per-event [AccountChanged]/[AccountDeleted] (see `KeycloakAccountSyncService`'s explicit "Sync with Keycloak" action, which also needs to find KEYCLOAK-side orphans nothing here still references). */
+    /** Every account id that currently exists - for the demo admin pages only; nothing in the login path may depend on a full list (10 million+ accounts, review 2026-09 P-3). */
     @Transactional(readOnly = true)
     fun allAccountIds(): List<Long> = accountRepository.findAllIds()
 

@@ -338,7 +338,7 @@ export function setRegistrationOrder(enrollFirst: boolean): Promise<void> {
 /** Which login theme Keycloak shows (docs/ideen/keycloakify-statt-freemarker.md). */
 export type LoginTheme = 'FREEMARKER' | 'KEYCLOAKIFY'
 
-/** Only under the server's `keycloak` profile - 404s otherwise, like syncKeycloak. */
+/** Only under the server's `keycloak` profile - 404s otherwise. */
 export function fetchLoginTheme(): Promise<{ theme: LoginTheme }> {
   return callPlain('GET', `${ADMIN_PATH}/login-theme`)
 }
@@ -354,18 +354,6 @@ export function setLoginTheme(theme: LoginTheme): Promise<void> {
  */
 export function setDemoLoginTheme(theme: LoginTheme): Promise<void> {
   return callPlain('PUT', '/orchestrator/demo/login-theme', { theme })
-}
-
-export interface KeycloakSyncResult {
-  upserted: number
-  deletedOrphans: number
-  /** Accounts left unsynced because their address is worn by another account's Keycloak user. */
-  conflicts: number
-}
-
-/** Only exists when the backend runs with the `keycloak` Spring profile active - 404s otherwise, which KeycloakSyncView treats as "feature not available here", not an error. */
-export function syncKeycloak(): Promise<KeycloakSyncResult> {
-  return callPlain('POST', `${ADMIN_PATH}/keycloak/sync`)
 }
 
 /** Same shape as JourneyLogResponse, plus who each account id is (register display name). */

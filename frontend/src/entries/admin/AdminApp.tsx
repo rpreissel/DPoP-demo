@@ -16,7 +16,6 @@ import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilit
 import { ChannelNav, type NavTab } from '../../components/ChannelNav'
 import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
 import { JourneyLogView } from '../../components/JourneyLogView'
-import { KeycloakSyncView } from '../../components/KeycloakSyncView'
 import { useHashTab } from '../../useHashTab'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
@@ -70,7 +69,6 @@ export function AdminApp() {
             <AdminToolAvailabilityView />
             <AdminRegistrationOrderView />
             <AdminLoginThemeView />
-            <KeycloakSyncView />
             <DeveloperToolsCard />
           </>
         )}

@@ -26,6 +26,8 @@ dependencies {
     compileOnly("org.keycloak:keycloak-server-spi:$keycloakVersion")
     compileOnly("org.keycloak:keycloak-server-spi-private:$keycloakVersion")
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
+    // AbstractUserAdapterFederatedStorage - der Adapter fuer foederierte Nutzer ohne Import (P-3).
+    compileOnly("org.keycloak:keycloak-model-storage:$keycloakVersion")
 
     // Same JOSE/JWT library AND version the orchestrator's PeerAuthValidator uses - one entry in
     // the version catalog, so ES256 signing on this side and verification on the orchestrator side

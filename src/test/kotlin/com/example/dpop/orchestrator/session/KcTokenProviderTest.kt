@@ -151,7 +151,6 @@ class KcTokenProviderTest : BehaviorSpec({
             every { accountKeypairService.keypairFor(accountId) } returns kp
             val assertionSlot = slot<String>()
             val keycloakAdminClient = mockk<KeycloakAdminClient>()
-            every { keycloakAdminClient.setPublicKeyCredential(accountId, kp.publicKeyJwk, any()) } returns Unit
             every { keycloakAdminClient.requestAccountToken(accountId, capture(assertionSlot)) } returns
                 AccountTokenResponse("real-access-token", 300, "fresh-refresh", 600)
             val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevel.LOA2 }
@@ -177,7 +176,8 @@ class KcTokenProviderTest : BehaviorSpec({
             result.accessToken shouldBe "real-access-token"
             ctx.accessToken shouldBe "real-access-token"
             ctx.refreshToken shouldBe "fresh-refresh"
-            verify { keycloakAdminClient.setPublicKeyCredential(accountId, kp.publicKeyJwk, listOf("password")) }
+            // Nothing is pushed to Keycloak any more - it reads the public key through the account
+            // lookup (review 2026-09, P-3).
 
             val jwt = SignedJWT.parse(assertionSlot.captured)
             jwt.verify(ECDSAVerifier(com.nimbusds.jose.jwk.ECKey.parse(kp.publicKeyJwk))) shouldBe true

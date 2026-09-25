@@ -3,7 +3,6 @@ package com.example.dpop.kcext.grant;
 import com.example.dpop.kcext.AccountUsers;
 
 import com.example.dpop.kcext.OrchestratorNotes;
-import com.example.dpop.kcext.credential.OrchestratorPublicKeyCredential;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -75,11 +74,10 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
             return reject("Unknown or disabled account: " + accountId);
         }
 
-        String publicKeyJwk = user.credentialManager()
-                .getStoredCredentialsByTypeStream(OrchestratorPublicKeyCredential.TYPE)
-                .findFirst()
-                .map(org.keycloak.credential.CredentialModel::getSecretData)
-                .orElse(null);
+        // Read fresh from the orchestrator, not from the (up to 60 s cached) user: the orchestrator
+        // mints the keypair right before its first grant call, so a user cached a moment earlier
+        // would not know the key yet (review 2026-09, P-3 - nothing is uploaded any more).
+        String publicKeyJwk = currentPublicKey(accountId);
         if (publicKeyJwk == null) {
             return reject("Account has no registered public key: " + accountId);
         }
@@ -156,6 +154,14 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
 
     private UserModel findUserByAccountId(String accountId) {
         return AccountUsers.findByAccountId(session, realm, accountId);
+    }
+
+    private String currentPublicKey(String accountId) {
+        try {
+            return AccountUsers.currentPublicKey(session, Long.parseLong(accountId));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /** The verified assertion's own claims (including acr/amr, if present) - {@code null} if signature, subject, audience, or expiry don't check out. */

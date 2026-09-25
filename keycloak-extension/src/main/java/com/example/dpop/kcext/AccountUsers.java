@@ -3,19 +3,14 @@ package com.example.dpop.kcext;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
-
-import java.util.List;
-import java.util.stream.Stream;
+import org.keycloak.storage.StorageId;
 
 /**
- * The one way this extension resolves an orchestrator account to its Keycloak user: the user
- * carrying {@code orchestratorAccountId}. Logins, account tokens and public-key credentials all go
- * through here.
- *
- * <p>More than one carrier is a conflict, not a choice: picking the first would hand either user's
- * session this account's tokens, depending on nothing but storage order (review 2026-09, S-2). It is
- * refused with an {@link IllegalStateException}; the orchestrator's account sync never creates a
- * second carrier.
+ * The one way this extension resolves an orchestrator account to its Keycloak user. The user IS the
+ * account, read through the federation (review 2026-09, P-3) - so the lookup is by id,
+ * {@code f:<component>:<accountId>}, a single read. It used to be a search over a user attribute,
+ * with a conflict check for the case that two mirrors carried the same account; without mirrors
+ * there is nothing that could carry it twice (review 2026-09, S-2).
  */
 public final class AccountUsers {
 
@@ -24,16 +19,27 @@ public final class AccountUsers {
     private AccountUsers() {
     }
 
-    /** The account's Keycloak user, or {@code null} if it has none yet. */
+    /** The account's Keycloak user, or {@code null} if there is no such account. */
     public static UserModel findByAccountId(KeycloakSession session, RealmModel realm, String accountId) {
-        try (Stream<UserModel> matches = session.users()
-                .searchForUserByUserAttributeStream(realm, ACCOUNT_ID_ATTRIBUTE, accountId)) {
-            List<UserModel> users = matches.limit(2).toList();
-            if (users.size() > 1) {
-                throw new IllegalStateException(
-                        "More than one Keycloak user carries " + ACCOUNT_ID_ATTRIBUTE + "=" + accountId);
-            }
-            return users.isEmpty() ? null : users.get(0);
+        return OrchestratorStorageProviderFactory.componentIn(realm)
+                .map(component -> session.users().getUserById(realm, StorageId.keycloakId(component, accountId)))
+                .orElse(null);
+    }
+
+    /**
+     * The account's public key for the account-token grant (ADR-9), read fresh from the orchestrator -
+     * past Keycloak's user cache, because the orchestrator mints the keypair right before its first
+     * grant call. {@code null} when there is no account, no key yet, or the orchestrator did not answer.
+     */
+    public static String currentPublicKey(KeycloakSession session, long accountId) {
+        try {
+            KcAccount account = OrchestratorSettings.of(session).newClient().accountById(accountId);
+            return account == null ? null : account.publicKeyJwk();
+        } catch (java.io.IOException e) {
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
         }
     }
 }

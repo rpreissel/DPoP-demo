@@ -204,3 +204,15 @@ private fun parse(field: KParameter, raw: String): Any =
 fun interface KeycloakSetupSource {
     fun variant(name: String): KeycloakSetup
 }
+
+/**
+ * Die feste Id der Nutzer-Federation (`OrchestratorStorageProvider`). Keycloak bildet daraus die Id
+ * jedes föderierten Nutzers - `f:<diese Id>:<accountId>` - und damit das `sub` jedes Tokens. Eine
+ * bei jedem Aufbau neu gewürfelte Id würde bei zehn Millionen Konten jedes `sub`, jede Zustimmung
+ * und jede Sitzung auf einen Schlag ändern (Review 2026-09, P-3). Der Orchestrator rechnet mit
+ * derselben Konstante, statt die Komponente zu suchen.
+ */
+const val USER_STORAGE_COMPONENT_ID = "orch-accounts"
+
+/** Die Keycloak-Id des föderierten Nutzers zu [accountId] (`StorageId` in Keycloak). */
+fun federatedUserId(accountId: Long): String = "f:$USER_STORAGE_COMPONENT_ID:$accountId"

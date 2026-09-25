@@ -57,6 +57,10 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-2 Keycloak-Account-Sync übernimmt fremde Keycloak-User per E-Mail-Treffer
 
+> **Gegenstandslos seit 2026-09-25:** Es gibt keinen Sync mehr, der Nutzer übernehmen könnte –
+> Keycloak liest die Konten ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)). Die Nutzer-Id ist die
+> Konto-Id, berechnet statt gesucht. Die Absicherungen unten beschreiben den Stand davor.
+
 > **Behoben (2026-09-25):** Der Sync sucht den Spiegel zuerst über `orchestratorAccountId` und
 > übernimmt einen User per E-Mail nur, wenn er keinem noch bestehenden anderen Konto gehört
 > (`resolveMirror` in `KeycloakAdminClient.kt`, Unit-Test `KeycloakMirrorResolutionTest`); mehr als

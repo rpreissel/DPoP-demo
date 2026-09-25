@@ -57,8 +57,8 @@ class KeycloakSyncExecutorTest : BehaviorSpec() {
         }
 
         given("the real KeycloakAccountSyncListener") {
-            then("both its listeners are routed to the sync executor") {
-                listOf("onAccountChanged", "onAccountDeleted").forEach { name ->
+            then("its deletion listener is routed to the sync executor") {
+                listOf("onAccountDeleted").forEach { name ->
                     val method = KeycloakAccountSyncListener::class.java.methods.single { it.name == name }
                     AnnotatedElementUtils.findMergedAnnotation(method, Async::class.java)?.value shouldBe KEYCLOAK_SYNC_EXECUTOR
                 }

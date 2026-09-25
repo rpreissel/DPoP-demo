@@ -156,7 +156,14 @@ public class OrchestratorAuthenticator implements Authenticator {
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
 
         if (response.authDataAccountId() != null && context.getUser() == null) {
-            UserModel user = findOrCreateUser(context, response.authDataAccountId());
+            UserModel user = AccountUsers.findByAccountId(context.getSession(), context.getRealm(), String.valueOf(response.authDataAccountId()));
+            if (user == null) {
+                // The orchestrator just named this account - not finding it is an inconsistency,
+                // never a reason to invent a user (review 2026-09, P-3: Keycloak creates no users).
+                LOG.errorf("Orchestrator named account %d, but the federation does not know it", response.authDataAccountId());
+                context.failure(AuthenticationFlowError.INTERNAL_ERROR);
+                return;
+            }
             context.setUser(user);
             authSession.setAuthenticatedUser(user);
         }
@@ -240,28 +247,6 @@ public class OrchestratorAuthenticator implements Authenticator {
         OrchestratorNextDispatch.Unhandled unhandled = (OrchestratorNextDispatch.Unhandled) outcome;
         LOG.warnf("Unhandled orchestrator next: type=%s step=%s", unhandled.next().type(), unhandled.next().step());
         context.failure(AuthenticationFlowError.INTERNAL_ERROR);
-    }
-
-    private UserModel findOrCreateUser(AuthenticationFlowContext context, long accountId) {
-        KeycloakSession session = context.getSession();
-        RealmModel realm = context.getRealm();
-        UserProvider users = session.users();
-        UserModel existing = AccountUsers.findByAccountId(session, realm, String.valueOf(accountId));
-        if (existing != null) return existing;
-        // First time this account authenticates through Keycloak - same pattern as
-        // RegistrationUserCreation: mint a Keycloak user record and attach the orchestrator's own
-        // identity via a durable attribute, so every later step-up can look it back up by it.
-        UserModel created = users.addUser(realm, "orchestrator-account-" + accountId);
-        created.setEnabled(true);
-        created.setSingleAttribute(OrchestratorNotes.USER_ATTR_ACCOUNT_ID, String.valueOf(accountId));
-        // Routes the "password" credential type to OrchestratorStorageProvider instead of
-        // Keycloak's own built-in JPA password provider (DPoP-demo-25q) - Keycloak dispatches CredentialInputValidator/-Updater for a
-        // federation-linked user to the linked UserStorageProvider component, so this is enough on
-        // its own; no provider-priority configuration needed. The component itself is provisioned
-        // once per realm by the migration (keycloak-migrations/src/main/resources/keycloak-migrations/V1__realm.kc.kts).
-        OrchestratorStorageProviderFactory.componentIn(realm)
-                .ifPresent(component -> created.setFederationLink(component.getId()));
-        return created;
     }
 
     /**
