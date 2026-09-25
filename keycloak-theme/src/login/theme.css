@@ -26,8 +26,19 @@ body {
 }
 
 .orc-topbar {
+  display: flex;
+  align-items: center;
   height: var(--orc-header-height);
+  padding: 0 1rem;
   background: var(--orc-color-surface);
+}
+
+.orc-note-header {
+  width: 100%;
+  max-width: var(--orc-page-width);
+  margin: 0 auto;
+  font-size: var(--orc-font-size-label);
+  color: var(--orc-color-text);
 }
 
 .orc-main {

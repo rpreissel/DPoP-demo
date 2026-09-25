@@ -1,11 +1,11 @@
 <#import "template.ftl" as layout>
-<#import "made-with.ftl" as madeWith>
+<#import "page-notes.ftl" as pageNotes>
 <#import "demo-person-picker.ftl" as demoPerson>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
         ${title}
     <#elseif section = "form">
-        <@madeWith.note/>
+        <@pageNotes.notes/>
         <#if hint??>
             <p class="orchestrator-subtitle">${hint}</p>
         </#if>

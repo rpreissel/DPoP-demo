@@ -1,10 +1,10 @@
 <#import "template.ftl" as layout>
-<#import "made-with.ftl" as madeWith>
+<#import "page-notes.ftl" as pageNotes>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
         ${t.of("Web-Login per QR-Code erlauben")}
     <#elseif section = "form">
-        <@madeWith.note/>
+        <@pageNotes.notes/>
         <p class="orchestrator-subtitle">
             ${t.of("Erlaubt, dass Sie künftig eine Anmeldung auf der Website mit Ihrer angemeldeten App per QR-Code bestätigen. Ein zusätzliches Passwort brauchen Sie dafür nicht.")}
         </p>

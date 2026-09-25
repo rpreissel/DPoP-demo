@@ -1,10 +1,10 @@
 <#import "template.ftl" as layout>
-<#import "made-with.ftl" as madeWith>
+<#import "page-notes.ftl" as pageNotes>
 <@layout.registrationLayout displayMessage=true; section>
     <#if section = "header">
         ${t.of("Anmeldeverfahren verwalten")}
     <#elseif section = "form">
-        <@madeWith.note/>
+        <@pageNotes.notes/>
         <#if methods?size == 0>
             <p class="orchestrator-hint">${t.of("Noch keine Anmeldeverfahren aktiv.")}</p>
         <#else>
