@@ -8,7 +8,7 @@ import { t } from '../../texts'
 
 const ICON = '🛡️'
 const LABEL = t('KOBIL')
-const HINT = t('Gerätebindung über KOBIL, entsperrt per Biometrie oder Passwort')
+const HINT = t('An das Gerät gebunden über KOBIL, entsperrt per Biometrie oder Passwort')
 
 export const enrollKobilTool: ToolModule = {
   toolId: 'enroll-kobil',

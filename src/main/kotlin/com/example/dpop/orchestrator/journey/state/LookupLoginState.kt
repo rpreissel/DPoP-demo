@@ -73,9 +73,9 @@ sealed interface LookupLoginState : JourneyState {
         override val active: ToolRef? get() = null
         override val prompt: Prompt get() = Prompt.Confirm(
             title = Text("Dieses Gerät merken?"),
-            description = Text("Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch ohne Bindung fortfahren – dann melden Sie sich künftig wieder über E-Mail und Passwort an."),
+            description = Text("Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch ohne Verknüpfung fortfahren – dann melden Sie sich künftig wieder über E-Mail und Passwort an."),
             confirmLabel = Text("Gerät merken"),
-            cancelLabel = Text("Ohne Bindung fortfahren")
+            cancelLabel = Text("Ohne Verknüpfung fortfahren")
         )
     }
 
@@ -96,7 +96,7 @@ sealed interface LookupLoginState : JourneyState {
             title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
             description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
             confirmLabel = Text("Gerät neu zuordnen"),
-            cancelLabel = Text("Ohne Bindung fortfahren"),
+            cancelLabel = Text("Ohne Verknüpfung fortfahren"),
             destructive = true
         )
     }

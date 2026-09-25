@@ -329,7 +329,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                 val prompt = prompted.stepData()["prompt"] as Map<String, Any?>
                 templateOf(prompt["title"]) shouldBe "Dieses Gerät ist bereits einem anderen Konto zugeordnet"
                 templateOf(prompt["confirmLabel"]) shouldBe "Gerät neu zuordnen"
-                templateOf(prompt["cancelLabel"]) shouldBe "Ohne Bindung fortfahren"
+                templateOf(prompt["cancelLabel"]) shouldBe "Ohne Verknüpfung fortfahren"
                 prompt["destructive"] shouldBe true
 
                 val declined = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"decline"}""")

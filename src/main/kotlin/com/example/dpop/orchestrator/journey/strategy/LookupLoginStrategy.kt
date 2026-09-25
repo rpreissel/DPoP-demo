@@ -50,7 +50,7 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                     // from the catalog, never listed. AuthPolicy.authCandidates cannot be used: it
                     // needs a resolved account, which by definition does not exist yet.
                     val tools = CandidateTools.forLookupLogin(ctx)
-                    if (tools.isEmpty()) Transition.Abort(Text("Kein Login-Verfahren ohne Geraetebindung verfuegbar"))
+                    if (tools.isEmpty()) Transition.Abort(Text("Es gibt kein Anmeldeverfahren, das nicht an ein Gerät gebunden ist"))
                     else Transition.To(LookupLoginState.Credential(Offer(tools)))
                 }
             }

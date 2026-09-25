@@ -142,8 +142,9 @@ Alle fünf Punkte aus dem letzten Abgleich sind erledigt (2026-09-25):
 5. **SMS plus Passwort** heißt „mehrstufige Authentifizierung“, mit dem Hinweis auf NIST SP 800-63B
    (AAL2).
 
-Offen ist nur noch die Oberfläche: Einige Texte nennen das Einrichten des Geräteschlüssels bzw. von
-KOBIL „Verknüpfung“ (etwa „Verknüpfung mit dem Gerät“), dasselbe Wort wie für die Geräteverknüpfung.
+Auch die Oberfläche folgt dieser Wortwahl: Ein Geräteschlüssel oder KOBIL heißt dort „an das Gerät
+gebunden“, die Geräteverknüpfung „Verknüpfung“. Die Übersetzungsvorgabe (`prompts/de.md`) hält beide
+auseinander.
 
 ### Mit Argumenten verteidigen (nicht zurückbauen)
 

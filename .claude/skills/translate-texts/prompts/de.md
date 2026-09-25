@@ -10,11 +10,12 @@ Kunstwörter und interne Begriffe aus dem Code sind kein Deutsch. Immer umschrei
 
 | Nicht | Sondern |
 |---|---|
-| Registerperson, Register-Person, Person im Register | Ihre Daten bei der Krankenkasse, Ihr Versichertendatensatz, die versicherte Person |
-| Registerperson zuordnen / Konto der Registerperson zuordnen | Konto mit Ihren Versichertendaten verbinden |
+| Registerperson, Register-Person, Person im Register | Ihr Eintrag im Personenverzeichnis, die Person |
+| Registerperson zuordnen / Konto der Registerperson zuordnen | Konto mit Ihrem Eintrag im Personenverzeichnis verbinden |
 | Enrollment, enrollen | Anmeldeverfahren, einrichten |
 | Channel, Tool, Step, Intent | Sitzung, Verfahren, Schritt, Anliegen |
-| Binding, binden | Verknüpfung, verknüpfen |
+| Binding, binden (Gerät mit einem Konto, `DeviceAccountLink`) | Verknüpfung, verknüpfen (die Geräteverknüpfung) |
+| Gerätebindung (ein an das Gerät gebundenes Anmeldeverfahren: Geräteschlüssel, KOBIL) | an das Gerät gebunden; nie „Verknüpfung“ |
 | Login, einloggen | Anmeldung, anmelden |
 | Authentifizierung, authentifizieren | Anmeldung, anmelden |
 | Faktor, Faktor-Typ | Art des Verfahrens (Wissen, Besitz, Biometrie) |
@@ -53,8 +54,9 @@ und Registrierungs-App lesen.
 - **Umlaute und ß** statt Umschrift („ungueltig“ → „ungültig“).
 - **Jargon ersetzen**:
   - Enrollment / Enrollment-Referenz → Anmeldeverfahren / eingerichtetes Verfahren
-  - Account → Konto; Channel / Kanal-Sitzung → Sitzung; Journey / Ablauf → Vorgang
-  - Binding / Bindung (Gerät) → Verknüpfung mit dem Gerät
+  - Account → Konto; Channel / Kanal-Sitzung → Sitzung; Ablauf → Vorgang (aber „Journey“ bleibt, siehe unten)
+  - Bindung eines Geräts an ein Konto → Verknüpfung; ein an das Gerät gebundenes Anmeldeverfahren
+    (Gerätebindung im Sinne des Glossars) → „an das Gerät gebunden“ – die beiden nie gleich benennen
   - loa1/loa2/loa3, acr → Sicherheitsniveau (Platzhalterwerte bleiben unverändert)
   - intent, toolId, nativeToolId, Tool → „Vorgang“ bzw. „Verfahren“; technische Bezeichner nicht erklären
   - Retry-Limit → Zahl der Versuche

@@ -85,7 +85,7 @@ class AuthKobilToolController(
             accountDirectory.activeInstanceEnrollment(accountId, descriptor.method) { details ->
                 descriptor.keyBinding?.livesOn(details, bindingKeyRef) == true
             }
-        } ?: throw UnresolvableReferenceException(Text("Keine aktive KOBIL-Bindung fuer dieses Geraet"))
+        } ?: throw UnresolvableReferenceException(Text("Auf diesem Gerät ist KOBIL nicht als Anmeldeverfahren eingerichtet"))
 
         val outcome = handler.start(context.toolSessionId, enrollmentRef, passwordAvailable(context.journeyAccountId))
         val response = toolEndpoint.applyOutcome(context, outcome)

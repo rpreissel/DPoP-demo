@@ -51,14 +51,14 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
         </li>
         {boundCredentials.map((credential) => (
           <li key={credential.method}>
-            <span className="label">{t('Gerätebindung ({methode})', { methode: credential.method })}</span>
+            <span className="label">{t('An das Gerät gebunden ({methode})', { methode: credential.method })}</span>
             <span className="value" title={credential.reference}>
               {shorten(credential.reference)}
             </span>
           </li>
         ))}
         <li>
-          <span className="label">{t('Gebunden an')}</span>
+          <span className="label">{t('Verknüpft mit')}</span>
           <span className="value">
             {deviceLink == null
               ? '…'
