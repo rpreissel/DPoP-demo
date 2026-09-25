@@ -416,6 +416,11 @@ h1#kc-page-title {
     text-align: center;
 }
 
+.orchestrator-qr-center a {
+    word-break: break-all;
+    font-size: var(--orc-font-size-small);
+}
+
 .orchestrator-qr-code {
     font-size: 1.6em;
     font-weight: var(--orc-font-weight-light);

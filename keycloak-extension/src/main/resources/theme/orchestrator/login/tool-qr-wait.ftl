@@ -47,8 +47,8 @@
         </div>
 
         <form id="kc-orchestrator-tool-form" action="${url.loginAction}" method="post">
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+            <div class="orchestrator-actions">
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
                         type="submit" name="orchestrator_abandon" value="true">${t.of("Abbrechen")}</button>
             </div>
         </form>

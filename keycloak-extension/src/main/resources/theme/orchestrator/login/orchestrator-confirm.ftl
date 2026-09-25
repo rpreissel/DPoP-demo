@@ -6,12 +6,10 @@
     <#elseif section = "form">
         <@pageNotes.notes/>
         <form id="kc-orchestrator-confirm-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+            <div class="orchestrator-actions">
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}"
                         type="submit" name="orchestrator_answer" value="accept">${confirmLabel!t.of("Ja")}</button>
-            </div>
-            <div class="${properties.kcFormGroupClass!}">
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!} ${properties.kcButtonBlockClass!}"
+                <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
                         type="submit" name="orchestrator_answer" value="decline">${cancelLabel!t.of("Nein")}</button>
             </div>
         </form>
