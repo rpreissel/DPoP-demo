@@ -12,6 +12,8 @@ interface StepExplanationProps {
   actor: string
   /** The address of the step (tool/orchestrator, step) - for those who want to find it in the code. */
   technical?: string
+  /** More on what happens, e.g. which methods this selection leaves out and why. */
+  details?: ReactNode
   /** Which journey runs right now (named after its real intent) - heads the box. */
   journeyTitle?: string
   /** The diagram trigger for that journey, next to its name. */
@@ -23,7 +25,7 @@ interface StepExplanationProps {
  * (the journey's purpose, from the backend - DemoStepReason), what the step does and who is acting
  * on it right now (from the tool module itself, ToolModule.explain).
  */
-export function StepExplanation({ journeys, idleReason, does, actor, technical, journeyTitle, journeyDiagram }: StepExplanationProps) {
+export function StepExplanation({ journeys, idleReason, does, actor, technical, details, journeyTitle, journeyDiagram }: StepExplanationProps) {
   const innermost = journeys?.at(-1)
   const outer = (journeys ?? []).slice(0, -1).filter((j) => j.purpose)
   const why = innermost?.purpose ? resolveText(innermost.purpose) : idleReason
@@ -55,6 +57,7 @@ export function StepExplanation({ journeys, idleReason, does, actor, technical, 
       )}
       <dt>{t('Was passiert')}</dt>
       <dd>{does}</dd>
+      {details && <dd>{details}</dd>}
       <dt>{t('Wer ist dran')}</dt>
       <dd>{actor}</dd>
       {technical && <dd className="step-explanation__technical">{technical}</dd>}

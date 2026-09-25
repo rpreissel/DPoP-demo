@@ -41,10 +41,20 @@ export function DemoNote({ children }: { children: ReactNode }) {
  * The demo column: [forStep] is the slot <Demo> portals into (titled only while something is in
  * it), [children] the column's own sections.
  */
-export function DemoArea({ targetRef, children }: { targetRef: (el: HTMLElement | null) => void; children: ReactNode }) {
+export function DemoArea({
+  targetRef,
+  intro,
+  children,
+}: {
+  targetRef: (el: HTMLElement | null) => void
+  /** What the demo is about - above everything else, before the step at hand. */
+  intro?: ReactNode
+  children: ReactNode
+}) {
   return (
     <aside className="demo-area" aria-label={t('Demo-Werkzeuge')}>
       <div className="demo-area__label">{t('Demo-Werkzeuge')}</div>
+      {intro}
       <section className="demo-step">
         <h3 className="demo-step__title">{t('Zu diesem Schritt')}</h3>
         <div ref={targetRef} className="demo-step__slot" />

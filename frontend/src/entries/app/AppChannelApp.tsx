@@ -1,6 +1,6 @@
 import { resolveText, t } from '../../texts'
 import { Tx } from '../../Tx'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { computeJwkThumbprint, getOrCreateDpopKeyPair, resetDpopKeyPair, type DpopKeyPair } from '../../dpop.ts'
 import '../../App.css'
 import '../../phone.css'
@@ -780,7 +780,7 @@ export function AppChannelApp() {
 
   // The demo column's "why / what / who" for whatever the phone shows right now (StepExplanation):
   // a tool step explains itself (ToolModule.explain), the orchestrator's own screens are explained here.
-  const stepExplanation = ((): { idleReason?: string; does: string; actor: string; technical?: string } | undefined => {
+  const stepExplanation = ((): { idleReason?: string; does: string; actor: string; details?: ReactNode; technical?: string } | undefined => {
     if (toolCtx) {
       const explained = explainToolStep(toolCtx.toolId, toolCtx.step)
       return explained && { ...explained, technical: `Tool ${toolCtx.toolId} · ${toolCtx.step}` }
@@ -810,6 +810,8 @@ export function AppChannelApp() {
       return {
         does: t('Der Orchestrator zeigt die Verfahren, die dieser Schritt zulässt - nur solche, die diese App kann und die noch nicht abgelehnt wurden.'),
         actor: t('Sie wählen. Der Orchestrator wartet.'),
+        // Only here does "not offered" explain something: why a method is missing from this choice.
+        details: <UnavailableTools channel="APP" availableTools={availableTools} />,
         technical,
       }
     }
@@ -1040,8 +1042,10 @@ export function AppChannelApp() {
               </PhoneFrame>
             </div>
 
-            <DemoArea targetRef={setDemoTarget}>
-                {!channelSessionId && (
+            <DemoArea
+              targetRef={setDemoTarget}
+              intro={
+                !channelSessionId && (
                   <div className="card welcome-card">
                     <h2>{t('Dieser Tab ist Ihr Smartphone')}</h2>
                     <p>
@@ -1067,22 +1071,9 @@ export function AppChannelApp() {
                       />
                     </p>
                   </div>
-                )}
-                {!channelSessionId && (
-                  <div className="card">
-                    <Disclosure summary={t('Erweitert: Startniveau und unterstützte Verfahren dieses Clients')}>
-                      <p>{t('Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.')}</p>
-                      <label className="field-row">
-                        {t('Startniveau:')}
-                        <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
-                          <option value="">{t('loa1 (Standard)')}</option>
-                          <option value="loa2">{t('loa2 (MFA - mehrere Enrollments)')}</option>
-                        </select>
-                      </label>
-                      <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
-                    </Disclosure>
-                  </div>
-                )}
+                )
+              }
+            >
                 {/* The ways in are the phone's own buttons (their diagrams are under "Zu diesem
                     Schritt"); only picking up an earlier session is a demo-only way in. */}
                 {!channelSessionId && rememberedChannelSessionId && (
@@ -1111,9 +1102,22 @@ export function AppChannelApp() {
               </div>
               )}
               {!channelSessionId && (
-                <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
+                <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink}>
+                  {/* Settings of this app for the next journey - and what they leave out. */}
+                  <UnavailableTools channel="APP" availableTools={availableTools} />
+                  <Disclosure summary={t('Einstellungen für den nächsten Start: Sicherheitsniveau und Verfahren dieser App')}>
+                      <p>{t('Wirkt erst auf den nächsten neu gestarteten Vorgang, nicht rückwirkend auf einen laufenden.')}</p>
+                      <label className="field-row">
+                        {t('Startniveau:')}
+                        <select value={requiredAcr} onChange={(e) => setRequiredAcr(e.target.value)}>
+                          <option value="">{t('loa1 (Standard)')}</option>
+                          <option value="loa2">{t('loa2 (MFA - mehrere Enrollments)')}</option>
+                        </select>
+                      </label>
+                      <ToolAvailabilitySelector availableTools={availableTools} onChange={setAvailableTools} />
+                    </Disclosure>
+                </DeviceIdentityCard>
               )}
-              <UnavailableTools channel="APP" availableTools={availableTools} />
                 {channelSessionId && (
                   <JourneyStructureView
                     channelSessionId={channelSessionId}

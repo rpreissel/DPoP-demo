@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { t } from '../texts'
 import type { DeviceLinkResponse } from '../types'
 import { shorten } from '../format'
@@ -7,6 +8,8 @@ interface DeviceIdentityCardProps {
   onRecreateKey: () => void
   /** null while still loading/unauthenticated-to-ask; DeviceLinkResponse once GET .../device-link answered. */
   deviceLink: DeviceLinkResponse | null
+  /** This app's own settings for the next journey (starting level, methods it supports). */
+  children?: ReactNode
 }
 
 /**
@@ -27,10 +30,11 @@ interface DeviceIdentityCardProps {
  * point too. Kept current automatically since `device-link` is re-fetched after every rebind/
  * enrollment/revocation that could change it (see the entry-screen refetch effect).
  */
-export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }: DeviceIdentityCardProps) {
+export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink, children }: DeviceIdentityCardProps) {
   const boundCredentials = deviceLink?.boundCredentials ?? []
   return (
     <div className="card device-identity-card">
+      <h2>{t('Diese App auf diesem Gerät')}</h2>
       <ul className="status-list">
         <li>
           <span className="label">{t('Geräte-Kennung (DPoP)')}</span>
@@ -68,6 +72,7 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink }:
           </span>
         </li>
       </ul>
+      {children}
     </div>
   )
 }
