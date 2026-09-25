@@ -59,8 +59,11 @@ sie schließen soll.
   - Mechanismus: `test:ModelBasedJourneyTest` (für das Passwort)
   - Lücke: kein Constraint, nur `AccountService.addAuthenticationMethod` – Phase C.
 - **I-14 Kein Gerätelink zeigt auf ein gelöschtes Konto.**
-  - Mechanismus: `test:ModelBasedJourneyTest`
+  - Mechanismus: `test:ModelBasedJourneyTest`; ein Link entsteht nie für ein vorläufiges Konto, und nur das darf ohne `AccountDeletionService` verschwinden (`AccountService.deleteProvisionalAccount` prüft es selbst)
   - Lücke: kein Fremdschlüssel (Schemas je Modul, ADR-16), Review M-13 – Phase C.
+
+- **I-21 Was eine ersetzte Instanz nachwies und die neue nicht, gilt nicht mehr; jede Passwort-Instanz trägt ihren eigenen Nachweis.**
+  - Mechanismus: `test:AccountServiceDbTest`, `test:MgmtPasswordIntegrationTest`
 
 ## Keycloak
 

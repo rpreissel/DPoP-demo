@@ -379,6 +379,22 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-13 Account-Modul: Konsistenz bei Methodenersatz, Löschung und Verzeichnisänderungen
 
+> **Behoben (2026-09-25), mit einer Korrektur am Befund:**
+> - **Methodenersatz:** Ersetzt eine Singleton-Instanz die alte, widerruft `addAuthenticationMethod`
+>   deren Nachweise, soweit die neue sie nicht selbst trägt (alte Telefonnummer). Der echte
+>   Fehlerpfad war der Management-Pfad: Er schrieb keinen `PASSWORD_EXISTS`-Nachweis, sodass nach
+>   dem Entfernen eines dort gesetzten Passworts „hat ein Passwort“ stehen blieb (Voraussetzung von
+>   `enroll-kobil`). Jetzt schreibt er ihn wie der normale Weg.
+> - **Löschung:** Das beschriebene Szenario (Gerätelink auf gelöschtes vorläufiges Konto) ist nicht
+>   erreichbar – ein Link entsteht erst nach Identifizierung, Nachweis oder eingerichtetem Verfahren,
+>   dann ist das Konto nicht mehr vorläufig. Umgesetzt ist nur der strukturelle Teil:
+>   `AccountService.deleteProvisionalAccount` prüft die Regel selbst.
+> - **Verzeichnisänderungen:** `PersonChangeListener` läuft einspurig; eine vom Verzeichnis
+>   verschobene Versicherungsnummer wird beim veralteten Halter zurückgenommen, statt am Anker-Konflikt
+>   endlos zu scheitern.
+>
+> Tests in `AccountServiceDbTest` und `MgmtPasswordIntegrationTest`.
+
 - **Methodenersatz:** `account/AccountService.kt:517-521` deaktiviert eine Singleton-Vorgängerin,
   ohne deren Claims zu widerrufen (anders als `AccountDeletionService.revokeMethod`). Der
   Mgmt-Passwortpfad (`MgmtPasswordController.kt:77-83`) schreibt keinen `PASSWORD_EXISTS`-Claim –

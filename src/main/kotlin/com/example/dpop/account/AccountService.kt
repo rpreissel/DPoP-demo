@@ -176,6 +176,34 @@ class AccountService(
         return true
     }
 
+    /**
+     * What a replaced singleton instance asserted and its replacement does not (review 2026-09,
+     * M-13): the old phone number stops counting once a new one replaced it, exactly as it would
+     * after `revokeMethod`. A value the replacement asserts itself stays - retractions work by value
+     * (ADR-12), and the replacement's claims are recorded before this runs, so retracting it here
+     * would cancel the new claim as well.
+     */
+    private fun retractReplacedClaims(accountId: Long, replaced: List<UUID>, replacement: UUID, now: Instant) {
+        if (replaced.isEmpty()) return
+        fun ownedBy(instance: UUID) = accountClaimRepository.findByAuthMethodId(instance)
+            .filter { it.accountId == accountId && it.attributeType?.authority == AttributeAuthority.MethodModule }
+            .mapNotNull { claim -> claim.attributeType?.let { it to claim.normalizedValue } }
+            .toSet()
+        val kept = ownedBy(replacement)
+        replaced.flatMap { ownedBy(it) }.distinct().filterNot { it in kept }.forEach { (type, value) ->
+            accountRetractionRepository.save(
+                AccountRetraction(
+                    accountId = accountId,
+                    attributeType = type,
+                    normalizedValue = value,
+                    trustAnchor = RetractionAnchor.ACCOUNT_MANAGEMENT,
+                    reason = "replaced",
+                    retractedAt = now
+                )
+            )
+        }
+    }
+
     @Transactional
     fun retractClaimsOf(
         accountId: Long,
@@ -529,6 +557,7 @@ class AccountService(
             // rather than shadowing it - two active entries for the same method would be seen
             // inconsistently by canAccountReach/authCandidates/resolveAcr.
             active.forEach { it.deactivate(now) }
+            retractReplacedClaims(accountId, active.mapNotNull { it.id }, replacement = instanceId, now = now)
         } else if (active.any { it.enrollmentRef == enrollmentRef }) {
             // The SAME physical credential re-reported for the SAME account can only be a re-run of
             // an already-completed enrollment (a device is bound to one account at a time,
@@ -582,6 +611,24 @@ class AccountService(
     fun deleteAccount(accountId: Long) {
         accountRepository.deleteById(accountId)
         eventPublisher.publishEvent(AccountDeleted(accountId))
+    }
+
+    /**
+     * Deletes [accountId] only if it is still provisional ([AccountProfile.isProvisional]) - the
+     * cleanup after an abandoned registration. The rule is checked HERE, not only by the caller
+     * (review 2026-09, M-13): this is the one deletion that skips everything the full deletion
+     * (`AccountDeletionService`) tears down, and that is safe only because a provisional account
+     * has nothing to tear down - no method, no identity, and therefore never a device link (links
+     * are only written after identification, a proof or an enrollment).
+     *
+     * @return whether the account was deleted.
+     */
+    @Transactional
+    fun deleteProvisionalAccount(accountId: Long): Boolean {
+        val account = findAccount(accountId) ?: return false
+        if (!account.isProvisional) return false
+        deleteAccount(accountId)
+        return true
     }
 
     /**
@@ -694,10 +741,26 @@ class AccountService(
         if (AttributeType.VERSNR in change.changed) {
             retractAttribute(accountId, AttributeType.VERSNR, RetractionAnchor.PERSON_DIRECTORY, "Versicherungsnummer im Personenverzeichnis geändert")
             change.versnr?.let {
+                releaseFromOtherAccount(AttributeType.VERSNR, it, keeper = accountId)
                 recordClaims(accountId, listOf(Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
             }
         }
         return accountId
+    }
+
+    /**
+     * The Personenverzeichnis is the authority for the Versicherungsnummer (ADR-34): when it assigns
+     * [value] to the person bound to [keeper], an account that still holds it as an anchor holds a
+     * stale value - the directory moved it, and that account's own change event may simply not have
+     * arrived yet. It is withdrawn there, in the directory's name. Otherwise the change would fail on
+     * the anchor conflict and be retried forever, never resolving (review 2026-09, M-13).
+     */
+    private fun releaseFromOtherAccount(type: AttributeType, value: String, keeper: Long) {
+        val held = accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value)) ?: return
+        if (held.accountId == keeper) return
+        val previousHolder = checkNotNull(held.accountId)
+        log.info("{} anchor moved by the Personenverzeichnis: released from account {} for account {}", type.wireName, previousHolder, keeper)
+        retractAttribute(previousHolder, type, RetractionAnchor.PERSON_DIRECTORY, "Im Personenverzeichnis einer anderen Person zugeordnet")
     }
 
     private fun lockForUpdate(accountId: Long): Account =

@@ -590,10 +590,8 @@ class JourneyService(
      */
     private fun deleteIfAbandonedUnidentified(accountId: Long?) {
         if (accountId == null) return
-        val account = accountService.findAccount(accountId) ?: return
-        if (account.isProvisional) {
-            accountService.deleteAccount(accountId)
-        }
+        // The account module decides - it deletes only a still-provisional account.
+        accountService.deleteProvisionalAccount(accountId)
     }
 
     private fun strategyFor(intent: AuthIntent): IntentStrategy<*> =

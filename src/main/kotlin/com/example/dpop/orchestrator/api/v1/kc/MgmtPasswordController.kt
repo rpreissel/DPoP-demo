@@ -1,5 +1,12 @@
 package com.example.dpop.orchestrator.api.v1.kc
 
+import java.util.UUID
+import com.example.dpop.tool_spi.ToolId
+import com.example.dpop.tool_spi.PASSWORD_EXISTS_MARKER
+import com.example.dpop.tool_spi.ClaimSource
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.orchestrator.kernel.AcrLevels
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
@@ -22,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController
 import com.example.dpop.tool_api.API_V1
 
 private const val PASSWORD_METHOD = "password"
+private val ENROLL_PASSWORD_TOOL = ToolId("enroll-password")
 
 data class MgmtPasswordVerifyRequest(val password: String? = null)
 data class MgmtPasswordVerifyResponse(val valid: Boolean)
@@ -90,14 +98,25 @@ class MgmtPasswordController(
         }
         val newPassword = requireNotNull(request.newPassword) { "newPassword is required" }
         val enrollmentRef = passwordCredentialPort.setNew(newPassword)
-        // Same effect JourneyService's Action.AdoptCredential branch has after a normal
-        // enroll-password journey completes - deactivates the previous singleton "password" entry.
+        // The same two writes a normal enroll-password journey makes (JourneyActionExecutor
+        // performAdoptCredential), in the same order: first the claim that a password exists, naming
+        // the instance, then the instance itself, which deactivates the previous singleton "password"
+        // entry. Without the claim, revoking this password later would retract nothing and leave
+        // "has a password" standing - which enroll-kobil requires (review 2026-09, M-13).
+        val instanceId = UUID.randomUUID()
+        accountService.recordClaims(
+            accountId,
+            listOf(Claim(AttributeType.PASSWORD_EXISTS, PASSWORD_EXISTS_MARKER, ClaimSource.of(ENROLL_PASSWORD_TOOL))),
+            provenAcr = AcrLevels.DEFAULT_REQUIRED_ACR,
+            authMethodId = instanceId
+        )
         accountService.addAuthenticationMethod(
             accountId = accountId,
             method = PASSWORD_METHOD,
             enrollmentRef = enrollmentRef,
             enrolledUnderAcr = null,
-            details = mapOf("source" to "kc-native")
+            details = mapOf("source" to "kc-native"),
+            instanceId = instanceId
         )
         return ResponseEntity.noContent().build()
     }

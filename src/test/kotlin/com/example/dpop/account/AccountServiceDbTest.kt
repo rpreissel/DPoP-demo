@@ -276,6 +276,73 @@ class AccountServiceDbTest(
         }
     }
 
+    given("a singleton method replaced by a new instance (review 2026-09, M-13)") {
+        fun enroll(accountId: Long, method: String, claim: Claim, ref: String) {
+            val instance = java.util.UUID.randomUUID()
+            // Same order as the enrollment path: the new instance's claims first, then the instance.
+            accountService.recordClaims(accountId, listOf(claim), provenAcr = AcrLevel.LOA1, authMethodId = instance)
+            accountService.addAuthenticationMethod(accountId, method, EnrollmentRef("t", ref), "loa1", emptyMap(), instanceId = instance)
+        }
+        val smsTool = ClaimSource.of(ToolId("enroll-sms"))
+        val passwordTool = ClaimSource.of(ToolId("enroll-password"))
+
+        then("the old phone number stops counting, the new one counts") {
+            val account = accountService.createUnidentifiedAccount()
+            enroll(account.accountId, "sms", Claim(AttributeType.PHONE_NUMBER, "+491700000001", smsTool), "s-1")
+            enroll(account.accountId, "sms", Claim(AttributeType.PHONE_NUMBER, "+491700000002", smsTool), "s-2")
+
+            accountService.establishedClaimValues(account.accountId, setOf(AttributeType.PHONE_NUMBER)) shouldBe
+                mapOf(AttributeType.PHONE_NUMBER to "+491700000002")
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM account.retraction WHERE account_id = ? AND attribute_type = 'phone_number'",
+                Int::class.java, account.accountId
+            ) shouldBe 1
+        }
+
+        then("a value the replacement asserts itself stays - a new password still means 'has a password'") {
+            val account = accountService.createUnidentifiedAccount()
+            val exists = Claim(AttributeType.PASSWORD_EXISTS, com.example.dpop.tool_spi.PASSWORD_EXISTS_MARKER, passwordTool)
+            enroll(account.accountId, "password", exists, "p-1")
+            enroll(account.accountId, "password", exists, "p-2")
+
+            accountService.findAccount(account.accountId)!!.establishedClaims.keys.contains(AttributeType.PASSWORD_EXISTS) shouldBe true
+        }
+    }
+
+    given("the Personenverzeichnis moves a Versicherungsnummer to another person before the old holder's own change arrived") {
+        then("it is released from the stale holder instead of failing on the anchor conflict forever (review 2026-09, M-13)") {
+            fun bound(personId: String, versnr: String): Long {
+                val account = accountService.createUnidentifiedAccount()
+                accountService.recordClaims(
+                    account.accountId,
+                    listOf(
+                        Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY),
+                        Claim(AttributeType.VERSNR, versnr, ClaimSource.PERSON_DIRECTORY)
+                    ),
+                    provenAcr = AcrLevel.LOA2
+                )
+                return account.accountId
+            }
+            fun versnrOf(accountId: Long): String? = jdbcTemplate.queryForList(
+                "SELECT normalized_value FROM account.anchor WHERE account_id = ? AND attribute_type = 'versnr'",
+                String::class.java, accountId
+            ).firstOrNull()
+            val stale = bound("P000000001", "10000001")
+            val receiver = bound("P000000002", "10000002")
+
+            accountService.applyDirectoryChange(
+                com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.VERSNR), kvnr = null, versnr = "10000001")
+            )
+
+            versnrOf(receiver) shouldBe "10000001"
+            versnrOf(stale).shouldBeNull()
+            jdbcTemplate.queryForObject(
+                "SELECT trust_anchor FROM account.retraction WHERE account_id = ? AND attribute_type = 'versnr'",
+                String::class.java, stale
+            ) shouldBe "PERSON_DIRECTORY"
+        }
+    }
+
     given("an identity anchor and a withdrawal in the holder's name") {
         then("the account module itself refuses it, whatever the caller checked (review 2026-09, S-7)") {
             val account = accountService.createUnidentifiedAccount()

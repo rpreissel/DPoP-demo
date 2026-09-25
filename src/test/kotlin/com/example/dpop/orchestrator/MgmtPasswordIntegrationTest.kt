@@ -157,6 +157,24 @@ class MgmtPasswordIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        Given("a password replaced through Keycloak's 'reset password'") {
+            When("the new instance is stored") {
+                Then("it carries its own 'has a password' claim, like one set up in the app (review 2026-09, M-13)") {
+                    val email = registerWithEmailAndPassword(password = "correct-horse-battery")
+                    val accountId = accountIdFor(email)
+                    stubAssertion(accountAnchor = accountId.toString())
+
+                    mgmtPost("/orchestrator/api/v1/tools/enroll-password/mgmt/$accountId", """{"newPassword":"brand-new-secret"}""")
+
+                    jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM account.claim c JOIN account.auth_method m ON m.id = c.auth_method_id " +
+                            "WHERE m.account_id = ? AND m.method = 'password' AND m.active AND c.attribute_type = 'password_exists'",
+                        Int::class.java, accountId
+                    ) shouldBe 1
+                }
+            }
+        }
+
         Given("repeated wrong passwords through Keycloak's form") {
             When("the account lockout is reached") {
                 Then("even the correct password is refused until it expires - the app's lockout, shared (review 2026-09, M-8)") {
