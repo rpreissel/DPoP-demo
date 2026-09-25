@@ -6,7 +6,11 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
-data class KeycloakSyncResult(val upserted: Int, val deletedOrphans: Int)
+/**
+ * [conflicts]: accounts whose Keycloak user could not be resolved without taking over another
+ * account's mirror (review 2026-09, S-2) - left untouched and named in the log.
+ */
+data class KeycloakSyncResult(val upserted: Int, val deletedOrphans: Int, val conflicts: Int = 0)
 
 /**
  * The explicit, full-reconciliation counterpart of [KeycloakAccountSyncListener]'s per-event sync
@@ -30,30 +34,26 @@ class KeycloakAccountSyncService(
         val existingAccountIds = accountService.allAccountIds().toSet()
         var upserted = 0
 
+        // A conflict (a Keycloak user wearing this account's address but belonging to another,
+        // live account - KeycloakAdminClient.resolveMirror) must not stop the whole run: it is
+        // usually resolved by exactly that OTHER account's own sync, which restores its address.
+        // So conflicts are skipped and retried once after everybody else has been synced.
+        val conflicted = mutableListOf<Long>()
         existingAccountIds.forEach { accountId ->
-            val profile = accountService.findAccount(accountId) ?: return@forEach
-            // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
-            // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; a later full
-            // sync (or the event-driven path once one is confirmed) creates it for real.
-            if (profile.email == null) {
-                // A withdrawn address: the mirror, if any, must not keep presenting it.
-                keycloakAdminClient.clearEmail(accountId)
-                return@forEach
+            try {
+                if (syncOne(accountId, existingAccountIds)) upserted++
+            } catch (e: IllegalStateException) {
+                conflicted += accountId
             }
-            // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
-            val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
-            val mirror = kcUserMirror(
-                profile, person,
-                accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES)
-            )
-            keycloakAdminClient.upsertUser(
-                accountId, profile.email, profile.emailConfirmed,
-                mirror.firstName, mirror.lastName, mirror.attributes, accountExists = { it in existingAccountIds }
-            )
-            val keypair = accountKeypairService.keypairFor(accountId)
-            val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
-            keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)
-            upserted++
+        }
+        val remaining = conflicted.filterNot { accountId ->
+            try {
+                if (syncOne(accountId, existingAccountIds)) upserted++
+                true
+            } catch (e: IllegalStateException) {
+                log.warn("Keycloak full sync: account {} left unsynced - {}", accountId, e.message)
+                false
+            }
         }
 
         // Skipped (still emailless) accounts are deliberately absent from Keycloak - never treated
@@ -63,9 +63,36 @@ class KeycloakAccountSyncService(
         orphans.forEach { keycloakAdminClient.deleteUser(it) }
 
         log.info(
-            "Keycloak full sync: upserted {} account(s), deleted {} orphaned Keycloak user(s)",
-            upserted, orphans.size
+            "Keycloak full sync: upserted {} account(s), deleted {} orphaned Keycloak user(s), {} conflict(s)",
+            upserted, orphans.size, remaining.size
         )
-        return KeycloakSyncResult(upserted = upserted, deletedOrphans = orphans.size)
+        return KeycloakSyncResult(upserted = upserted, deletedOrphans = orphans.size, conflicts = remaining.size)
+    }
+
+    /** One account's mirror; `false` when there is nothing to mirror (no address yet). Throws on a conflict. */
+    private fun syncOne(accountId: Long, existingAccountIds: Set<Long>): Boolean {
+        val profile = accountService.findAccount(accountId) ?: return false
+        // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
+        // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; a later full
+        // sync (or the event-driven path once one is confirmed) creates it for real.
+        if (profile.email == null) {
+            // A withdrawn address: the mirror, if any, must not keep presenting it.
+            keycloakAdminClient.clearEmail(accountId)
+            return false
+        }
+        // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
+        val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
+        val mirror = kcUserMirror(
+            profile, person,
+            accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES)
+        )
+        keycloakAdminClient.upsertUser(
+            accountId, profile.email, profile.emailConfirmed,
+            mirror.firstName, mirror.lastName, mirror.attributes, accountExists = { it in existingAccountIds }
+        )
+        val keypair = accountKeypairService.keypairFor(accountId)
+        val activeMethods = profile.activeAuthenticationMethods.map { it.method }.distinct()
+        keycloakAdminClient.setPublicKeyCredential(accountId, keypair.publicKeyJwk, activeMethods)
+        return true
     }
 }

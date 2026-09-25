@@ -62,6 +62,11 @@ export function KeycloakSyncView() {
                 anzahl: result.upserted,
                 verwaist: result.deletedOrphans,
               })}
+              {result.conflicts > 0 &&
+                ' ' +
+                  t('{anzahl} Konto/Konten nicht abgeglichen: Ein anderer Keycloak-User trägt dieselbe E-Mail-Adresse (siehe Log).', {
+                    anzahl: result.conflicts,
+                  })}
             </p>
           )}
         </>

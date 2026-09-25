@@ -106,7 +106,7 @@ internal object DemoStepReason {
 
         is ConfirmPeerLoginState.Requested -> Text("Ein Browser wartet auf Freigabe durch dieses Gerät. Zuerst wird geprüft, ob diese Sitzung dafür sicher genug ist.")
         is ConfirmPeerLoginState.ConfirmationRequired -> Text("Bevor dieses Gerät einen Browser freigibt, muss ein Verfahren frisch bestätigt werden.")
-        is ConfirmPeerLoginState.Confirming -> Text("Diese Sitzung ist sicher genug - jetzt wird der Code aus dem Browser abgeglichen.")
+        is ConfirmPeerLoginState.Confirming -> Text("Diese Sitzung ist sicher genug - jetzt geben Sie die wartende Anmeldung im Browser frei.")
         ConfirmPeerLoginState.OfferLogout -> Text("Der Browser ist freigegeben. Diese Sitzung wurde nur dafür eröffnet - deshalb die Frage, ob sie offen bleiben soll.")
 
         is KcSelectMethodState.SelectMethod -> Text("Die Anmeldeseite verlangt einen Nachweis - angeboten wird jedes Verfahren, das im Browser geht.")

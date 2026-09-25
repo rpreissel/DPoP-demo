@@ -65,6 +65,12 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 > User-Profile nur noch sehen. `KcChannelService` weist ein abweichendes Konto ab (zwischen
 > `accountId` und RestoreData wie gegenüber dem schon gebundenen Kanal), Test in
 > `KcChannelIntegrationTest`.
+>
+> **Gegen echtes Keycloak geprüft (2026-09-25):** Szenario nachgestellt (Keycloak-User von Konto 2
+> trägt die Adresse von Konto 1) – der Sync übernimmt ihn nicht. Dabei gefunden und behoben: Der volle
+> Abgleich brach am ersten Konflikt ab und erreichte so nie das Konto, dessen eigener Sync den Konflikt
+> löst. Jetzt überspringt er Konflikte, wiederholt sie am Ende einmal und meldet die übrigen
+> (`KeycloakSyncResult.conflicts`, Test `KeycloakAccountSyncServiceTest`).
 
 - **Wo:**
   - `orchestrator/kc/KeycloakAdminClient.kt:107` –

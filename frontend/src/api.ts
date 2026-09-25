@@ -359,6 +359,8 @@ export function setDemoLoginTheme(theme: LoginTheme): Promise<void> {
 export interface KeycloakSyncResult {
   upserted: number
   deletedOrphans: number
+  /** Accounts left unsynced because their address is worn by another account's Keycloak user. */
+  conflicts: number
 }
 
 /** Only exists when the backend runs with the `keycloak` Spring profile active - 404s otherwise, which KeycloakSyncView treats as "feature not available here", not an error. */
