@@ -47,7 +47,6 @@ import { PhoneFrame } from '../../components/PhoneFrame'
 import { AuthenticationCompletedView, type AccountView } from '../../components/AuthenticationCompletedView'
 import { StepExplanation } from '../../components/StepExplanation'
 import { DebugSidebar, type DebugEvent } from '../../components/DebugSidebar'
-import { EntryChoiceLinks } from '../../components/EntryChoiceLinks'
 import { SelectMethodView } from '../../components/SelectMethodView'
 import { JourneyStructureView } from '../../components/JourneyStructureView'
 import { PromptView } from '../../components/PromptView'
@@ -74,6 +73,30 @@ const INTENT_TO_START_MODE: Record<string, 'auto' | 'login' | 'register' | 'conf
   lookup_login: 'login',
   register: 'register',
   confirm_peer_login: 'confirmPeerLogin',
+}
+
+/**
+ * The journeys behind the start screen's buttons, as diagrams in the demo column - the phone shows
+ * the buttons a real app has, the demo column what each one sets going.
+ */
+function ButtonDiagrams({ entries }: { entries: Array<{ label: string; diagram: keyof typeof JOURNEY_DIAGRAMS }> }) {
+  return (
+    <Demo>
+      <div className="button-diagrams">
+        <p className="button-diagrams__title">{t('Abläufe hinter den Buttons')}</p>
+        {entries.map((entry) => (
+          <p className="demo-diagram" key={entry.diagram}>
+            {entry.label}
+            <DiagramHint spec={JOURNEY_DIAGRAMS[entry.diagram]} inline openDown>
+              <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf "{abschnitt}" als Diagramm anzeigen', { abschnitt: entry.label })}>
+                ℹ️
+              </span>
+            </DiagramHint>
+          </p>
+        ))}
+      </div>
+    </Demo>
+  )
 }
 
 export function AppChannelApp() {
@@ -511,18 +534,6 @@ export function AppChannelApp() {
     }
   }
 
-  /**
-   * The explicit "Web-Login per QR bestätigen" choice on the entry screen - distinct from the
-   * `?pairingCode=...` deep-link path (URL-capture effect above), which is the only other writer
-   * of the pending pairing code. Without this, a code left over from an earlier deep link would
-   * silently resurface here even though the user is starting fresh and hasn't scanned anything new.
-   */
-  function handleConfirmPeerLoginChoice() {
-    forgetPendingPairingCode()
-    setPendingPairingCode(undefined)
-    handleStart('confirmPeerLogin')
-  }
-
   /** Local-only: forgets the remembered channelSessionId and resets all channel state - no backend call, unlike Logout. */
   function handleClearChannel() {
     forgetChannelSessionId()
@@ -592,9 +603,8 @@ export function AppChannelApp() {
       setError('')
       const response = await answerPrompt(dpop, channelSessionId, accept)
       if (response.channel.state === 'LOGGED_OUT') {
-        forgetChannelSessionId()
-        setRememberedChannelSessionId(null)
-        applyResponse(response)
+        // Signed out means back to the start screen - a page only saying so is one tap too many.
+        handleClearChannel()
       } else {
         applyResponse(response)
       }
@@ -831,7 +841,21 @@ export function AppChannelApp() {
               <PhoneFrame title="Demo">
                 {stepExplanation && (
                   <Demo>
-                    <StepExplanation journeys={demo?.journeys} {...stepExplanation} />
+                    <StepExplanation
+                      journeys={demo?.journeys}
+                      {...stepExplanation}
+                      journeyTitle={journeyContextKey ? journeyContextLabel(journeyContextKey) : undefined}
+                      journeyDiagram={
+                        journeyContextKey && (
+                          <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
+                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
+                              ℹ️
+                            </span>
+                          </DiagramHint>
+                        )
+                      }
+                      onLeave={channelSessionId && channelState !== 'AUTHENTICATED' ? handleClearChannel : undefined}
+                    />
                   </Demo>
                 )}
                 {error && (
@@ -853,6 +877,7 @@ export function AppChannelApp() {
                         <div className="form-actions">
                           <button onClick={() => handleStart('confirmPeerLogin')}>{t('Anmeldung bestätigen')}</button>
                         </div>
+                        <ButtonDiagrams entries={[{ label: t('Anmeldung bestätigen'), diagram: 'confirmPeerLogin' }]} />
                       </>
                     ) : deviceLink?.linked ? (
                       <>
@@ -876,6 +901,16 @@ export function AppChannelApp() {
                             {t('Anderes Konto benutzen')}
                           </button>
                         </div>
+                        <ButtonDiagrams
+                          entries={[
+                            {
+                              label: deviceLink.personName ? t('Als {name} anmelden', { name: deviceLink.personName }) : t('Mit diesem Gerät anmelden'),
+                              diagram: 'auto',
+                            },
+                            { label: t('Mit E-Mail-Adresse anmelden'), diagram: 'login' },
+                            { label: t('Anderes Konto benutzen'), diagram: 'register' },
+                          ]}
+                        />
                         {/* Like reinstalling the app: the device key goes, so the orchestrator no
                             longer recognizes this device - the account itself stays untouched. */}
                         {confirmingReset ? (
@@ -908,20 +943,17 @@ export function AppChannelApp() {
                             {t('Neues Konto anlegen')}
                           </button>
                         </div>
+                        <ButtonDiagrams
+                          entries={[
+                            { label: t('Mit E-Mail-Adresse anmelden'), diagram: 'login' },
+                            { label: t('Neues Konto anlegen'), diagram: 'register' },
+                          ]}
+                        />
                       </>
                     )}
                   </div>
                 )}
 
-                {channelState === 'LOGGED_OUT' && (
-                  <div className="card">
-                    <h2>{t('Abgemeldet')}</h2>
-                    <p>{t('Sie wurden erfolgreich abgemeldet. Ihre Sitzung wurde beendet.')}</p>
-                    <div className="form-actions" style={{ marginTop: '1rem' }}>
-                      <button onClick={handleClearChannel}>{t('Zur Startseite')}</button>
-                    </div>
-                  </div>
-                )}
                 {uiComponent === 'select-method' && selection && (
                   <SelectMethodView
                     options={selection.options}
@@ -1052,10 +1084,10 @@ export function AppChannelApp() {
                     </Disclosure>
                   </div>
                 )}
-                {!channelSessionId && (
+                {/* The ways in are the phone's own buttons (their diagrams are under "Zu diesem
+                    Schritt"); only picking up an earlier session is a demo-only way in. */}
+                {!channelSessionId && rememberedChannelSessionId && (
                 <div className="card">
-                <h2>{t('Weitere Einstiege')}</h2>
-                <p>{t('Alle Wege, einen Vorgang zu beginnen - unabhängig davon, was die App gerade anbietet.')}</p>
                 <ul className="method-choice-list">
                   {rememberedChannelSessionId && (
                     <li>
@@ -1076,94 +1108,6 @@ export function AppChannelApp() {
                       </button>
                     </li>
                   )}
-                  <li>
-                    <button className="method-choice" onClick={() => handleStart('auto')} aria-label={t('Automatisch anmelden')}>
-                      <span className="method-choice-icon" aria-hidden="true">
-                        🚀
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">
-                          {t('Automatisch anmelden')}
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.auto} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Automatisch anmelden als Diagramm anzeigen')}>
-                              ℹ️
-                            </span>
-                          </DiagramHint>
-                        </span>
-                        <span className="method-choice-hint">
-                          {t(
-                            'Empfohlen: Kennt dieses Gerät schon ein Konto, meldet es sich direkt an - sonst startet eine ' +
-                              'Registrierung.',
-                          )}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                  <li>
-                    <button className="method-choice" onClick={() => handleStart('register')} aria-label={t('Neues Konto registrieren')}>
-                      <span className="method-choice-icon" aria-hidden="true">
-                        ✨
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">
-                          {t('Neues Konto registrieren')}
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.register} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Neues Konto registrieren als Diagramm anzeigen')}>
-                              ℹ️
-                            </span>
-                          </DiagramHint>
-                        </span>
-                        <span className="method-choice-hint">
-                          {t(
-                            'Durchläuft immer die Registrierung, auch wenn dieses Gerät schon bekannt ist - bei ' +
-                              'derselben Test-Identität landen Sie wieder auf dem bestehenden Konto.',
-                          )}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                  <li>
-                    <button className="method-choice" onClick={() => handleStart('login')} aria-label={t('Neu anmelden')}>
-                      <span className="method-choice-icon" aria-hidden="true">
-                        🌐
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">
-                          {t('Neu anmelden')}
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.login} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Neu anmelden als Diagramm anzeigen')}>
-                              ℹ️
-                            </span>
-                          </DiagramHint>
-                        </span>
-                        <span className="method-choice-hint">{t('Ohne dieses Gerät wiederzuerkennen anmelden, per E-Mail und Passwort oder Code.')}</span>
-                      </span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className="method-choice"
-                      onClick={handleConfirmPeerLoginChoice}
-                      aria-label={t('Web-Login per QR bestätigen')}
-                    >
-                      <span className="method-choice-icon" aria-hidden="true">
-                        📷
-                      </span>
-                      <span className="method-choice-text">
-                        <span className="method-choice-label">
-                          {t('Web-Login per QR bestätigen')}
-                          <DiagramHint spec={JOURNEY_DIAGRAMS.confirmPeerLogin} inline openDown>
-                            <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf von Web-Login per QR bestätigen als Diagramm anzeigen')}>
-                              ℹ️
-                            </span>
-                          </DiagramHint>
-                        </span>
-                        <span className="method-choice-hint">
-                          {t('Für einen Browser, der einen QR- oder Pairing-Code anzeigt. Setzt ein hier schon bekanntes Konto voraus.')}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
                 </ul>
               </div>
               )}
@@ -1171,32 +1115,6 @@ export function AppChannelApp() {
                 <DeviceIdentityCard jwkThumbprint={jwkThumbprint} onRecreateKey={handleRecreateKey} deviceLink={deviceLink} />
               )}
               <UnavailableTools channel="APP" availableTools={availableTools} />
-              {channelSessionId && (
-                <>
-                  {(journeyContextKey || channelState !== 'AUTHENTICATED') && (
-                    <div className="journey-context">
-                      <span>
-                        {journeyContextKey && (
-                          <>
-                            <Tx text="Aktueller Vorgang: {vorgang}" vorgang={<strong>{journeyContextLabel(journeyContextKey)}</strong>} />
-                            <DiagramHint spec={JOURNEY_DIAGRAMS[journeyContextKey]} current={journeyContextCurrentStep} inline openDown>
-                              <span className="diagram-hint-trigger" tabIndex={0} aria-label={t('Ablauf dieses Vorgangs als Diagramm anzeigen')}>
-                                ℹ️
-                              </span>
-                            </DiagramHint>
-                          </>
-                        )}
-                      </span>
-                      {channelState !== 'AUTHENTICATED' && (
-                        <button className="secondary small" onClick={handleClearChannel} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
-                          {t('Zur Startseite')}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {!inToolMode && <EntryChoiceLinks channelState={channelState} onChooseIntent={handleStart} />}
-                </>
-              )}
                 {channelSessionId && (
                   <JourneyStructureView
                     channelSessionId={channelSessionId}

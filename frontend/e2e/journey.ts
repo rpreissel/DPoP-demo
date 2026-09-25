@@ -15,7 +15,8 @@ export async function completeRegistration(page: Page): Promise<void> {
   // "Zum App-Kanal" link opens a named tab (target=...), which Playwright would follow into a
   // second page object. The suite is about the journey, not about that hop.
   await page.goto('/app/')
-  await page.getByRole('button', { name: ui('Automatisch anmelden') }).click()
+  // A fresh browser context is a device no account knows: the phone offers a new account.
+  await page.locator('.phone').getByRole('button', { name: ui('Neues Konto anlegen') }).click()
 
   // Two identification candidates (ident-eid, ident-fsc) mean a selection page rather than a skip
   // straight to the single one - pick Freischaltcode, whose form is fully pre-filled in demo mode.

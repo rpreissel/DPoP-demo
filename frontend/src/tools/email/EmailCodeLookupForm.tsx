@@ -31,7 +31,7 @@ export function EmailCodeLookupForm({ onSubmit, error, demoEmail, demoPersons }:
 
   return (
     <div className="card">
-      <h2>{t('Neu anmelden per E-Mail')}</h2>
+      <h2>{t('Mit E-Mail-Code anmelden')}</h2>
       <p>{t('Geben Sie die E-Mail-Adresse Ihres Kontos ein, um einen Bestätigungscode an diese Adresse zu erhalten.')}</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>

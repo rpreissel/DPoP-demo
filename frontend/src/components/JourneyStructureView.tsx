@@ -108,7 +108,7 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
 
   return (
     // Struktur/Identität, nicht der eigentliche Vorgang - eingeklappt per default, damit sie neben
-    // der fachlichen Demo (EntryChoiceLinks/sticky-actions direkt darunter) nicht optisch
+    // der fachlichen Demo (die sticky-actions im Telefon) nicht optisch
     // dominiert; derselbe Auf-/Zuklapp-Look wie Request Einblicke (DebugSidebar), nur lokal
     // gehalten statt in App.tsx gehoben - keine andere Stelle braucht diesen Zustand.
     <div className="card structure-card">

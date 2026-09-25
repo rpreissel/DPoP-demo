@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { APP_TEXTS, loadTexts, resetTexts, resolveText, t, textId } from './texts'
+import { APP_TEXTS, language, loadTexts, resetTexts, resolveText, t, textId } from './texts'
 import { Tx } from './Tx'
 // @ts-expect-error - plain JS module, no types
 import { idOf } from '../scripts/text-catalog.mjs'
@@ -21,6 +21,14 @@ describe('texts', () => {
   })
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('a language chosen in the app wins over the browser language, an unknown one does not', () => {
+    expect(language()).toBe('en')
+    localStorage.setItem('dpop-demo-language', 'de')
+    expect(language()).toBe('de')
+    localStorage.setItem('dpop-demo-language', 'fr')
+    expect(language()).toBe('en')
   })
 
   it('loads the bundle in the browser language and resolves placeholders, nested texts first-class', async () => {

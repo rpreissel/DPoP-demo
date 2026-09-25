@@ -130,6 +130,9 @@
 
 .phone__head {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 10px 22px 34px;
   background: linear-gradient(160deg, var(--phone-navy) 0%, var(--phone-navy-2) 100%);
   color: #fff;
@@ -649,4 +652,63 @@
 
 .phone__screen .app-home__reset {
   margin-top: 14px;
+}
+
+/* Head of the step explanation: which journey runs, its diagram, and the demo way out. */
+.step-explanation__journey {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+  color: var(--text-h);
+}
+
+.step-explanation__journey strong {
+  color: var(--accent);
+}
+
+/* The start screen's buttons and the journey each one starts (ButtonDiagrams). */
+.button-diagrams {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
+.button-diagrams__title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* DE | EN in the head (LanguageSwitch). */
+.phone__languages {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+}
+
+.phone__screen button.phone__language {
+  min-height: 0;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phone__screen button.phone__language[aria-pressed='true'] {
+  background: #fff;
+  color: var(--phone-navy);
 }

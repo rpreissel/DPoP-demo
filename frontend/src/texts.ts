@@ -24,13 +24,49 @@ export const KOBIL_TEXTS = '/mock-kobil/texts'
 export const PERSONENVERZEICHNIS_TEXTS = '/mock-personenverzeichnis/texts'
 
 const SUPPORTED = ['de', 'en'] as const
-type Language = (typeof SUPPORTED)[number]
+export type Language = (typeof SUPPORTED)[number]
 
-/** The browser's language if a bundle is written in it, otherwise German. */
+const LANGUAGE_KEY = 'dpop-demo-language'
+
+/**
+ * The language the reader chose (LanguageSwitch), else the browser's if a bundle is written in it,
+ * otherwise German. The choice is a per-viewer convenience in localStorage - without it (private
+ * window, blocked storage) the browser's language simply applies again.
+ */
 export function language(): Language {
+  const chosen = readChosenLanguage()
+  if (chosen) return chosen
   const preferred = (typeof navigator !== 'undefined' ? navigator.languages?.[0] ?? navigator.language : undefined) ?? 'de'
   const base = preferred.toLowerCase().split('-')[0]
-  return (SUPPORTED as readonly string[]).includes(base) ? (base as Language) : 'de'
+  return isSupported(base) ? base : 'de'
+}
+
+export const supportedLanguages: readonly Language[] = SUPPORTED
+
+function isSupported(value: string | null | undefined): value is Language {
+  return !!value && (SUPPORTED as readonly string[]).includes(value)
+}
+
+function readChosenLanguage(): Language | undefined {
+  try {
+    const value = localStorage.getItem(LANGUAGE_KEY)
+    return isSupported(value) ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Switches the language for the whole demo. Reloads the page: labels resolved once at load
+ * (method names, diagram titles) would otherwise stay in the old language next to new ones.
+ */
+export function chooseLanguage(lang: Language): void {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, lang)
+  } catch {
+    // Without storage the choice cannot outlive the reload - the browser's language stays.
+  }
+  window.location.reload()
 }
 
 const bundles = new Map<string, Record<string, string>>()

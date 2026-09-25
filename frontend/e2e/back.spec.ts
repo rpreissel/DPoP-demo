@@ -9,7 +9,8 @@ import { ui, uiPattern } from './texts'
  */
 test('going back from the Freischaltcode shows the identification choice again', async ({ page }) => {
   await page.goto('/app/')
-  await page.getByRole('button', { name: ui('Automatisch anmelden') }).click()
+  // A fresh browser context is a device no account knows: the phone offers a new account.
+  await page.locator('.phone').getByRole('button', { name: ui('Neues Konto anlegen') }).click()
 
   const fsc = page.getByRole('button', { name: uiPattern('Freischaltcode') })
   await fsc.click()

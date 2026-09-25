@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react'
 import { resolveText, t } from '../texts'
+import { Tx } from '../Tx'
 import type { JourneyDebugStep } from '../types'
 
 interface StepExplanationProps {
@@ -10,6 +12,12 @@ interface StepExplanationProps {
   actor: string
   /** The address of the step (tool/orchestrator, step) - for those who want to find it in the code. */
   technical?: string
+  /** Which journey runs right now (named after its real intent) - heads the box. */
+  journeyTitle?: string
+  /** The diagram trigger for that journey, next to its name. */
+  journeyDiagram?: ReactNode
+  /** Demo way out: forget the session locally and go back to the start screen. */
+  onLeave?: () => void
 }
 
 /**
@@ -17,12 +25,27 @@ interface StepExplanationProps {
  * (the journey's purpose, from the backend - DemoStepReason), what the step does and who is acting
  * on it right now (from the tool module itself, ToolModule.explain).
  */
-export function StepExplanation({ journeys, idleReason, does, actor, technical }: StepExplanationProps) {
+export function StepExplanation({ journeys, idleReason, does, actor, technical, journeyTitle, journeyDiagram, onLeave }: StepExplanationProps) {
   const innermost = journeys?.at(-1)
   const outer = (journeys ?? []).slice(0, -1).filter((j) => j.purpose)
   const why = innermost?.purpose ? resolveText(innermost.purpose) : idleReason
 
   return (
+    <>
+    {(journeyTitle || onLeave) && (
+      <div className="step-explanation__journey">
+        {journeyTitle && (
+          <span>
+            <Tx text="Journey: {name}" name={<strong>{journeyTitle}</strong>} /> {journeyDiagram}
+          </span>
+        )}
+        {onLeave && (
+          <button className="secondary small" onClick={onLeave} title={t('Verlässt den Vorgang ganz und geht zurück zur Startauswahl.')}>
+            {t('Zur Startseite')}
+          </button>
+        )}
+      </div>
+    )}
     <dl className="step-explanation">
       {why && (
         <>
@@ -45,5 +68,6 @@ export function StepExplanation({ journeys, idleReason, does, actor, technical }
       <dd>{actor}</dd>
       {technical && <dd className="step-explanation__technical">{technical}</dd>}
     </dl>
+    </>
   )
 }

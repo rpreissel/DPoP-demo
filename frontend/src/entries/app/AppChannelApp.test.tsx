@@ -125,7 +125,7 @@ describe('security-summary backfill (docs/05-api.md #2: on-demand, not part of t
     render(<AppChannelApp />)
     const user = userEvent.setup()
 
-    await user.click(await screen.findByRole('button', { name: 'Automatisch anmelden' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Neues Konto anlegen' }))[0])
     await user.click(await screen.findByRole('button', { name: 'Code senden' }))
 
     // Level and methods live on the security screen, one tap from the welcome.
@@ -241,7 +241,8 @@ describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
 
     render(<AppChannelApp />)
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Neues Konto registrieren' }))
+    // The phone's own button comes first; the demo column offers the same journey again.
+    await user.click((await screen.findAllByRole('button', { name: 'Neues Konto anlegen' }))[0])
     await screen.findByRole('heading', { name: /Freischaltcode/ })
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: null }))

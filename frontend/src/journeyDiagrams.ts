@@ -44,7 +44,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   auto: {
-    title: t('Verbinden (automatisch)'),
+    title: t('Automatisch anmelden'),
     steps: [t('Gerät erkannt?'), t('Faktor bestätigen'), t('Angemeldet')],
     branch: {
       atIndex: 0,
@@ -54,7 +54,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   register: {
-    title: t('Neues Konto registrieren'),
+    title: t('Neues Konto anlegen'),
     // Reihenfolge seit ADR-17 (docs/12-entscheidungen.md): die Adresse ist Konto-Infrastruktur und
     // wird VOR jedem Anmeldeverfahren bestätigt, nicht als dessen Nebenprodukt danach
     // (RegisterState.ConfirmingEmail's eigener KDoc: "FIRST mandatory step ... before any
@@ -62,7 +62,7 @@ export const JOURNEY_DIAGRAMS: Record<
     steps: [t('Identifikation'), t('E-Mail bestätigen'), t('2. Faktor einrichten'), t('Angemeldet')],
   },
   registerEnrollFirst: {
-    title: t('Neues Konto registrieren (Enrollment zuerst, Experiment)'),
+    title: t('Neues Konto anlegen (Einrichtung zuerst, Experiment)'),
     // RegisterEnrollFirstState (admin-umschaltbar, AdminRegistrationOrderView): komplett eigene
     // Zustände (EnrollFirst*), keine mit RegisterState geteilten Typen außer RE_IDENTIFY am Ende.
     // Reihenfolge ist fest: E-Mail (mandatory), SMS (mandatory), Passwort (mandatory) - erst danach
@@ -76,7 +76,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   login: {
-    title: t('Neu anmelden'),
+    title: t('Mit E-Mail-Adresse anmelden'),
     steps: [t('E-Mail + Code/Passwort'), t('Gerät merken? (optional)'), t('Angemeldet')],
   },
   stepUp: {
@@ -92,7 +92,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   manageMethods: {
-    title: t('Verfahren verwalten'),
+    title: t('Anmeldeverfahren verwalten'),
     steps: [t('Niveau ausreichend?'), t('Verfahren wählen'), t('Eingerichtet')],
     branch: {
       atIndex: 0,
@@ -115,7 +115,7 @@ export const JOURNEY_DIAGRAMS: Record<
     },
   },
   confirmPeerLogin: {
-    title: t('Web-Login per QR bestätigen'),
+    title: t('Anmeldung im Browser bestätigen'),
     // Same anti-self-escalation gate as manageMethods (ConfirmPeerLoginStrategy.gate()): loa2
     // first. The "Nein" branch covers BOTH real starting points alike, because the strategy itself
     // does: a cold entry (no channel yet, ConfirmPeerLoginState.Requested as initialState()) and an

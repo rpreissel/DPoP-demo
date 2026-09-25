@@ -15,7 +15,7 @@ test('resetting a linked device leads to the start screen of an unknown device',
   await phone.getByRole('button', { name: ui('Abmelden'), exact: true }).click()
   await expect(phone.getByRole('heading', { name: /./ }).first()).toBeVisible()
   await phone.getByRole('button', { name: ui('Abmelden'), exact: true }).click()
-  await phone.getByRole('button', { name: ui('Zur Startseite') }).click()
+  // Signing out lands straight on the start screen - no page in between.
   await expect(phone.getByRole('button', { name: ui('Anderes Konto benutzen') })).toBeVisible()
 
   await phone.getByRole('button', { name: ui('Dieses Gerät zurücksetzen') }).click()

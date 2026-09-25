@@ -248,7 +248,7 @@ export function WelcomeApp() {
               <Tx
                 text={
                   'Dass dieses Gerät wiedererkannt wird, beweist nur, {welches} gerade spricht - nicht, dass davor wirklich die ' +
-                  'Person sitzt, für die es sich ausgibt ("Automatisch anmelden" nutzt das aus, "Neu anmelden" verzichtet bewusst darauf).'
+                  'Person sitzt, für die es sich ausgibt ("Automatisch anmelden" nutzt das aus, "Mit E-Mail-Adresse anmelden" verzichtet bewusst darauf).'
                 }
                 welches={<em>{t('welches Gerät')}</em>}
               />{' '}

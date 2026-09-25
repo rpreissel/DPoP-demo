@@ -31,7 +31,7 @@ export function EmailLookupForm({ onSubmit, error, demoEmail, demoPersons }: Ema
 
   return (
     <div className="card">
-      <h2>{t('Neu anmelden per SMS')}</h2>
+      <h2>{t('Mit E-Mail-Adresse und SMS-Code anmelden')}</h2>
       <p>{t('Geben Sie die E-Mail-Adresse Ihres Kontos ein, um eine TAN an die hinterlegte Telefonnummer zu erhalten.')}</p>
       {error && <div className="hint">{error}</div>}
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
