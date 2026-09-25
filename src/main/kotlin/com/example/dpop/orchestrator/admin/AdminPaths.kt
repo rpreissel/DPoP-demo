@@ -14,7 +14,9 @@ package com.example.dpop.orchestrator.admin
 const val ADMIN_API = "/orchestrator/admin"
 
 /**
- * Public, read-only demo endpoints (e.g. the welcome page's server status) - outside the app
- * contract like [ADMIN_API], but without its login: they switch nothing.
+ * Public demo endpoints (e.g. the welcome page's server status) - outside the app contract like
+ * [ADMIN_API], but without its login. Read-only, with one named exception: the login theme
+ * ([DemoLoginThemeController]), which only changes how Keycloak's pages look and is offered to
+ * every visitor on purpose so the two themes can be compared.
  */
 const val DEMO_API = "/orchestrator/demo"

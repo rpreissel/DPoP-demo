@@ -348,6 +348,14 @@ export function setLoginTheme(theme: LoginTheme): Promise<void> {
   return callPlain('PUT', `${ADMIN_PATH}/login-theme`, { theme })
 }
 
+/**
+ * The same realm-wide switch without an admin login (DemoLoginThemeController) - the website's demo
+ * column offers it to every visitor, so the two themes can be compared where the pages open.
+ */
+export function setDemoLoginTheme(theme: LoginTheme): Promise<void> {
+  return callPlain('PUT', '/orchestrator/demo/login-theme', { theme })
+}
+
 export interface KeycloakSyncResult {
   upserted: number
   deletedOrphans: number
