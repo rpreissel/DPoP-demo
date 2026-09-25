@@ -267,8 +267,12 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 **Phase D – Typen (ein bis zwei Wochen, journeyweise)**
 
-18. **`RunningJourney` / `FinishedJourney`** – danach kann der `isCurrent`-Fix und der
-    `isTerminal`-Check aus S-1 wieder verschwinden.
+18. ~~`RunningJourney` / `FinishedJourney`~~ – erledigt 2026-09-25: `JourneyService` nimmt von
+    außen nur noch `RunningJourney` an, dessen einzige Fabrik eine beendete oder abgelaufene Journey
+    ablehnt; die Lebenszyklus-Prüfung in `isCurrent` ist entfallen. ArchUnit hält fest, dass außerhalb
+    des Journey-Pakets nur die Aufbewahrung `AuthJourney` berührt. `FinishedJourney` entfällt – es
+    gibt keinen Aufrufer, der mit einer beendeten Journey arbeitet. Der `isTerminal`-Check am Kanal
+    gehört zu Schritt 19.
 19. **`LiveChannel` / `EndedChannel`**.
 20. **`ToolOutcome.Failed` je Kategorie** (schließt S-6 strukturell).
 21. **`AccountInHand`** – räumt den toten Zweitkonto-Zweig mit auf; Doku 04 §2 angleichen.

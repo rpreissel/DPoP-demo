@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.orchestrator.session.ToolSessionStatus
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.journey.AuthJourney
+import com.example.dpop.orchestrator.journey.RunningJourney
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journey.Step
 import com.example.dpop.orchestrator.kernel.OrchestratorException
@@ -103,12 +103,12 @@ class ToolControllerSupport(
             channel.accountId?.let { loginThrottleService.assertNotLocked(it) }
         }
 
-        val toolSession = sessionManagementService.createToolSession(journey.journeyId!!, TOOL_TTL)
+        val toolSession = sessionManagementService.createToolSession(journey.journeyId, TOOL_TTL)
         journeyService.activate(journey, channel, descriptor, toolSession.toolSessionId!!)
         return Context(
             toolId = toolId,
             toolSessionId = checkNotNull(toolSession.toolSessionId),
-            journeyId = checkNotNull(journey.journeyId),
+            journeyId = journey.journeyId,
             channelSessionId = checkNotNull(channel.channelSessionId),
             bindingKeyRef = bindingKeyRef,
             journeyAccountId = journey.accountId,
@@ -156,13 +156,13 @@ class ToolControllerSupport(
     override fun loadContext(toolSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
         val toolSession = sessionManagementService.findToolSessionById(toolSessionId)
             ?: throw OrchestratorException.notFound(Text("Tool session not found"), "toolSessionId=${toolSessionId}")
-        val journey = journeyService.findById(toolSession.journeyId!!)
+        val journey = journeyService.findRunning(toolSession.journeyId!!)
             ?: throw OrchestratorException.processGone(Text("Journey for this tool session is gone"))
-        val channel = channelAccessGuard.requireChannel(journey.channelSessionId!!, bindingKeyRef)
+        val channel = channelAccessGuard.requireChannel(journey.channelSessionId, bindingKeyRef)
         return Context(
             toolId = toolId,
             toolSessionId = toolSessionId,
-            journeyId = checkNotNull(journey.journeyId),
+            journeyId = journey.journeyId,
             channelSessionId = checkNotNull(channel.channelSessionId),
             bindingKeyRef = bindingKeyRef,
             journeyAccountId = journey.accountId,
@@ -194,7 +194,7 @@ class ToolControllerSupport(
     override fun back(context: AuthorizedToolContext): ChannelResponse =
         leave(context) { journey, channel, tool -> journeyService.back(journey, channel, tool) }
 
-    private fun leave(context: AuthorizedToolContext, move: (AuthJourney, ChannelSession, ToolDescriptor) -> Step): ChannelResponse {
+    private fun leave(context: AuthorizedToolContext, move: (RunningJourney, ChannelSession, ToolDescriptor) -> Step): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
@@ -332,12 +332,13 @@ class ToolControllerSupport(
         )
     }
 
-    private fun resolveJourney(context: Context): AuthJourney =
-        journeyService.findById(context.journeyId)
+    /** Only a running journey - a finished one takes no more tool results (docs/invarianten.md I-2). */
+    private fun resolveJourney(context: Context): RunningJourney =
+        journeyService.findRunning(context.journeyId)
             ?: throw OrchestratorException.processGone(Text("Journey for this tool session is gone"))
 
-    private fun resolveChannel(context: Context, journey: AuthJourney): ChannelSession {
-        val journeyChannelId = checkNotNull(journey.channelSessionId) { "Journey without a channel session id" }
+    private fun resolveChannel(context: Context, journey: RunningJourney): ChannelSession {
+        val journeyChannelId = journey.channelSessionId
         if (journeyChannelId != context.channelSessionId) {
             throw OrchestratorException.invalidState(Text("Tool context no longer matches its journey channel"))
         }
@@ -356,7 +357,7 @@ class ToolControllerSupport(
      * tool's own `demo` values - so a frontend persona picker works everywhere without
      * touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
      */
-    private fun demoInfo(journey: AuthJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
+    private fun demoInfo(journey: RunningJourney, channel: ChannelSession, values: Map<String, Any?>?): DemoInfo? {
         val journeys = journeyService.debugChain(channel)
         val personId = journey.accountId?.let { accountService.findAccount(it)?.personId }
         return demoDisclosure.assemble(

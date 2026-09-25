@@ -24,8 +24,7 @@ sie schließen soll.
   - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_channel_session_ended_without_login`, `test:DatabaseInvariantConstraintTest`
   - Lücke: kein Typ – Phase D (`LiveChannel`).
 - **I-2 Eine verbrauchte, abgebrochene oder fehlgeschlagene Journey nimmt keine Tool-Ergebnisse mehr an.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_tool_session_status` (eine abgeschlossene ToolSession ist `DONE`)
-  - Lücke: gesichert durch `isCurrent` und das Ablaufen der ToolSession, nicht durch einen Typ – Phase D (`RunningJourney`).
+  - Mechanismus: `type:RunningJourney` (`JourneyService` nimmt nur diesen Typ an, seine einzige Fabrik lehnt eine beendete Journey ab), `archunit:OrchestratorArchitectureTest` (außerhalb des Journey-Pakets kommt niemand sonst an `AuthJourney`), `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_tool_session_status` (eine abgeschlossene ToolSession ist `DONE`)
 - **I-3 Ein Kanal hat höchstens eine laufende (`STARTED`) Journey.**
   - Mechanismus: `test:ModelBasedJourneyTest` (fand die Verletzung, Review M-5), `type:JourneyService` (`start` bricht die laufende Kette ab), `sql:ux_journey_running_per_channel` (berechnete Spalte statt partiellem Index), `test:DatabaseInvariantConstraintTest`
 - **I-4 Ein `AUTHENTICATED`-Kanal hat Evidenz mit mindestens einem Faktor.**

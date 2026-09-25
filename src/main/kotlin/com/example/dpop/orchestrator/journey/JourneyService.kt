@@ -114,7 +114,7 @@ class JourneyService(
         // hand. A sub-journey (parentJourneyId set) is the one legitimate second journey: its parent
         // was suspended for it on purpose and is not STARTED.
         if (parentJourneyId == null) {
-            findActive(checkNotNull(channel.channelSessionId))?.let { cancelChain(it, channel) }
+            findActive(checkNotNull(channel.channelSessionId))?.let { cancelChain(it.entity, channel) }
         }
         val journey = AuthJourney(channel.channelSessionId, intent, Instant.now().plus(JOURNEY_TTL))
         journey.accountId = channel.accountId
@@ -174,13 +174,17 @@ class JourneyService(
     }
 
     /** The one running journey of this channel, if any - a suspended parent is deliberately not it. */
-    fun findActive(channelSessionId: UUID): AuthJourney? =
+    fun findActive(channelSessionId: UUID): RunningJourney? =
         journeyRepository
             .findFirstByChannelSessionIdAndLifecycleOrderByCreatedAtDesc(channelSessionId, JourneyLifecycle.STARTED)
-            ?.takeIf { !it.isExpired }
+            ?.let(RunningJourney::of)
 
-    fun findById(journeyId: UUID): AuthJourney? =
-        journeyRepository.findByIdOrNull(journeyId)?.takeIf { !it.isExpired }
+    /**
+     * The journey [journeyId] names, but only while it runs. A tool session outlives its journey's
+     * end (logout, cancel, a finished sub-journey) - through this lookup it can no longer reach it.
+     */
+    fun findRunning(journeyId: UUID): RunningJourney? =
+        journeyRepository.findByIdOrNull(journeyId)?.let(RunningJourney::of)
 
     /**
      * Debug-only view of the running journey chain (docs/tool_api/Envelope.kt, [JourneyDebugStep])
@@ -189,7 +193,7 @@ class JourneyService(
      */
     fun debugChain(channel: ChannelSession): List<JourneyDebugStep> {
         val channelSessionId = channel.channelSessionId ?: return emptyList()
-        val innermost = findActive(channelSessionId) ?: return emptyList()
+        val innermost = findActive(channelSessionId)?.entity ?: return emptyList()
         val chain = mutableListOf(innermost)
         var current = innermost
         while (true) {
@@ -214,10 +218,10 @@ class JourneyService(
         }
     }
 
-    fun stateOf(journey: AuthJourney): JourneyState = codec.read(journey)
-
     /** User-initiated abandonment of the whole journey, distinct from an exhausted budget. */
-    fun cancel(journey: AuthJourney, channel: ChannelSession) {
+    fun cancel(journey: RunningJourney, channel: ChannelSession) = cancelJourney(journey.entity, channel)
+
+    private fun cancelJourney(journey: AuthJourney, channel: ChannelSession) {
         markCancelled(journey, channel)
         fallBack(journey, channel)
     }
@@ -256,7 +260,7 @@ class JourneyService(
 
     /** Cancels [running] and every ancestor suspended for it - nothing of the chain is left waiting. */
     private fun cancelChain(running: AuthJourney, channel: ChannelSession) {
-        cancel(running, channel)
+        cancelJourney(running, channel)
         var parentId = running.parentJourneyId
         while (parentId != null) {
             val parent = journeyRepository.findByIdOrNull(parentId) ?: break
@@ -284,11 +288,13 @@ class JourneyService(
      * [JourneyState.activatable] that answers "may this tool be activated" also decides where the
      * client goes - one function, so the two can never disagree.
      */
-    fun nextOf(journey: AuthJourney, channel: ChannelSession): Next = routing.nextFor(codec.read(journey), routing.availableToolsOf(channel))
+    fun nextOf(journey: RunningJourney, channel: ChannelSession): Next = nextOf(journey.entity, channel)
+
+    private fun nextOf(journey: AuthJourney, channel: ChannelSession): Next = routing.nextFor(codec.read(journey), routing.availableToolsOf(channel))
 
     /** Returns the complete current step, including selection options and prompts. */
-    fun stepOf(journey: AuthJourney, channel: ChannelSession): Step =
-        routing.stepFor(codec.read(journey), channel)
+    fun stepOf(journey: RunningJourney, channel: ChannelSession): Step =
+        routing.stepFor(codec.read(journey.entity), channel)
 
     // Tool interaction ---------------------------------------------------------
 
@@ -297,7 +303,8 @@ class JourneyService(
      * state does not offer - which is why LOGIN_LOOKUP cannot be talked into an identification:
      * no state of that intent ever lists one.
      */
-    fun activate(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, toolSessionId: UUID) {
+    fun activate(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor, toolSessionId: UUID) {
+        val journey = running.entity
         val state = codec.read(journey)
         if (tool.toolId !in state.activatable(routing.availableToolsOf(channel))) {
             throw OrchestratorException.invalidState(Text("This tool is not offered in the current step"), "toolId=${tool.toolId}")
@@ -309,21 +316,26 @@ class JourneyService(
         journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
-    /**
-     * Only a RUNNING journey has a current tool. `active` survives in the stored state of a
-     * consumed/cancelled/failed/suspended journey (nothing clears it on the way out), so without the
-     * lifecycle check a finished tool could be completed a second time - e.g. replaying the auth-sms
-     * PATCH after a logout re-authenticated the LOGGED_OUT channel.
-     */
     /** See [JourneyActionExecutor.matchesAttestedIdentity]. */
-    fun matchesAttestedIdentity(journey: AuthJourney, channel: ChannelSession, personId: String): Boolean =
-        actionExecutor.matchesAttestedIdentity(journey, channel, personId)
+    fun matchesAttestedIdentity(journey: RunningJourney, channel: ChannelSession, personId: String): Boolean =
+        actionExecutor.matchesAttestedIdentity(journey.entity, channel, personId)
 
-    fun isCurrent(journey: AuthJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
-        journey.lifecycle == JourneyLifecycle.STARTED &&
-            codec.read(journey).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false
+    /**
+     * `active` survives in the stored state of a consumed/cancelled/failed/suspended journey (nothing
+     * clears it on the way out) - that such a journey is never asked is [RunningJourney]'s job, not
+     * a lifecycle check here (review 2026-09, S-1).
+     */
+    fun isCurrent(journey: RunningJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
+        codec.read(journey.entity).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false
 
     fun applyOutcome(
+        running: RunningJourney,
+        channel: ChannelSession,
+        tool: ToolDescriptor,
+        outcome: ToolOutcome
+    ): Step = applyOutcome(running.entity, channel, tool, outcome)
+
+    private fun applyOutcome(
         journey: AuthJourney,
         channel: ChannelSession,
         tool: ToolDescriptor,
@@ -354,9 +366,10 @@ class JourneyService(
      * that it has to judge. Only an [OfferingState] has a selection page; any other state (a single
      * preferred tool, a skippable assignment) treats going back as [abandon].
      */
-    fun back(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+    fun back(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+        val journey = running.entity
         val state = codec.read(journey)
-        if (state !is OfferingState) return abandon(journey, channel, tool)
+        if (state !is OfferingState) return abandon(running, channel, tool)
         val cleared = state.withOffer(state.offer.withActive(null))
         codec.write(journey, cleared)
         journeyRepository.save(journey)
@@ -366,7 +379,8 @@ class JourneyService(
     }
 
     /** "Anderes Verfahren": the tool is declined, and the state decides whether anything is left. */
-    fun abandon(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+    fun abandon(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+        val journey = running.entity
         val state = codec.read(journey)
         codec.write(journey, state.withActive(null))
         journeyRepository.save(journey)
@@ -379,7 +393,8 @@ class JourneyService(
      * implements [AnswerableState], which [answer] values are valid, and what its strategy's
      * `transition` decides for them can all change without this method ever changing.
      */
-    fun answer(journey: AuthJourney, channel: ChannelSession, answer: String): Step {
+    fun answer(running: RunningJourney, channel: ChannelSession, answer: String): Step {
+        val journey = running.entity
         val state = codec.read(journey)
         if (state !is AnswerableState) {
             throw OrchestratorException.invalidState(Text("Nothing is currently waiting for an answer"))
@@ -409,7 +424,8 @@ class JourneyService(
      * after every subsequent report, not just once, or a since-expired native method would never
      * actually disappear from the evidence.
      */
-    fun applyEvidenceUpdate(journey: AuthJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
+    fun applyEvidenceUpdate(running: RunningJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
+        val journey = running.entity
         journeyRecorder.mergeEvidence(journey, channel, source, updates)
         advance(journey, channel, JourneyEvent.EvidenceReported)
     }
@@ -519,7 +535,7 @@ class JourneyService(
                 // outcome as an explicit DELETE .../journey - unless cancelledTo (via fallBack)
                 // already landed the channel back on AUTHENTICATED, in which case there is
                 // nothing to restart (same guard as ChannelService.cancelActiveJourney).
-                cancel(journey, channel)
+                cancelJourney(journey, channel)
                 if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel)
             }
         }

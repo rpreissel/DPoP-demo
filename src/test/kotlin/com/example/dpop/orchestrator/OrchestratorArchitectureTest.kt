@@ -51,6 +51,24 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         }
     }
 
+    given("the journey entity (AuthJourney) and its repository") {
+        then("outside the journey package, only RunningJourney reaches a journey - and retention deletes old rows") {
+            // docs/invarianten.md I-2 (review 2026-09 fahrplan Phase D step 18): a finished journey
+            // takes no more tool results. JourneyService only accepts a RunningJourney, whose one
+            // factory refuses a finished journey - but that holds only while nobody outside the
+            // machine gets at the entity by another road.
+            noClasses()
+                .that().resideOutsideOfPackages(
+                    "com.example.dpop.orchestrator.journey..",
+                    "com.example.dpop.orchestrator.retention.."
+                )
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.AuthJourney")
+                .orShould().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.AuthJourneyRepository")
+                .because("the channel layer acts on journeys only through RunningJourney")
+                .check(classes)
+        }
+    }
+
     given("the versioned HTTP layer (api.v1)") {
         then("nothing outside it depends on it") {
             // api.v1 is how requests reach the orchestrator: routes, request bodies, parameter
