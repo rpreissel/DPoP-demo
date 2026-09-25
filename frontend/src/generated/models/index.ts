@@ -298,6 +298,12 @@ export interface ChannelBlock {
      */
     currentAmr?: Array<string>;
     /**
+     * Whether this session has already proven at least one factor (an identification or a method) - what cancelling the running journey would throw away. Lets a client ask "really discard?" only when there is something to lose. Set on every response, tool responses included; says nothing about which factor.
+     * @type {boolean}
+     * @memberof ChannelBlock
+     */
+    hasProvenFactor?: boolean;
+    /**
      * 
      * @type {string}
      * @memberof ChannelBlock

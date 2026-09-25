@@ -51,6 +51,14 @@ data class ChannelBlock(
     val channelType: String,
     @field:Schema(example = "AUTHENTICATED")
     val state: String,
+    @field:Schema(
+        description = "Whether this session has already proven at least one factor (an " +
+            "identification or a method) - what cancelling the running journey would throw away. " +
+            "Lets a client ask \"really discard?\" only when there is something to lose. Set on " +
+            "every response, tool responses included; says nothing about which factor.",
+        example = "false"
+    )
+    val hasProvenFactor: Boolean = false,
     @field:Schema(example = "loa2")
     val currentAcr: String? = null,
     @field:Schema(example = "[\"sms\", \"password\"]")

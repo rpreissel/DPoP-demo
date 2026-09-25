@@ -633,3 +633,20 @@
   font-size: 0.78rem;
   color: var(--text);
 }
+
+/* A quiet text action under the start screen's buttons (Dieses Gerät zurücksetzen). */
+.phone__screen button.link-button {
+  display: block;
+  min-height: 0;
+  margin: 14px auto 0;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--phone-blue);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.phone__screen .app-home__reset {
+  margin-top: 14px;
+}

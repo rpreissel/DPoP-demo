@@ -31,6 +31,9 @@ export async function completeRegistration(page: Page): Promise<void> {
     // Every click re-renders the step and detaches the button mid-action - settle first rather
     // than racing the re-render.
     await page.waitForTimeout(600)
+    // The last click may have landed on the welcome already - clicking on from there would start
+    // something else entirely (the menu offers more than the journey did).
+    if (await success.isVisible()) break
 
     // SMS first so the resulting amr is predictable for assertions; the rest are the generic
     // "send a code / confirm a code" steps every enroll-* tool shares. Demo mode pre-fills the
@@ -38,7 +41,9 @@ export async function completeRegistration(page: Page): Promise<void> {
     // 'Einrichten' closes any enroll-* form whose fields demo mode already pre-filled (password
     // today). It comes last so the more specific labels win when both are on screen.
     for (const name of [uiPattern('SMS'), ui('Code senden'), ui('TAN bestätigen'), ui('Code bestätigen'), ui('Einrichten')]) {
-      const button = page.getByRole('button', { name }).first()
+      // Exact for plain labels: a substring match found "einrichten" inside a menu row's hint
+      // on the welcome screen and wandered off into confirming a browser login.
+      const button = page.getByRole('button', typeof name === 'string' ? { name, exact: true } : { name }).first()
       if (await button.isVisible()) {
         await button.click()
         await page.waitForTimeout(800)

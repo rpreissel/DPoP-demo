@@ -95,10 +95,6 @@ export function AppChannelApp() {
   const [carriedMessage, setCarriedMessage] = useState<string | undefined>()
   const [demo, setDemo] = useState<DemoInfo | undefined>()
   const [activeTool, setActiveTool] = useState<ActiveTool | null>(null)
-  // Which entry choice started the current channel - drives the journey-shape hover hint in
-  // JourneyStructureView. Unknown after a resume (a prior session's choice isn't remembered), so no
-  // hint is offered there rather than guessing.
-  const [journeyKind, setJourneyKind] = useState<'auto' | 'register' | 'login' | 'confirmPeerLogin' | undefined>()
   // Set from the WEB channel's demo link (?pairingCode=..., docs/07-betrieb.md #5) -
   // the Keycloak-side QR page's demo link points straight at this app's own /app/ entry, so opening
   // it lands here directly instead of a fictitious native deep-link scheme. Only captured/surfaced
@@ -119,6 +115,11 @@ export function AppChannelApp() {
   // gelöscht (JourneyService.fallBack -> deleteIfAbandonedUnidentified), mitsamt einer eID-
   // Bezeugung, die schon darin steckt. Das darf nicht ein Klick nebenbei sein.
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  // Whether this session has already proven something (backend ChannelBlock.hasProvenFactor) -
+  // only then does leaving a registration throw anything away, and only then is it worth asking.
+  const [hasProvenFactor, setHasProvenFactor] = useState(false)
+  // "Dieses Gerät zurücksetzen" on the start screen asks once - it forgets this device's key.
+  const [confirmingReset, setConfirmingReset] = useState(false)
   const [error, setError] = useState('')
   // The logged-in screen (welcome, profile, security) - kept here so a step-up or an added method
   // returns to where it was started; a new channel starts at the welcome again.
@@ -164,6 +165,7 @@ export function AppChannelApp() {
   function clearChannelState() {
     setChannelSessionId(undefined)
     setChannelState(undefined)
+    setHasProvenFactor(false)
     setCurrentAcr(undefined)
     setCurrentAmr(undefined)
     setActiveMethods(undefined)
@@ -172,7 +174,6 @@ export function AppChannelApp() {
     setDemo(undefined)
     setActiveTool(null)
     setAlternativesCount(0)
-    setJourneyKind(undefined)
   }
 
   /**
@@ -202,6 +203,7 @@ export function AppChannelApp() {
     storeChannelSessionId(response.channel.channelSessionId)
     setRememberedChannelSessionId(response.channel.channelSessionId)
     setChannelState(response.channel.state)
+    setHasProvenFactor(response.channel.hasProvenFactor ?? false)
     setCurrentAcr(response.channel.currentAcr)
     setCurrentAmr(response.channel.currentAmr)
     setActiveMethods(response.channel.activeMethods)
@@ -321,7 +323,6 @@ export function AppChannelApp() {
       handleStart('confirmPeerLogin')
       return
     }
-    setJourneyKind('confirmPeerLogin')
     getChannel(dpop, rememberedId)
       .then((response) => {
         if (response.channel.state !== 'AUTHENTICATED') {
@@ -503,7 +504,6 @@ export function AppChannelApp() {
       }
       const intent =
         mode === 'auto' ? undefined : mode === 'login' ? 'lookup_login' : mode === 'confirmPeerLogin' ? 'confirm_peer_login' : mode
-      setJourneyKind(mode)
       const response = await createChannel(dpop, requiredAcr || undefined, intent, availableTools)
       applyResponse(response)
     } catch (err) {
@@ -679,6 +679,12 @@ export function AppChannelApp() {
     }
   }
 
+  /** Nothing proven yet, so nothing to lose: end the journey and go back to the start screen. */
+  async function handleLeaveToStart() {
+    await handleCancel()
+    handleClearChannel()
+  }
+
   async function handleCancel() {
     if (!dpop || !channelSessionId) return
     try {
@@ -729,7 +735,7 @@ export function AppChannelApp() {
   // as a one-line context banner once past the Startseite, so the current step doesn't stand there
   // context-free (e.g. "Verfahren wählen" alone doesn't say for what). Undefined once nothing is
   // running (e.g. idle AUTHENTICATED with no journey), same as journeys being empty - no banner then.
-  const journeyContextKey = currentJourneyDiagramKey(demo?.journeys, journeyKind)
+  const journeyContextKey = currentJourneyDiagramKey(demo?.journeys)
   // Nur die Registrierung baut etwas auf, das ein Abbruch wegwirft (das vorläufige Konto samt
   // Bezeugung). Ein Step-Up oder eine Bestätigung auf einem bestehenden Konto lässt nichts
   // zurück, dort bleibt es beim schlichten "Abbrechen".
@@ -867,9 +873,30 @@ export function AppChannelApp() {
                             {t('Mit E-Mail-Adresse anmelden')}
                           </button>
                           <button className="secondary" onClick={() => handleStart('register')}>
-                            {t('Neues Konto anlegen')}
+                            {t('Anderes Konto benutzen')}
                           </button>
                         </div>
+                        {/* Like reinstalling the app: the device key goes, so the orchestrator no
+                            longer recognizes this device - the account itself stays untouched. */}
+                        {confirmingReset ? (
+                          <div className="app-home__reset">
+                            <p className="hint">
+                              {t('Danach erkennt die App Ihr Konto nicht mehr. Anmelden können Sie sich weiter mit Ihrer E-Mail-Adresse.')}
+                            </p>
+                            <div className="form-actions app-home__actions">
+                              <button className="destructive" onClick={() => { setConfirmingReset(false); handleRecreateKey() }}>
+                                {t('Zurücksetzen')}
+                              </button>
+                              <button className="secondary" onClick={() => setConfirmingReset(false)}>
+                                {t('Abbrechen')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button className="link-button" onClick={() => setConfirmingReset(true)}>
+                            {t('Dieses Gerät zurücksetzen')}
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -956,12 +983,19 @@ export function AppChannelApp() {
                         {t('Abbrechen')}
                       </button>
                     )}
-                    {canCancel && discardsRegistration && !confirmingDiscard && (
+                    {/* Before anything is proven there is nothing to discard - no question, and on
+                        the very first screen (no tool running) it is simply the way back. */}
+                    {canCancel && discardsRegistration && !hasProvenFactor && (
+                      <button className="secondary" onClick={handleLeaveToStart} title={t('Zurück zur Startseite. Bisher ist nichts gespeichert.')}>
+                        {activeTool ? t('Abbrechen') : t('Zurück')}
+                      </button>
+                    )}
+                    {canCancel && discardsRegistration && hasProvenFactor && !confirmingDiscard && (
                       <button className="secondary" onClick={() => setConfirmingDiscard(true)} title={t('Beendet die Registrierung. Alles, was dieser Vorgang bisher aufgebaut hat - auch eine bereits nachgewiesene Identität - wird verworfen.')}>
                         {t('Registrierung verwerfen')}
                       </button>
                     )}
-                    {canCancel && discardsRegistration && confirmingDiscard && (
+                    {canCancel && discardsRegistration && hasProvenFactor && confirmingDiscard && (
                       <>
                         <span className="hint">{t('Alles aus diesem Vorgang geht verloren, auch die nachgewiesene Identität.')}</span>
                         <button className="secondary" onClick={() => { setConfirmingDiscard(false); handleCancel() }}>
@@ -1169,7 +1203,6 @@ export function AppChannelApp() {
                     channelState={channelState}
                     journeys={demo?.journeys}
                     next={next}
-                    journeyKind={journeyKind}
                     onClear={handleClearChannel}
                     onCancelJourney={canCancel ? handleCancel : undefined}
                   />

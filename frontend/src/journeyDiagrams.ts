@@ -225,7 +225,7 @@ export const CURRENT_STEP_BY_STATE_TYPE: Partial<Record<keyof typeof JOURNEY_DIA
   },
 }
 
-/** JourneyDebugStep.intent (AuthIntent name) -> JOURNEY_DIAGRAMS key, for SubJourneys where there's no entry-choice `journeyKind` to go by. */
+/** JourneyDebugStep.intent (AuthIntent name) -> JOURNEY_DIAGRAMS key - one per intent, so the running intent alone names what runs. */
 export const INTENT_DIAGRAM_KEY: Record<string, keyof typeof JOURNEY_DIAGRAMS> = {
   FAST_ACCESS: 'auto',
   REGISTER: 'register',
@@ -249,24 +249,15 @@ export function diagramKeyForState(intent: string, stateType: string): keyof typ
 }
 
 /**
- * Which JOURNEY_DIAGRAMS entry describes what's running right now, from the innermost (actually
- * active) journey in the chain - `journeyKind` (the user's own entry choice) only applies to that
- * outermost/only level, and only as a fallback: once the real `stateType` reveals the
- * enroll-first experiment is running, that observation wins over the remembered click (which
- * cannot distinguish the two REGISTER strategies on its own). A SubJourney started later
- * (step-up, manage-methods, ...) has its own intent and always overrides `journeyKind`. Used for
- * both JourneyStructureView's per-level hints and App.tsx's "what am I doing right now" context
- * line, so both agree on the same label.
+ * Which JOURNEY_DIAGRAMS entry describes what's running right now: the innermost (actually active)
+ * journey's own intent, as the backend reports it. Never the entry the user once clicked - a
+ * channel runs several journeys one after another (log in, then confirm a browser login), and a
+ * remembered click kept naming the first one long after it had finished. Used for both
+ * JourneyStructureView's per-level hints and the "what am I doing right now" line, so both agree.
  */
-export function currentJourneyDiagramKey(
-  journeys: JourneyDebugStep[] | undefined,
-  journeyKind: 'auto' | 'register' | 'login' | 'confirmPeerLogin' | undefined,
-): keyof typeof JOURNEY_DIAGRAMS | undefined {
-  if (!journeys || journeys.length === 0) return undefined
-  const index = journeys.length - 1
-  const innermost = journeys[index]
-  const byState = diagramKeyForState(innermost.intent, innermost.stateType)
-  return index === 0 ? (byState === 'registerEnrollFirst' ? byState : journeyKind ?? byState) : byState
+export function currentJourneyDiagramKey(journeys: JourneyDebugStep[] | undefined): keyof typeof JOURNEY_DIAGRAMS | undefined {
+  const innermost = journeys?.at(-1)
+  return innermost ? diagramKeyForState(innermost.intent, innermost.stateType) : undefined
 }
 
 /**

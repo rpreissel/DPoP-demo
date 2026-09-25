@@ -13,7 +13,6 @@ interface JourneyStructureViewProps {
   journeys?: JourneyDebugStep[]
   /** Where the channel is headed right now - a real ToolSession (`type: 'tool'`) or an orchestrator-owned screen (`type: 'orchestrator'`, e.g. a selection or confirmation page) alike, both shown as the innermost box. */
   next?: Next
-  journeyKind?: 'auto' | 'register' | 'login' | 'confirmPeerLogin'
   onClear: () => void
   /** Restarts the innermost (actually running) journey from scratch, same intent - a Journey-level action, so it lives on the Journey box, not among the fachlich flow controls. Omitted (no button rendered) once there's nothing left to cancel. */
   onCancelJourney?: () => void
@@ -52,7 +51,7 @@ function nest(levels: Level[], baseDepth: number): ReactNode {
  * Journey ⊃ SubJourney ⊃ Tool, including any SUSPENDED parent journey (e.g. a step-up gate parked
  * mid-way while its sub-journey runs) that would otherwise be invisible from the outside.
  */
-export function JourneyStructureView({ channelSessionId, channelState, journeys, next, journeyKind, onClear, onCancelJourney }: JourneyStructureViewProps) {
+export function JourneyStructureView({ channelSessionId, channelState, journeys, next, onClear, onCancelJourney }: JourneyStructureViewProps) {
   const [open, setOpen] = useState(false)
 
   if (!channelSessionId) return null
@@ -60,10 +59,7 @@ export function JourneyStructureView({ channelSessionId, channelState, journeys,
   const levels: Level[] = []
 
   journeys?.forEach((j, index) => {
-    // Same `registerEnrollFirst`-over-`journeyKind` precedence as currentJourneyDiagramKey - the
-    // real stateType wins once it reveals the enroll-first experiment is running.
-    const byState = diagramKeyForState(j.intent, j.stateType)
-    const diagramKey = index === 0 ? (byState === 'registerEnrollFirst' ? byState : journeyKind ?? byState) : byState
+    const diagramKey = diagramKeyForState(j.intent, j.stateType)
     // Only the innermost (actually active) journey has a "current step" to point at - a SUSPENDED
     // parent is parked waiting on its sub-journey, its own diagram has nothing to highlight.
     const isInnermost = index === journeys.length - 1

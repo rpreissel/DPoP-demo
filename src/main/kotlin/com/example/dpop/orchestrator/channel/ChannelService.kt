@@ -502,7 +502,12 @@ class ChannelService(
     fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
         val channelType = checkNotNull(channel.channel) { "Channel without a channel type" }.name
         if (!includeAccountFields || !channel.hasProvenFactor) {
-            return ChannelBlock(channelSessionId = channel.channelSessionId!!, channelType = channelType, state = channel.state?.name ?: ChannelState.ANONYMOUS.name)
+            return ChannelBlock(
+                channelSessionId = channel.channelSessionId!!,
+                channelType = channelType,
+                state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
+                hasProvenFactor = channel.hasProvenFactor
+            )
         }
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         val account = channel.accountId?.let { accountService.findAccount(it) }
@@ -511,6 +516,7 @@ class ChannelService(
             channelSessionId = channel.channelSessionId!!,
             channelType = channelType,
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
+            hasProvenFactor = channel.hasProvenFactor,
             currentAcr = currentAcr?.value,
             currentAmr = evidence?.currentAmr,
             activeMethods = toActiveMethodViews(account?.activeAuthenticationMethods)
