@@ -99,7 +99,7 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         `when`("resumed after a RE_IDENTIFY sub-journey (SubJourneyFinished)") {
             val acc = account(method("sms", AcrLevel.LOA1))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), linkedAccountId = null)
             then("delegates to the same settle-or-raise check as any other proof") {
                 val event = JourneyEvent.SubJourneyFinished(AuthIntent.RE_IDENTIFY, achievedAcr = AcrLevel.LOA2)
                 strategy.transition(LookupLoginState.Start, event, theCtx) shouldBe Transition.To(LookupLoginState.OfferBinding)
@@ -135,10 +135,19 @@ class LookupLoginStrategyTest : BehaviorSpec({
     given("Credential/AdditionalFactor, a proof just completed (settleOrRaise, after ActionCompleted)") {
         `when`("the floor is already satisfied") {
             val acc = account(method("sms", AcrLevel.LOA1))
-            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1)
-            then("offers the optional device-binding prompt") {
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1, linkedAccountId = null)
+            then("offers the optional device-binding prompt, the device being linked to nobody") {
                 strategy.transition(LookupLoginState.Credential(Offer(listOf(ToolId("auth-sms-lookup")))), JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.To(LookupLoginState.OfferBinding)
+            }
+        }
+
+        `when`("the floor is satisfied and this device is already linked to this very account") {
+            val acc = account(method("sms", AcrLevel.LOA1))
+            val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA1, linkedAccountId = acc.accountId)
+            then("signs in straight away - there is no link to offer") {
+                strategy.transition(LookupLoginState.Credential(Offer(listOf(ToolId("auth-sms-lookup")))), JourneyEvent.ActionCompleted, theCtx) shouldBe
+                    Transition.Authenticated
             }
         }
 

@@ -16,12 +16,14 @@ stateDiagram-v2
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
   Credential --> [*]: alle abgelehnt - Cancel
   Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
-  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, Gerät nicht anders verknüpft
+  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, Gerät mit keinem Konto verknüpft
+  Credential --> Finished: Nachweis erbracht, acrFloor erreicht, Gerät schon mit diesem Konto verknüpft
   Credential --> ConfirmDeviceRebind: Nachweis erbracht, Gerät war mit einem anderen Konto verknüpft
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
   AdditionalFactor --> [*]: alle abgelehnt - Cancel
   Credential --> RE_IDENTIFY: Nachweis erbracht, kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
-  AdditionalFactor --> OfferBinding: acrFloor erreicht, Gerät nicht anders verknüpft
+  AdditionalFactor --> OfferBinding: acrFloor erreicht, Gerät mit keinem Konto verknüpft
+  AdditionalFactor --> Finished: acrFloor erreicht, Gerät schon mit diesem Konto verknüpft
   AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, Gerät war mit einem anderen Konto verknüpft
   AdditionalFactor --> RE_IDENTIFY: kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
@@ -50,6 +52,8 @@ Mechanismus den Zustand, ohne `LookupLoginState.OfferBinding` zu kennen. Gehört
 einem anderen Konto als dem gerade angemeldeten, wechselt die Journey nach `ConfirmDeviceRebind`.
 Dort läuft dieselbe Ja/Nein-Frage, mit einem Hinweis, dass die alte Verknüpfung verloren geht. Lehnt der
 Nutzer ab, entfällt nur das neue Verknüpfen; die Anmeldung selbst bleibt bestehen.
+Ist das Gerät schon mit genau diesem Konto verknüpft, gibt es nichts zu fragen: Die Journey endet
+direkt angemeldet.
 
 Die dauerhafte Zuordnung von Gerät zu Konto (`DeviceAccountLink`) entsteht in dieser Journey
 **nur** mit Zustimmung und nie nebenbei beim Anmelden.

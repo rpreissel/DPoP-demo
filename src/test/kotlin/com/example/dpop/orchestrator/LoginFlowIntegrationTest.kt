@@ -183,7 +183,7 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
 
         given("an account registered with a confirmed email and a password") {
             `when`("logging in via auth-password-lookup with email and password") {
-                then("it authenticates into the existing account and relinks the device") {
+                then("it authenticates into the existing account without asking to link the device again") {
 
                 val email = registerWithEmailAndPassword()
 
@@ -202,19 +202,17 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     "/orchestrator/api/v1/tools/$toolSessionId/auth-password-lookup",
                     """{"email":"$email","password":"correct-horse-battery"}"""
                 )
-                authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
-                
-
-                post("/orchestrator/api/v1/channels/$channelSessionId/answer", """{"answer":"accept"}""")
+                // This device is already linked to this very account (registered on it above) - so there
+                // is no link to offer, and the login finishes on the proof itself.
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val channel = get("/orchestrator/api/v1/channels/$channelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
                 @Suppress("UNCHECKED_CAST")
                 channel.channel()["currentAmr"] as List<String> shouldContain "password"
 
-                // Accepting is what writes DeviceAccountLink - a subsequent FAST channel on this device
-                // is then recognized instead of having to identify again.
+                // The existing DeviceAccountLink stays - a subsequent FAST channel on this device is
+                // still recognized instead of having to identify again.
                 val nextAuto = post("/orchestrator/api/v1/app/channels")
                 nextAuto.channel()["state"] shouldNotBe "REGISTERING"
 
@@ -245,14 +243,9 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"email":"$email"}""")
                 }
                 val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-sms-lookup", """{"tan":"$loginTan"}""")
-                // A lookup login does not finish on the proof itself: the device binding is offered
-                // explicitly, because this intent is chosen by people who want no device binding.
-                authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
-                
-
-                val done = post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
-                done.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
+                // Registered on this same device, so it is already linked to this account: no device
+                // binding to offer, the lookup login finishes on the proof itself.
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val channel = get("/orchestrator/api/v1/channels/$lookupChannelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"
@@ -411,10 +404,8 @@ class LoginFlowIntegrationTest : IntegrationTestSupport() {
                     patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"email":"$email"}""")
                 }
                 val authenticated = patch("/orchestrator/api/v1/tools/$lookupToolSessionId/auth-email-lookup", """{"code":"$loginCode"}""")
-                authenticated.next() shouldBe 
-                    mapOf("type" to "orchestrator", "context" to "prompt", "step" to "confirm")
-                
-                post("/orchestrator/api/v1/channels/$lookupChannelSessionId/answer", """{"answer":"accept"}""")
+                // Same device as the registration, already linked to this account - nothing to ask.
+                authenticated.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
                 val channel = get("/orchestrator/api/v1/channels/$lookupChannelSessionId")
                 channel.channel()["state"] shouldBe "AUTHENTICATED"

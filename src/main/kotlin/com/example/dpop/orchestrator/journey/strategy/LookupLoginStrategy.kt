@@ -127,10 +127,13 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
     private fun settleOrRaise(ctx: JourneyContext): Transition {
         val account = ctx.requireAccount()
         if (ctx.policy.isSatisfied(ctx.evidence, ctx.acrFloor, account)) {
-            return if (ctx.linkedAccountId != null && ctx.linkedAccountId != account.accountId) {
-                Transition.To(LookupLoginState.ConfirmDeviceRebind)
-            } else {
-                Transition.To(LookupLoginState.OfferBinding)
+            // Three different situations, not one prompt with a varying text: an unlinked device
+            // may be offered the link, a device linked to someone else needs the explicit rebind
+            // warning, and a device already linked to THIS account has nothing to ask about.
+            return when (ctx.linkedAccountId) {
+                null -> Transition.To(LookupLoginState.OfferBinding)
+                account.accountId -> Transition.Authenticated
+                else -> Transition.To(LookupLoginState.ConfirmDeviceRebind)
             }
         }
         val candidates = CandidateTools.forAuth(account, ctx.acrFloor, ctx)
