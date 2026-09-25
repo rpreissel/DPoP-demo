@@ -52,8 +52,14 @@ data class AnchorAcrFloor(val establish: AcrLevel, val replace: AcrLevel)
  * is derived from [allowsReplacement] rather than a second, independently chosen rank: an anchor
  * nothing can ever replace is unforgeable evidence of identity, one that a later, equally strong
  * proof may re-point is not - so "immutable" and "binds more strongly" can never disagree.
+ *
+ * [retractableByHolder]: whether the account holder may withdraw the value in self-service. Only
+ * a contact channel is theirs to give up; an identity anchor is not - withdrawing PERSON_ID would
+ * turn an identified account back into a never-identified one and open it to a correlation with
+ * somebody else, undoing exactly what [allowsReplacement] = false forbids (review 2026-09, S-7).
+ * Stated per type, never defaulted, so a new anchor has to decide.
  */
-data class AnchorRule(val acrFloor: AnchorAcrFloor, val allowsReplacement: Boolean) {
+data class AnchorRule(val acrFloor: AnchorAcrFloor, val allowsReplacement: Boolean, val retractableByHolder: Boolean) {
     val bindingStrength: BindingStrength get() = BindingStrength.anchor(allowsReplacement)
 }
 
@@ -74,19 +80,19 @@ data class AnchorRule(val acrFloor: AnchorAcrFloor, val allowsReplacement: Boole
 val AttributeType.authority: AttributeAuthority
     get() = when (this) {
         AttributeType.PERSON_ID -> AttributeAuthority.Local(
-            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false, retractableByHolder = false)
         )
         // Set when a person with a Versicherungsnummer is bound, replaced/released when the
         // Personenverzeichnis reports a change (ADR-34) - can change value, never account.
         AttributeType.VERSNR -> AttributeAuthority.Local(
-            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = false)
         )
         AttributeType.EID_RESTRICTED_ID,
         AttributeType.NECT_RESTRICTED_ID -> AttributeAuthority.Local(
-            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = false)
         )
         AttributeType.EMAIL -> AttributeAuthority.Local(
-            AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
+            AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = true)
         )
         AttributeType.KVNR,
         AttributeType.NAME,

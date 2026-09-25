@@ -658,7 +658,7 @@ class JourneyActionExecutor(
         }
 
         falling.forEach { accountDeletionService.revokeMethod(accountId, checkNotNull(it.id)) }
-        accountService.retractAttribute(accountId, attributeType, RetractionAnchor.ACCOUNT_MANAGEMENT, reason = "attribute withdrawn")
+        accountService.retractAttribute(accountId, attributeType, RetractionAnchor.ACCOUNT_HOLDER, reason = "attribute withdrawn")
     }
 
     /**

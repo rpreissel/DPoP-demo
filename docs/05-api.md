@@ -337,7 +337,9 @@ unabhängig von `REGISTER` und `STEP_UP` ([Orchestrierung](04-orchestrierung.md)
   danach das `requiredAcr` des Kanals nicht mehr erreichen könnte – sonst könnte sich jemand selbst
   aussperren. Das Widerrufen ist nicht auf Einträge des aufrufenden Geräts beschränkt.
 - `DELETE .../attributes/{attribute}` nimmt ein **Attribut des Kontos** zurück statt eines
-  Credentials; heute ist das nur die bestätigte E-Mail-Adresse (`email`). Es ist das Gegenstück zu
+  Credentials; das ist nur die bestätigte E-Mail-Adresse (`email`). Welches Attribut der Inhaber
+  selbst zurücknehmen darf, sagt `AnchorRule.retractableByHolder`; Identitätsanker (`person_id`,
+  `versnr`, die Karten-Pseudonyme) sind es nicht und werden mit 409 abgelehnt. Es ist das Gegenstück zu
   `DELETE .../methods/{id}` und durchläuft dieselbe Prüfung. Der Unterschied liegt in den Folgen:
   Jedes Credential, das dieses Attribut per `requires` verlangt hat, wird mit entzogen, und zwar
   über alle Stufen hinweg. Eine zurückgenommene Adresse nimmt also ein darauf eingerichtetes

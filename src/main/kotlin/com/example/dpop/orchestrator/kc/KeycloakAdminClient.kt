@@ -231,6 +231,20 @@ class KeycloakAdminClient(
         authorized().delete().uri("/admin/realms/{realm}/sessions/{sessionId}", realm, keycloakSessionId).retrieve().toBodilessEntity()
     }
 
+    /**
+     * The account has no confirmed address any more (withdrawn, review 2026-09 S-7): its mirror,
+     * if there is one, must stop presenting it - [upsertUser] only ever SETS an address, so it
+     * cannot express "gone". No mirror, nothing to do.
+     */
+    fun clearEmail(accountId: Long) {
+        val userId = findUserId(accountId) ?: return
+        authorized().put().uri("/admin/realms/{realm}/users/{id}", realm, userId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("email" to "", "emailVerified" to false))
+            .retrieve().toBodilessEntity()
+        log.info("Keycloak account sync: cleared e-mail of user {} for accountId={}", userId, accountId)
+    }
+
     fun deleteUser(accountId: Long) {
         val userId = findUserId(accountId) ?: return
         authorized().delete().uri("/admin/realms/{realm}/users/{id}", realm, userId).retrieve().toBodilessEntity()

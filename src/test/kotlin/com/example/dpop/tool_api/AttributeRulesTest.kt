@@ -16,20 +16,23 @@ import io.kotest.matchers.shouldBe
 class AttributeRulesTest : BehaviorSpec({
 
     given("authority") {
-        then("PERSON_ID is locally owned, established and replaced at loa2, immutable") {
+        then("PERSON_ID is locally owned, established and replaced at loa2, immutable, not the holder's to withdraw") {
             AttributeType.PERSON_ID.authority shouldBe AttributeAuthority.Local(
-                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false)
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = false, retractableByHolder = false)
             )
         }
-        then("EMAIL is locally owned, established at loa1 but replaced only at loa2, replaceable") {
+        then("EMAIL is locally owned, established at loa1 but replaced only at loa2, replaceable, withdrawable by the holder") {
             AttributeType.EMAIL.authority shouldBe AttributeAuthority.Local(
-                AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true)
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = true)
             )
         }
-        then("EID_RESTRICTED_ID is locally owned, established and replaced at loa2, replaceable (ADR-19)") {
+        then("EID_RESTRICTED_ID is locally owned, established and replaced at loa2, replaceable, not the holder's to withdraw (ADR-19)") {
             AttributeType.EID_RESTRICTED_ID.authority shouldBe AttributeAuthority.Local(
-                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true)
+                AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = false)
             )
+        }
+        then("the holder may withdraw exactly EMAIL - no identity anchor (review 2026-09, S-7)") {
+            AttributeType.entries.filter { it.anchorRule?.retractableByHolder == true } shouldBe listOf(AttributeType.EMAIL)
         }
         then("the locally anchored attributes are exactly PERSON_ID, VERSNR, the two card pseudonyms and EMAIL") {
             AttributeType.entries.filter { it.isLocalAnchor } shouldBe

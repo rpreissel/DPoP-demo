@@ -32,6 +32,7 @@ import com.example.dpop.tool_api.ChannelBlock
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_api.authority
+import com.example.dpop.tool_api.anchorRule
 import com.example.dpop.tool_api.isLocalAnchor
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
@@ -339,7 +340,9 @@ class ChannelService(
      * credentials with it (`JourneyActionExecutor.performRetractAttribute`).
      *
      * Only attributes an account actually owns locally may be withdrawn: a master-data field is
-     * not ours to retract, and a method-owned one goes with its method. The wire name is resolved
+     * not ours to retract, and a method-owned one goes with its method. And of those only the ones
+     * the holder may give up (`AnchorRule.retractableByHolder`, today the confirmed address): an
+     * identity anchor is not the holder's to withdraw. The wire name is resolved
      * here rather than passed through as a string, so an unknown one is refused right away (409,
      * like every other invalid request on a channel) instead of a silent no-op deep inside the journey.
      */
@@ -349,6 +352,11 @@ class ChannelService(
         if (!attributeType.isLocalAnchor) {
             throw OrchestratorException.invalidState(
                 Text("'{attribute}' gehoert nicht dem Konto ({authority}) und kann hier nicht zurueckgenommen werden", "attribute" to attribute, "authority" to attributeType.authority)
+            )
+        }
+        if (attributeType.anchorRule?.retractableByHolder != true) {
+            throw OrchestratorException.invalidState(
+                Text("'{attribute}' weist die Identität dieses Kontos nach und kann nicht selbst zurückgenommen werden", "attribute" to attribute)
             )
         }
         return startManage(channelSessionId, bindingKeyRef, ManageAuthMethodsState.RetractAttributeRequested(attributeType))

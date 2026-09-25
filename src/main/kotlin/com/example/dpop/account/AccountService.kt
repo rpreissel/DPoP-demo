@@ -138,6 +138,14 @@ class AccountService(
         trustAnchor: RetractionAnchor,
         reason: String? = null
     ): Boolean {
+        // The holder may only give up what is theirs to give up (AnchorRule.retractableByHolder) -
+        // checked here, not only by the caller, so no path to this method can widen it.
+        check(trustAnchor != RetractionAnchor.ACCOUNT_HOLDER || attributeType.anchorRule?.retractableByHolder == true) {
+            "$attributeType cannot be withdrawn by the account holder"
+        }
+        // ADR-14: whoever changes the current state loads the account row with a version bump,
+        // so a concurrent confirm-email cannot interleave with this withdrawal.
+        lockForUpdate(accountId)
         // Only what still counts: a value already withdrawn needs no second retraction row, and
         // findEstablished is the same "assertions minus retractions" view every reader uses.
         val established = accountClaimRepository.findEstablished(accountId)
@@ -163,6 +171,8 @@ class AccountService(
             accountAnchorRepository.findByAccountIdAndAttributeType(accountId, attributeType)
                 ?.let { accountAnchorRepository.delete(it) }
         }
+        // Mirrors (Keycloak) must learn the value is gone, like after any other change.
+        announceChanged(accountId)
         return true
     }
 

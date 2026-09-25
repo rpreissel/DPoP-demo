@@ -18,7 +18,6 @@ import org.aopalliance.intercept.MethodInterceptor
 import org.hibernate.exception.ConstraintViolationException
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.aop.framework.Advised
-import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.jdbc.core.JdbcTemplate
@@ -274,6 +273,22 @@ class AccountServiceDbTest(
                 "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'name'",
                 Int::class.java, account.accountId
             ) shouldBe 1
+        }
+    }
+
+    given("an identity anchor and a withdrawal in the holder's name") {
+        then("the account module itself refuses it, whatever the caller checked (review 2026-09, S-7)") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaims(
+                account.accountId,
+                listOf(Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY)),
+                provenAcr = AcrLevel.LOA2
+            )
+
+            shouldThrow<IllegalStateException> {
+                accountService.retractAttribute(account.accountId, AttributeType.PERSON_ID, RetractionAnchor.ACCOUNT_HOLDER)
+            }
+            accountService.findAccount(account.accountId)!!.personId shouldBe "P000000042"
         }
     }
 

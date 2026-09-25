@@ -69,7 +69,12 @@ class KeycloakAccountSyncListener(
         // Nothing worth mirroring yet (REGISTER "Enrollment zuerst" account, freshly created,
         // docs/04-orchestrierung.md) - a Keycloak user needs an email/username; the next
         // AccountChanged once one is confirmed (or the account is identified) syncs it for real.
-        if (profile.email == null) return
+        // An account whose address was withdrawn may still HAVE a mirror, though - it must stop
+        // presenting the old address.
+        if (profile.email == null) {
+            keycloakAdminClient.clearEmail(profile.accountId)
+            return
+        }
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
         val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
         val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))

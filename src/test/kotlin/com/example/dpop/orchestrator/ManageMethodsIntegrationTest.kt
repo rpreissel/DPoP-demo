@@ -292,5 +292,29 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 }
             }
         }
+
+        given("an identified account") {
+            `when`("the holder tries to withdraw an identity anchor") {
+                then("it is refused - only the confirmed address is theirs to give up (review 2026-09, S-7)") {
+
+                val channelSessionId = registerAndAuthenticate()
+                fun personAnchors() = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM account.anchor WHERE attribute_type = 'person_id'", Int::class.java
+                )
+                personAnchors() shouldBe 1
+
+                listOf("person_id", "versnr", "restricted_id", "nect_restricted_id").forEach { attribute ->
+                    val refused = assertThrows<HttpClientErrorException> {
+                        delete("/orchestrator/api/v1/channels/$channelSessionId/attributes/$attribute")
+                    }
+                    refused.statusCode shouldBe HttpStatus.CONFLICT
+                }
+                personAnchors() shouldBe 1
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.retraction", Int::class.java) shouldBe 0
+
+
+                }
+            }
+        }
     }
 }

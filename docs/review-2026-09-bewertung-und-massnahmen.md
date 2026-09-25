@@ -230,8 +230,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 4. ~~S-4 Trust-all nur per Schalter und nur für Keycloak-Verbindungen~~ – erledigt 2026-09-25.
    (S-5 und M-12 sind Umgebung → Phase G.)
 5. ~~S-6 KVNR-Orakel~~ – erledigt 2026-09-25.
-6. **S-7** Widerruf nur für EMAIL (`AnchorRule.userRetractable`), `announceChanged` und
-   `lockForUpdate` im Widerruf.
+6. ~~S-7 Widerruf nur für EMAIL~~ – erledigt 2026-09-25.
 7. **S-8** Port-Vertrag des Personenverzeichnisses: Freischaltcode ist nach erfolgreicher Prüfung
    verbraucht; die Simulation hält das ein. Hash und Länge bleiben Fremdsystem (ADR-35).
 8. **M-2** QR-Prüfcode in der App eingeben, `expiresAt` in beiden Pfaden.

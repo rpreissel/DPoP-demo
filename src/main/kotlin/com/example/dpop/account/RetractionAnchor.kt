@@ -13,6 +13,13 @@ enum class RetractionAnchor {
     /** The account lifecycle itself, e.g. revoking the method instance that established the claim. */
     ACCOUNT_MANAGEMENT,
 
+    /**
+     * The account holder, in self-service - allowed only for an anchor whose rule says so
+     * ([com.example.dpop.tool_api.AnchorRule.retractableByHolder]), enforced by
+     * [AccountService.retractAttribute] itself.
+     */
+    ACCOUNT_HOLDER,
+
     /** The master-data backend no longer carries the value (e.g. a KVNR that was deregistered). */
     PERSON_DIRECTORY,
 

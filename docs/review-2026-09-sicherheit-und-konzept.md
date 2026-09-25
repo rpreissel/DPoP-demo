@@ -171,6 +171,15 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-7 Self-Service-Widerruf gilt für jeden lokalen Anker, nicht nur EMAIL
 
+> **Behoben (2026-09-25):** `AnchorRule.retractableByHolder` ist je Anker ausdrücklich erklärt
+> (nur `EMAIL` = `true`). Der Widerruf durch den Inhaber läuft unter dem neuen
+> `RetractionAnchor.ACCOUNT_HOLDER`, und `AccountService.retractAttribute` lehnt ihn für jeden anderen
+> Anker selbst ab – unabhängig vom Aufrufer; `ChannelService` antwortet vorab mit 409.
+> `retractAttribute` sperrt jetzt die Kontozeile (ADR-14) und kündigt `AccountChanged` an; der
+> Keycloak-Sync leert die E-Mail eines Spiegels, wenn das Konto keine mehr hat
+> (`KeycloakAdminClient.clearEmail`, gegen echtes Keycloak noch ungeprüft). Tests:
+> `AttributeRulesTest`, `AccountServiceDbTest`, `ManageMethodsIntegrationTest`.
+
 - **Wo:** `orchestrator/channel/ChannelService.kt:347` prüft nur `isLocalAnchor` – das sind
   PERSON_ID, VERSNR, EID_RESTRICTED_ID, NECT_RESTRICTED_ID und EMAIL (`tool_api/AttributeRules.kt:76-88`).
   Die OpenAPI-Beschreibung (`ChannelController.kt:395`) behauptet „today only … email“.
