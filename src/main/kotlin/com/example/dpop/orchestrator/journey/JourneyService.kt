@@ -268,7 +268,9 @@ class JourneyService(
 
     private fun markCancelled(journey: AuthJourney, channel: ChannelSession) {
         journey.cancel()
-        journeyRepository.save(journey)
+        // Flushed: a parent resumed or a new journey started next must not meet this one still
+        // STARTED in the database (ux_journey_running_per_channel).
+        journeyRepository.saveAndFlush(journey)
         sessionManagementService.recordEvent(
             channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
         )
@@ -463,7 +465,10 @@ class JourneyService(
             // parentJourneyId is what keeps "one running journey per channel" true.
             codec.write(journey, transition.resumeWith)
             journey.lifecycle = JourneyLifecycle.SUSPENDED
-            journeyRepository.save(journey)
+            // Flushed before the child row is written: the database allows one STARTED journey per
+            // channel (ux_journey_running_per_channel), and Hibernate would otherwise insert the
+            // child before it updates this row.
+            journeyRepository.saveAndFlush(journey)
             start(
                 channel,
                 transition.intent,
@@ -530,7 +535,8 @@ class JourneyService(
 
     private fun finish(journey: AuthJourney, channel: ChannelSession): Step {
         journey.consume()
-        journeyRepository.save(journey)
+        // Flushed before a suspended parent resumes (ux_journey_running_per_channel).
+        journeyRepository.saveAndFlush(journey)
 
         val parent = journey.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) }
         if (parent != null && parent.lifecycle == JourneyLifecycle.SUSPENDED) {

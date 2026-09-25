@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.ToolSessionStatus
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
@@ -197,7 +198,7 @@ class ToolControllerSupport(
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
-        sessionManagementService.expireToolSession(ctx.toolSessionId)
+        sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.ABANDONED)
         val step = move(journey, channel, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
@@ -220,7 +221,7 @@ class ToolControllerSupport(
         chargeThrottles(channel.accountId, descriptor.role.category, outcome)
         // A completed tool is done for good: its ToolSession must not be completable again, even
         // while the journey keeps running (an action's resumeState can still name it as active).
-        if (outcome is ToolOutcome.Completed) sessionManagementService.expireToolSession(ctx.toolSessionId)
+        if (outcome is ToolOutcome.Completed) sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.DONE)
 
         val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)
 

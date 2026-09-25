@@ -139,17 +139,18 @@ class SessionManagementService(
 
     fun findToolSessionById(toolSessionId: UUID): ToolSession? =
         toolSessionRepository.findByIdOrNull(toolSessionId)
-            ?.takeIf { !it.isExpired }
+            ?.takeIf { it.isUsable }
 
     /**
-     * Invalidates an abandoned tool session immediately (Back/Switch) rather than waiting for
-     * its TTL. Needed because a re-offered candidate can be the SAME toolId as the one being
-     * abandoned (today's catalog only has one method per category) - matching toolId alone
-     * wouldn't tell the old and the freshly re-activated tool session apart.
+     * Ends a tool session for good, as [status] says how (DONE or ABANDONED) - it accepts no input
+     * afterwards. Needed right away rather than at its TTL: a completed step must never complete a
+     * second time (review 2026-09, S-1), and a re-offered candidate can be the SAME toolId as the one
+     * just abandoned, so toolId matching alone can't tell the old and the fresh session apart.
      */
-    fun expireToolSession(toolSessionId: UUID) {
+    fun endToolSession(toolSessionId: UUID, status: ToolSessionStatus) {
+        require(status != ToolSessionStatus.RUNNING) { "endToolSession needs a final status" }
         toolSessionRepository.findByIdOrNull(toolSessionId)?.let { session ->
-            session.expiresAt = Instant.now()
+            session.status = status
             toolSessionRepository.save(session)
         }
     }

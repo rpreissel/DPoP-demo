@@ -557,6 +557,10 @@ class AccountService(
             // rather than shadowing it - two active entries for the same method would be seen
             // inconsistently by canAccountReach/authCandidates/resolveAcr.
             active.forEach { it.deactivate(now) }
+            // Flushed before the new instance is inserted: the database allows one active instance
+            // of a singleton method per account (ux_auth_method_active_singleton), and Hibernate
+            // would otherwise insert before it updates.
+            accountAuthMethodRepository.saveAllAndFlush(active)
             retractReplacedClaims(accountId, active.mapNotNull { it.id }, replacement = instanceId, now = now)
         } else if (active.any { it.enrollmentRef == enrollmentRef }) {
             // The SAME physical credential re-reported for the SAME account can only be a re-run of

@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.session
 
+import jakarta.persistence.Enumerated
+import jakarta.persistence.EnumType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
@@ -18,6 +20,15 @@ import java.util.UUID
  * whole AuthJourney (docs/04-orchestrierung.md #7), because a tool-local counter cannot stop
  * brute force that simply moves on to the next state.
  */
+/** How a tool session ends - a state of its own rather than an expiry moved to "now". */
+enum class ToolSessionStatus {
+    RUNNING,
+    /** Completed - never completable again (review 2026-09, S-1). */
+    DONE,
+    /** Left via Back/Switch. */
+    ABANDONED
+}
+
 @Entity
 @Table(schema = "orchestrator", name = "tool_session")
 class ToolSession(
@@ -35,6 +46,10 @@ class ToolSession(
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 16)
+    var status: ToolSessionStatus = ToolSessionStatus.RUNNING
+
     @Version
     @Column(name = "version", nullable = false)
     var version: Long? = null
@@ -45,4 +60,8 @@ class ToolSession(
 
     val isExpired: Boolean
         get() = expiresAt?.let { Instant.now().isAfter(it) } ?: false
+
+    /** Still accepts input: running and within its time. */
+    val isUsable: Boolean
+        get() = status == ToolSessionStatus.RUNNING && !isExpired
 }

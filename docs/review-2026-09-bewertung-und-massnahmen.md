@@ -251,9 +251,14 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 **Phase C – Zustandsraum verkleinern und verbieten (eine Woche)**
 
-14. **Schicht 0:** `active_tool_session_id` als Spalte, `ToolSession.status`.
-15. **Schicht 2:** die Constraints, soweit H2 sie ausdrücken kann (M-5 ist im Code behoben; ein
-    partieller Unique-Index geht mit H2 nicht).
+14. ~~Schicht 0: `active_tool_session_id` als Spalte~~ – gestrichen 2026-09-25: Was die Spalte
+    sichern sollte, decken der S-1-Fix, der modellbasierte Test und die Typen aus Phase D ab; der Umbau
+    quer durch alle Zustandsklassen lohnt sich dafür nicht mehr. Umgesetzt ist nur `ToolSession.status`
+    (`RUNNING`/`DONE`/`ABANDONED` statt einer vorgezogenen Ablaufzeit).
+15. ~~Schicht 2: Constraints~~ – erledigt 2026-09-25: I-3 und I-13 per berechneter Spalte mit
+    Unique-Index (Ersatz für partielle Indizes, die H2 nicht kennt), I-1 und I-4 als CHECK; vorher
+    Bereinigung von Altdaten; gegen die gefüllte Container-Datenbank erprobt.
+    `DatabaseInvariantConstraintTest` bricht jede Regel direkt per SQL.
 16. ~~M-4~~ – erledigt 2026-09-25 (Ablauf beendet die Anmeldung, gleitendes Refresh-Fenster,
     `JourneyService.endSession` für beide Abmeldewege).
 17. ~~M-6~~ entschieden 2026-09-25: bleibt, Re-Identifizierung ist der Weg zurück

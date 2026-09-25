@@ -21,17 +21,15 @@ sie schließen soll.
 ## Kanal und Journey
 
 - **I-1 Ein beendeter Kanal (`LOGGED_OUT`, `EXPIRED`) wird nie wieder `AUTHENTICATED`.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`
-  - Lücke: kein Typ, kein Constraint – Fahrplan Phase C (Constraint) und D (`LiveChannel`).
+  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_channel_session_ended_without_login`, `test:DatabaseInvariantConstraintTest`
+  - Lücke: kein Typ – Phase D (`LiveChannel`).
 - **I-2 Eine verbrauchte, abgebrochene oder fehlgeschlagene Journey nimmt keine Tool-Ergebnisse mehr an.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`
+  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_tool_session_status` (eine abgeschlossene ToolSession ist `DONE`)
   - Lücke: gesichert durch `isCurrent` und das Ablaufen der ToolSession, nicht durch einen Typ – Phase D (`RunningJourney`).
 - **I-3 Ein Kanal hat höchstens eine laufende (`STARTED`) Journey.**
-  - Mechanismus: `test:ModelBasedJourneyTest` (fand die Verletzung, Review M-5), `type:JourneyService` (`start` bricht die laufende Kette ab)
-  - Lücke: kein DB-Constraint – H2 kennt keine partiellen Indizes; mit einer anderen Datenbank Phase C.
+  - Mechanismus: `test:ModelBasedJourneyTest` (fand die Verletzung, Review M-5), `type:JourneyService` (`start` bricht die laufende Kette ab), `sql:ux_journey_running_per_channel` (berechnete Spalte statt partiellem Index), `test:DatabaseInvariantConstraintTest`
 - **I-4 Ein `AUTHENTICATED`-Kanal hat Evidenz mit mindestens einem Faktor.**
-  - Mechanismus: `test:ModelBasedJourneyTest`
-  - Lücke: kein Constraint – Phase C.
+  - Mechanismus: `test:ModelBasedJourneyTest`, `sql:ck_channel_session_authenticated_with_evidence`, `test:DatabaseInvariantConstraintTest`
 - **I-5 Ein Kanal wechselt nie still das Konto; ein anderes Konto ist ein Fehler, kein Umbinden.**
   - Mechanismus: `test:KcChannelIntegrationTest`
 
@@ -59,8 +57,7 @@ sie schließen soll.
   - Mechanismus: `test:IdentKvnrToolHandlerTest`, `test:IdentEidAssignmentIntegrationTest`
   - Lücke: das Subjekt im `Failed` ist nicht per Typ erzwungen – Phase D.
 - **I-13 Je Konto höchstens eine aktive Instanz einer Singleton-Methode (z. B. Passwort).**
-  - Mechanismus: `test:ModelBasedJourneyTest` (für das Passwort)
-  - Lücke: kein Constraint, nur `AccountService.addAuthenticationMethod` – Phase C.
+  - Mechanismus: `test:ModelBasedJourneyTest`, `sql:ux_auth_method_active_singleton`, `test:DatabaseInvariantConstraintTest` (prüft auch, dass die Methodenliste im SQL zu den Deskriptoren passt)
 - **I-14 Kein Gerätelink zeigt auf ein gelöschtes Konto.**
   - Mechanismus: `test:ModelBasedJourneyTest`; ein Link entsteht nie für ein vorläufiges Konto, und nur das darf ohne `AccountDeletionService` verschwinden (`AccountService.deleteProvisionalAccount` prüft es selbst)
   - Lücke: kein Fremdschlüssel (Schemas je Modul, ADR-16), Review M-13 – Phase C.
