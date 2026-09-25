@@ -31,6 +31,31 @@ Das Personenverzeichnis hält den Code nur als SHA-256-Hash (`Freischaltcodes.di
 eingetragene Liste von Codes zu pflegen. Warum der Klartext dort liegen darf, steht in
 [ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md).
 
+## Der Code ist bis zum Ablauf wiederverwendbar
+
+Entschieden am 2026-09-25 (Review 2026-09, S-8): Ein Freischaltcode wird durch eine erfolgreiche
+Identifizierung **nicht verbraucht**. Er gilt, bis er abläuft oder widerrufen wird
+(`Freischaltcode.isValidAt`), und kann in dieser Zeit mehrfach verwendet werden.
+
+Warum: `ident-fsc` ist nicht nur der Weg zur ersten Identifizierung, sondern auch der Notausgang für
+MANAGE_METHODS – ein Konto mit nur einem Verfahren erreicht loa2 über die Re-Identifizierung
+(`AuthPolicy.reIdentCandidates`). Bei Einmalnutzung bräuchte jede Re-Identifizierung einen neuen
+Brief. Das ist für den Nutzer ein Postweg je Verwaltungsvorgang.
+
+Erwogen und verworfen:
+
+- **Einmalnutzung**: schließt das Restrisiko unten, kostet aber den Brief je Re-Identifizierung.
+- **Einmalig für Fremde, wiederverwendbar für dasselbe Konto**: zwei Lesarten eines Codes, mehr
+  Logik an der Stelle, die über Kontoübernahme entscheidet.
+
+**Restrisiko, bewusst getragen**: Wer den Brief nach der legitimen Nutzung findet (Altpapier,
+Mitbewohner), kann sich bis zum Ablauf erneut als diese Person identifizieren – loa2 und damit das
+Konto der Person. Begrenzt wird das nur durch die Gültigkeitsdauer, den Widerruf im
+Personenverzeichnis und die Ident-Drossel (5 Fehlversuche je Person in 15 Minuten, die gegen Raten
+schützt, nicht gegen einen bekannten Code). Wie das Verzeichnis den Code speichert (heute SHA-256
+ohne Pepper) ist nach [ADR-35](ADR-035-betriebsanspruch-backend-kern-produktionsreif.md) Sache des
+Fremdsystems; das echte System muss ihn so ablegen, dass ein gelesener Hash den Code nicht verrät.
+
 ## Kosten
 
 - Die Migrationen `ext_personenverzeichnis/V1`, `id_fsc/V4` und `demo_seed/V16` wurden direkt

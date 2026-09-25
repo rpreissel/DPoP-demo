@@ -195,6 +195,11 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-8 Freischaltcode: rund 40 Bit, ungesalzenes SHA-256, mehrfach verwendbar
 
+> **Entschieden, nicht geändert (2026-09-25):** Der Code bleibt bis zum Ablauf wiederverwendbar,
+> weil `ident-fsc` auch der Weg zur Re-Identifizierung ist und Einmalnutzung einen Brief je
+> Verwaltungsvorgang kostete. Entscheidung, verworfene Alternativen und Restrisiko („gefundener
+> Brief“) stehen in ADR-31. Hash und Länge sind nach ADR-35 Sache des Fremdsystems.
+
 - **Wo:** `ext_personenverzeichnis/Freischaltcodes.kt:63` (8 Zeichen aus 31 ≈ 39,6 Bit),
   `ext_personenverzeichnis/internal/Freischaltcode.kt:17-23` (SHA-256 ohne Pepper, Begründung
   „nicht enumerierbar“), `:35-40` (`isValidAt` – bis Ablauf wiederverwendbar).

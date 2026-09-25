@@ -34,7 +34,9 @@ class Freischaltcode(
 
     /**
      * Expiry and revocation are the only limits: a Freischaltcode is fachlich reusable until it
-     * runs out. What bounds GUESSING it is the ident throttle on our side, not consumption.
+     * runs out - deliberately, because ident-fsc is also the re-identification path (ADR-31,
+     * "Der Code ist bis zum Ablauf wiederverwendbar", with the accepted residual risk of a found
+     * letter). What bounds GUESSING it is the ident throttle on our side, not consumption.
      */
     fun isValidAt(now: Instant): Boolean =
         revokedAt == null && expiresAt?.let { now.isBefore(it) } == true

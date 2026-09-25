@@ -196,8 +196,8 @@ Die Trennung Kanal / Journey / ToolSession ist richtig – sie ist nur nirgends 
 - **Simulierte Verfahren über ihren Port-Vertrag:** `ident-eid` bleibt Simulation des eID-Servers
   mit dessen Niveau; der Port-Vertrag hält fest, dass ein reales Ergebnis serverseitig vom
   eID-Server kommt und nie aus Client-Angaben (ADR-35).
-- **Freischaltcode:** Der Port-Vertrag sagt zu, dass ein Code nach erfolgreicher Prüfung verbraucht
-  ist. Hash mit Pepper und Länge sind Sache des Fremdsystems (ADR-31, ADR-35).
+- **Freischaltcode:** bleibt bis zum Ablauf wiederverwendbar – bewusst, wegen der Re-Identifizierung
+  (ADR-31). Hash mit Pepper und Länge sind Sache des Fremdsystems (ADR-35).
 - **Ein ADR „Niveaus und ihre Nachweise“:** je Stufe, welcher Nachweis sie trägt und welcher Test
   das prüft.
 
@@ -231,8 +231,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
    (S-5 und M-12 sind Umgebung → Phase G.)
 5. ~~S-6 KVNR-Orakel~~ – erledigt 2026-09-25.
 6. ~~S-7 Widerruf nur für EMAIL~~ – erledigt 2026-09-25.
-7. **S-8** Port-Vertrag des Personenverzeichnisses: Freischaltcode ist nach erfolgreicher Prüfung
-   verbraucht; die Simulation hält das ein. Hash und Länge bleiben Fremdsystem (ADR-35).
+7. ~~S-8 Freischaltcode~~ – entschieden 2026-09-25: bleibt bis zum Ablauf wiederverwendbar,
+   Restrisiko in ADR-31 festgehalten; Hash und Länge bleiben Fremdsystem (ADR-35).
 8. **M-2** QR-Prüfcode in der App eingeben, `expiresAt` in beiden Pfaden.
 9. **M-8** `bruteForceProtected`, Mgmt-`set` nur bei vorhandener Passwortmethode,
    `enabled` nicht bei jedem Sync.
@@ -275,8 +275,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     Realm-Neuaufbau nur mit Schalter.
 26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.
 27. **Port-Verträge der Fremdsysteme vervollständigen** (ADR-35): je Port, was ein reales System
-    zusagen muss (Einmaligkeit, Signatur, Frische, serverseitiges Ergebnis) – KOBIL, Nect, eID,
-    Personenverzeichnis.
+    zusagen muss (Signatur, Frische, serverseitiges Ergebnis, Ablage ohne Klartext-Rückschluss) –
+    KOBIL, Nect, eID, Personenverzeichnis.
 
 **Phase F – Härtung und Hygiene (nach Bedarf)**
 

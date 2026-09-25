@@ -56,10 +56,10 @@ Befunde schließen. Verworfen: Dann bleibt P-1 (Invarianten per Konvention) offe
   H2-Konsole im Pod), Compose-Ports, `forward-headers-strategy`, CSP-Header, Web-Kanal-Tokens im
   `sessionStorage`, Frontend-Thumbprint.
 - **Fremdsystem-Simulation:** S-8 (Freischaltcode-Hash) liegt im simulierten Personenverzeichnis
-  ([ADR-31](ADR-031-freischaltcode-liegt-im-fremdsystem.md)). Kernseitig wird der Port-Vertrag
-  ergänzt: Ein Freischaltcode ist nach erfolgreicher Prüfung verbraucht; das Verzeichnis sagt das zu,
-  der Kern verlässt sich darauf. Die unauthentifizierte Verwaltungs-API des Verzeichnisses bleibt
-  Vorführrahmen.
+  ([ADR-31](ADR-031-freischaltcode-liegt-im-fremdsystem.md)). Dass ein Code bis zum Ablauf
+  wiederverwendbar bleibt, ist eine eigene, bewusste Entscheidung mit benanntem Restrisiko (ADR-31,
+  Abschnitt „Der Code ist bis zum Ablauf wiederverwendbar“). Die unauthentifizierte Verwaltungs-API
+  des Verzeichnisses bleibt Vorführrahmen.
 - **`ident-eid`** bleibt eine Simulation des eID-Servers mit dessen Niveau (loa3); der Port-Vertrag
   benennt, dass ein reales Ergebnis serverseitig vom eID-Server kommt und nie aus Client-Angaben.
 
