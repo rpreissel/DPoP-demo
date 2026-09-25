@@ -261,6 +261,10 @@ class JourneyService(
      * lifecycle check a finished tool could be completed a second time - e.g. replaying the auth-sms
      * PATCH after a logout re-authenticated the LOGGED_OUT channel.
      */
+    /** See [JourneyActionExecutor.matchesAttestedIdentity]. */
+    fun matchesAttestedIdentity(journey: AuthJourney, channel: ChannelSession, personId: String): Boolean =
+        actionExecutor.matchesAttestedIdentity(journey, channel, personId)
+
     fun isCurrent(journey: AuthJourney, toolId: ToolId, toolSessionId: UUID): Boolean =
         journey.lifecycle == JourneyLifecycle.STARTED &&
             codec.read(journey).active?.let { it.toolId == toolId && it.toolSessionId == toolSessionId } ?: false

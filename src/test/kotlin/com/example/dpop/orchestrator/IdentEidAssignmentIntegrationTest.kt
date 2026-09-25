@@ -320,17 +320,25 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
             }
 
             `when`("somebody else's KVNR is supplied") {
-                then("it is refused - the register's person contradicts the attested identity") {
+                then("it is refused exactly like an unknown KVNR - the answer reveals nothing (review 2026-09, S-6)") {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                     attestViaEid(channelSessionId)
-
-                    val toolSessionId = activateAssignment(channelSessionId)
-                    val conflict = assertThrows<HttpClientErrorException> {
-                        patch("/orchestrator/api/v1/tools/$toolSessionId/ident-kvnr", """{"kvnr":"B987654321"}""")
-                    }
-
-                    conflict.statusCode shouldBe HttpStatus.CONFLICT
+                    val foreign = patch(
+                        "/orchestrator/api/v1/tools/${activateAssignment(channelSessionId)}/ident-kvnr",
+                        """{"kvnr":"B987654321"}"""
+                    )
                     personAnchorsOf(channelSessionId) shouldBe 0
+
+                    val otherChannel = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                    attestViaEid(otherChannel)
+                    val unknown = patch(
+                        "/orchestrator/api/v1/tools/${activateAssignment(otherChannel)}/ident-kvnr",
+                        """{"kvnr":"X999999999"}"""
+                    )
+
+                    foreign.next() shouldBe unknown.next()
+                    foreign["stepData"] shouldBe unknown["stepData"]
+                    foreign.channel()["state"] shouldBe unknown.channel()["state"]
                 }
             }
         }

@@ -104,7 +104,8 @@ class IdentKvnrToolController(
             !body.partnernr.isNullOrBlank() -> personDirectory.findPersonIdByPartnernr(body.partnernr)
             else -> null
         }
-        val outcome = handler.patch(toolSessionId, body.kvnr, body.partnernr, personId)
+        val matches = personId != null && toolEndpoint.matchesAttestedIdentity(context, personId)
+        val outcome = handler.patch(toolSessionId, body.kvnr, body.partnernr, personId, matches)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

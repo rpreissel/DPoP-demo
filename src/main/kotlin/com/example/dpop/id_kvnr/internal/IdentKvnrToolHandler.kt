@@ -44,21 +44,25 @@ class IdentKvnrToolHandler(
      *
      * The KVNR comes first: given, [partnernr] is ignored - the controller resolved by it alone.
      *
-     * An unknown KVNR answers exactly like one that resolves to somebody else's person: the
-     * message never distinguishes the two, so this cannot be used to probe which numbers exist
-     * (the same reasoning that folds a throttle lock into `ident-fsc`'s ordinary failure).
+     * [matchesAttestedIdentity] says whether that person is the one this account already had
+     * attested (asked through `ToolEndpoint.matchesAttestedIdentity`). An unknown number and one
+     * that belongs to somebody else's person answer exactly alike - same text, same `Failed` - so
+     * this cannot be used to probe which numbers exist. The foreign person is still named as
+     * `attemptedPersonId`, so the guess counts against the ident throttle like a wrong
+     * Freischaltcode does (review 2026-09, S-6: it used to surface as a 409 from the journey
+     * instead, uncounted).
      */
     @Transactional
-    fun patch(toolSessionId: UUID, kvnr: String?, partnernr: String?, personId: String?): ToolOutcome {
+    fun patch(toolSessionId: UUID, kvnr: String?, partnernr: String?, personId: String?, matchesAttestedIdentity: Boolean): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-kvnr tool session: $toolSessionId" }
         val byKvnr = !kvnr.isNullOrBlank()
         if (!byKvnr && partnernr.isNullOrBlank()) return inProgress()
         if (byKvnr) data.kvnr = kvnr else data.partnernr = partnernr
         repository.save(data)
 
-        personId ?: return ToolOutcome.Failed(
-            if (byKvnr) Text("Versichertennummer konnte nicht zugeordnet werden") else Text("Partnernummer konnte nicht zugeordnet werden")
-        )
+        val notAssignable = if (byKvnr) Text("Versichertennummer konnte nicht zugeordnet werden") else Text("Partnernummer konnte nicht zugeordnet werden")
+        personId ?: return ToolOutcome.Failed(notAssignable)
+        if (!matchesAttestedIdentity) return ToolOutcome.Failed(notAssignable, attemptedPersonId = personId)
 
         return ToolOutcome.Completed.Identified(
             amr = listOf(descriptor.method),

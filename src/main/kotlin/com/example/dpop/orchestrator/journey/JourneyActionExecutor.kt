@@ -74,6 +74,18 @@ class JourneyActionExecutor(
      * [com.example.dpop.tool_spi.ToolOutcome.InProgress.demo]), or `null` when this action has none. Currently
      * only [Action.AdoptCredential] ever returns one - see [performAdoptCredential] for why.
      */
+    /**
+     * Whether [personId] is the person the account in hand already had attested - the question a
+     * CORRELATION tool asks before it reports (`ToolEndpoint.matchesAttestedIdentity`, review
+     * 2026-09 S-6), answered by the same rule [performRecordIdentification] enforces afterwards.
+     * Asked here because only this class may consult [IdentityResolver]; answering it acts on
+     * nothing.
+     */
+    fun matchesAttestedIdentity(journey: AuthJourney, channel: ChannelSession, personId: String): Boolean {
+        val inHand = journey.accountId ?: channel.accountId ?: return false
+        return identityResolver.attestedIdentityMatches(inHand, personId)
+    }
+
     fun perform(journey: AuthJourney, channel: ChannelSession, action: Action): Map<String, Any?>? {
         var demoNotice: Map<String, Any?>? = null
         when (action) {
@@ -138,6 +150,8 @@ class JourneyActionExecutor(
             // attested. Without it, attesting yourself and then typing a stranger's number would
             // bind their anchor here whenever that stranger has no account of their own yet.
             // A run that resolves nobody has nothing to correlate and must not pass silently.
+            // The tool asked the same question before reporting (matchesAttestedIdentity) and
+            // failed uniformly on a mismatch; reaching this throw means a tool skipped that.
             val claimedPersonId = checkNotNull(action.outcome.personId) {
                 "${action.tool.toolId} completed as a correlation without resolving a person"
             }

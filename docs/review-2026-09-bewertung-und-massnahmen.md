@@ -229,7 +229,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 3. ~~S-3 Ein Schlüssel je Keycloak-Client, Migrationsclient ohne Master-Admin~~ – erledigt 2026-09-25.
 4. ~~S-4 Trust-all nur per Schalter und nur für Keycloak-Verbindungen~~ – erledigt 2026-09-25.
    (S-5 und M-12 sind Umgebung → Phase G.)
-5. **S-6** KVNR-Orakel: Mismatch als `Failed` mit `attemptedPersonId`.
+5. ~~S-6 KVNR-Orakel~~ – erledigt 2026-09-25.
 6. **S-7** Widerruf nur für EMAIL (`AnchorRule.userRetractable`), `announceChanged` und
    `lockForUpdate` im Widerruf.
 7. **S-8** Port-Vertrag des Personenverzeichnisses: Freischaltcode ist nach erfolgreicher Prüfung

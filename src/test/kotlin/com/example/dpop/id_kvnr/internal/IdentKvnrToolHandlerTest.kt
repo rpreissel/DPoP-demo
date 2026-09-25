@@ -39,7 +39,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
 
     given("a KVNR the register resolves") {
         then("it asserts the person reference and the number, both vouched for by the register") {
-            val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042")
+            val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = true)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
             outcome.claims shouldBe listOf(
@@ -53,7 +53,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
         then("the Versicherungsnummer comes along as an anchor claim (ADR-34)") {
             every { personDirectory.versnrOf("P000000042") } returns "10000001"
 
-            val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042")
+            val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = true)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
             outcome.claims.last() shouldBe Claim(AttributeType.VERSNR, "10000001", ClaimSource.PERSON_DIRECTORY, IdentKvnrDescriptor.maxAcr)
@@ -62,7 +62,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
 
     given("a Partner without a KVNR, identified by Partnernummer (ADR-34)") {
         then("it asserts the person reference only - no KVNR claim") {
-            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = "P000000004", personId = "P000000004")
+            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = "P000000004", personId = "P000000004", matchesAttestedIdentity = true)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
             outcome.claims shouldBe listOf(
@@ -71,7 +71,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
         }
 
         then("an unknown Partnernummer fails without saying whether it exists") {
-            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = "P999999999", personId = null)
+            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = "P999999999", personId = null, matchesAttestedIdentity = false)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
             outcome.reason.template shouldBe "Partnernummer konnte nicht zugeordnet werden"
@@ -80,16 +80,26 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
 
     given("a KVNR the register does not know") {
         then("it fails with a message that does not reveal whether the number exists") {
-            val outcome = handler.patch(toolSessionId, "X999999999", partnernr = null, personId = null)
+            val outcome = handler.patch(toolSessionId, "X999999999", partnernr = null, personId = null, matchesAttestedIdentity = false)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
             outcome.reason.template shouldBe "Versichertennummer konnte nicht zugeordnet werden"
         }
     }
 
+    given("a KVNR that belongs to a person other than the one this account had attested") {
+        then("it fails exactly like an unknown one, but counts the guess against that person") {
+            val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = false)
+
+            outcome.shouldBeInstanceOf<ToolOutcome.Failed>()
+            outcome.reason.template shouldBe "Versichertennummer konnte nicht zugeordnet werden"
+            outcome.attemptedPersonId shouldBe "P000000042"
+        }
+    }
+
     given("no KVNR submitted yet") {
         then("it keeps asking for one") {
-            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, personId = null)
+            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, personId = null, matchesAttestedIdentity = false)
 
             outcome.shouldBeInstanceOf<ToolOutcome.InProgress>()
             outcome.nextStep shouldBe "input"

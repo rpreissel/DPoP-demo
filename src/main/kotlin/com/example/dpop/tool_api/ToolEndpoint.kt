@@ -117,6 +117,15 @@ interface ToolEndpoint {
     fun applyOutcome(context: AuthorizedToolContext, outcome: ToolOutcome): ChannelResponse
 
     /**
+     * Whether [personId] is the person the account in hand already had attested (name, first name,
+     * date of birth) - the check a CORRELATION tool (`ident-kvnr`) needs BEFORE it reports, so that a
+     * number belonging to somebody else fails like an unknown one instead of surfacing as a
+     * distinct error. `false` without an account in hand. The journey repeats the same check when it
+     * binds the person; this only lets the tool answer uniformly.
+     */
+    fun matchesAttestedIdentity(context: AuthorizedToolContext, personId: String): Boolean
+
+    /**
      * Whether [accountId] is currently locked out by the account-level brute-force throttle.
      *
      * For tools that resolve the account THEMSELVES from submitted input (LOOKUP_AUTH). A

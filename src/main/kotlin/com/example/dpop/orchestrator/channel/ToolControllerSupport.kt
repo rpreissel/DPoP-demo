@@ -235,6 +235,12 @@ class ToolControllerSupport(
         )
     }
 
+    override fun matchesAttestedIdentity(context: AuthorizedToolContext, personId: String): Boolean {
+        val ctx = context as Context
+        val journey = resolveJourney(ctx)
+        return journeyService.matchesAttestedIdentity(journey, resolveChannel(ctx, journey), personId)
+    }
+
     override fun isLockedOut(accountId: Long?): Boolean =
         accountId?.let { loginThrottleService.isLocked(it) } ?: false
 

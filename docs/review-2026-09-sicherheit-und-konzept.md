@@ -150,6 +150,15 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-6 KVNR-Existenz-Orakel über `ident-kvnr`, ungedrosselt
 
+> **Behoben (2026-09-25):** `ident-kvnr` fragt vor dem Ergebnis über
+> `ToolEndpoint.matchesAttestedIdentity`, ob die Person zur schon bezeugten Identität passt (Antwort
+> aus `JourneyActionExecutor`, dieselbe Regel wie dessen eigene Prüfung). Eine fremde KVNR endet
+> wie eine unbekannte: gleicher Text, gleiches `Failed`, dazu `attemptedPersonId`, also mit
+> Buchung auf die Ident-Drossel dieser Person. Die Prüfung im Executor bleibt als zweite
+> Sicherung. Tests: `IdentKvnrToolHandlerTest`, `IdentEidAssignmentIntegrationTest` (beide Antworten
+> gleich). Der Zähler je Konto für CORRELATION entfällt: Ohne unterscheidbare Antwort gibt es nichts
+> mehr abzufragen; die strukturelle Lösung (Subjekt im `Failed` per Typ) folgt in Phase D.
+
 - **Wo:** `id_kvnr/internal/IdentKvnrToolHandler.kt:59-61` (unbekannte KVNR → `Failed` ohne
   `attemptedPersonId`); `orchestrator/journey/JourneyActionExecutor.kt:144-146` (KVNR einer anderen
   Person → `IdentityConflictException`, 409).
