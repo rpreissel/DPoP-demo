@@ -1,5 +1,9 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.web.client.HttpClientErrorException
+import org.springframework.http.HttpStatus
+import org.springframework.http.HttpHeaders
+import io.kotest.assertions.throwables.shouldThrow
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -96,6 +100,37 @@ class KcTokenProviderTest : BehaviorSpec({
             ctx.refreshToken shouldBe "rotated-refresh"
             verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
             verify(exactly = 0) { accountKeypairService.keypairFor(any()) }
+        }
+    }
+
+    given("a RefreshToken whose window has lapsed, or that Keycloak refuses (review 2026-09, M-4)") {
+        fun contextWith(refreshExpiresAt: Instant) = AuthContext(accountId = 3L).apply {
+            accessToken = "stale"; accessExpiresAt = Instant.now().minusSeconds(5)
+            refreshToken = "existing-refresh"; this.refreshExpiresAt = refreshExpiresAt
+        }
+        fun repositoryWith(id: UUID, ctx: AuthContext) = mockk<AuthContextRepository>().also {
+            every { it.findById(id) } returns Optional.of(ctx)
+            every { it.save(any()) } answers { firstArg() }
+        }
+
+        then("a lapsed window ends the login - no new Keycloak session is opened behind Keycloak's back") {
+            val id = UUID.randomUUID()
+            val keycloakAdminClient = mockk<KeycloakAdminClient>()
+            shouldThrow<SessionExpiredException> {
+                provider(repositoryWith(id, contextWith(Instant.now().minusSeconds(1))), mockk(), keycloakAdminClient).tokenFor(appChannel(id))
+            }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
+        }
+
+        then("a refresh Keycloak refuses (its session ended) ends the login too") {
+            val id = UUID.randomUUID()
+            val keycloakAdminClient = mockk<KeycloakAdminClient>()
+            every { keycloakAdminClient.refreshAccountToken("existing-refresh") } throws
+                HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "invalid_grant", HttpHeaders.EMPTY, ByteArray(0), null)
+            shouldThrow<SessionExpiredException> {
+                provider(repositoryWith(id, contextWith(Instant.now().plusSeconds(600))), mockk(), keycloakAdminClient).tokenFor(appChannel(id))
+            }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
         }
     }
 

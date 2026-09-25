@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.SessionExpiredException
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
@@ -165,10 +166,18 @@ class ChannelService(
      * [minValiditySeconds] is the caller's tolerance, the backend alone decides whether the
      * existing token still qualifies or a new one gets minted.
      */
+    // noRollbackFor: an expired login ends the channel AND answers 410 - the ending must commit
+    // even though the answer is an exception.
+    @Transactional(noRollbackFor = [OrchestratorException::class])
     fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
         val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
         requireAuthenticatedApp(channel)
-        val pair = tokenProvider.tokenFor(channel, minValiditySeconds)
+        val pair = try {
+            tokenProvider.tokenFor(channel, minValiditySeconds)
+        } catch (e: SessionExpiredException) {
+            journeyService.endSession(channel, ChannelState.EXPIRED)
+            throw OrchestratorException.processGone(Text("Die Anmeldung ist abgelaufen. Bitte melden Sie sich neu an."), e.message)
+        }
         return TokenResponse(accessToken = pair.accessToken, accessExpiresAt = pair.accessExpiresAt, refreshExpiresAt = pair.refreshExpiresAt)
     }
 
@@ -312,9 +321,7 @@ class ChannelService(
         }
 
         val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
-        refreshed.authContextId = null
-        refreshed.state = ChannelState.LOGGED_OUT
-        sessionManagementService.updateChannelSession(refreshed)
+        journeyService.endSession(refreshed, ChannelState.LOGGED_OUT)
     }
 
     /**

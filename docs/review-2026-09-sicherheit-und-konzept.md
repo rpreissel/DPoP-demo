@@ -263,6 +263,13 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-4 Refresh-Ablauf wirkungslos, Sitzung 24 h ohne erneute Anmeldung; hartes Logout lässt Keycloak-Sitzung stehen
 
+> **Behoben (2026-09-25):** Ein abgelaufenes oder von Keycloak abgelehntes RefreshToken beendet die
+> Anmeldung (`SessionExpiredException` → Kanal `EXPIRED`, `410`), statt neu auszustellen. Im
+> Standardprofil gleitet das Refresh-Fenster (30 Minuten Leerlauf); im Profil `keycloak` gelten
+> Keycloaks Grenzen. Beide Abmeldewege laufen über `JourneyService.endSession` (Tokens verwerfen,
+> Keycloak-Sitzung beenden). Ein eigener `lastAccessedAt`-Leerlauf ist damit nicht nötig. Tests in
+> `TokenServiceTest`, `KcTokenProviderTest`, `CancelLogoutIntegrationTest`.
+
 - **Wo:** `orchestrator/session/TokenService.kt:63-68`, `KcTokenProvider.kt:66-74` (bei abgelaufenem
   Refresh wird ohne Prüfung neu ausgestellt); `ChannelService.kt:1085` (`CHANNEL_TTL = 24h`);
   `lastAccessedAt` wird gepflegt, aber nie für einen Leerlauf-Ablauf genutzt.

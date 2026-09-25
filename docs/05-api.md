@@ -279,7 +279,7 @@ nach Profil:
   1. Das Token ist noch lange genug gültig: Es wird unverändert zurückgegeben.
   2. Es läuft bald ab, ACR und AMR sind unverändert: Erneuerung über Keycloaks
      `refresh_token`-Grant, ohne den privaten Schlüssel des Kontos.
-  3. Es gibt kein gültiges RefreshToken mehr (erste Ausstellung, oder ein Step-up hat den
+  3. Es gibt noch kein RefreshToken (erste Ausstellung, oder ein Step-up hat den
      Zwischenspeicher verworfen): Eine frische, signierte Assertion geht an den eigenen
      OAuth2-Grant (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in
      `keycloak-extension`, ADR-9). Signiert wird sie mit dem privaten Schlüssel aus
@@ -290,6 +290,19 @@ nach Profil:
 `minValiditySeconds` wirkt in beiden Profilen gleich. Ausnahme: Ein Step-up, der die `AuthEvidence`
 verändert (`AuthEvidenceService.applyEvidence`/`applyEvidenceUpdate`), verwirft das
 zwischengespeicherte Token ausdrücklich.
+
+**Ablauf der Anmeldung** (Review 2026-09, M-4): Ein vorhandenes, aber abgelaufenes RefreshToken –
+oder eines, das Keycloak ablehnt, weil seine Sitzung endete – führt nie zu einer neuen Ausstellung.
+Die Anmeldung ist vorbei: Der Kanal endet als `EXPIRED`, seine Tokens werden verworfen, die Antwort
+ist `410 PROCESS_GONE` („bitte neu anmelden“). Im Standardprofil verschiebt jede Erneuerung das
+Fenster um 30 Minuten, es wirkt also als Leerlauf-Grenze; im Profil `keycloak` bestimmen Keycloaks
+eigene Grenzen (SSO idle/max), und der Orchestrator umgeht sie nicht mehr durch eine neue
+Keycloak-Sitzung. Früher wurde in beiden Fällen still neu ausgestellt – ein Kanal blieb so seine vollen
+24 Stunden angemeldet.
+
+Beide Abmeldewege – die bestätigte Abmeldung (`POST .../logouts`) und die direkte (`DELETE`) – laufen
+über dieselbe Funktion (`JourneyService.endSession`): Tokens verwerfen, die Keycloak-Sitzung dieses
+Kanals beenden. Die direkte Abmeldung ließ beides vorher liegen.
 
 ### ID-Token-Claims (`GET .../{channelSessionId}/idclaims`)
 

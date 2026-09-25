@@ -222,6 +222,38 @@ class JourneyService(
         fallBack(journey, channel)
     }
 
+    /**
+     * The one way a channel's login ends - the confirmed logout (`Transition.Logout`), the hard
+     * logout (`ChannelService.logout`) and an expired session alike (review 2026-09, M-4: the hard
+     * logout used to leave the RefreshToken and the Keycloak session behind).
+     *
+     * The tokens are discarded, not just unlinked. For an App channel that holds a real Keycloak
+     * session (the account-token grant, `AuthContext.keycloakSessionId`) exactly that session is
+     * ended - no other session the account holds elsewhere (e.g. a Web-channel login). The Web
+     * channel's own logout stays Keycloak's (docs/07-betrieb.md Abschnitt 3). [finalState] is
+     * `LOGGED_OUT` or `EXPIRED` - either is terminal.
+     */
+    fun endSession(channel: ChannelSession, finalState: ChannelState) {
+        require(finalState.isTerminal) { "endSession needs a terminal state, got $finalState" }
+        channel.authContextId?.let { authContextService.getAuthContext(it) }?.let { context ->
+            if (channel.channel == ChannelType.APP) {
+                // Published, not called: this runs inside the caller's transaction, and the Admin
+                // API call used to hold it open across a network round trip.
+                // KeycloakSessionLogoutListener picks it up AFTER_COMMIT.
+                context.keycloakSessionId?.let { eventPublisher.publishEvent(KeycloakSessionEnded(it)) }
+            }
+            context.refreshToken = null
+            context.accessToken = null
+            context.refreshExpiresAt = null
+            context.accessExpiresAt = null
+            authContextService.save(context)
+        }
+        channel.authContextId = null
+        channel.authEvidenceId = null
+        channel.state = finalState
+        sessionManagementService.updateChannelSession(channel)
+    }
+
     /** Cancels [running] and every ancestor suspended for it - nothing of the chain is left waiting. */
     private fun cancelChain(running: AuthJourney, channel: ChannelSession) {
         cancel(running, channel)
@@ -464,19 +496,7 @@ class JourneyService(
             // elsewhere (e.g. a separate Web-channel browser login). The Web channel's own logout
             // stays entirely Keycloak's (docs/07-betrieb.md Abschnitt 3) - never reaches this
             // transition for that channel.
-            if (channel.channel == ChannelType.APP) {
-                channel.authContextId
-                    ?.let { authContextService.getAuthContext(it) }
-                    ?.keycloakSessionId
-                    // Published, not called: this whole transition runs inside this service's
-                    // transaction, and the Admin API call used to hold it open across a network
-                    // round trip. KeycloakSessionLogoutListener picks it up AFTER_COMMIT.
-                    ?.let { sessionId -> eventPublisher.publishEvent(KeycloakSessionEnded(sessionId)) }
-            }
-            channel.authContextId = null
-            channel.authEvidenceId = null
-            channel.state = ChannelState.LOGGED_OUT
-            sessionManagementService.updateChannelSession(channel)
+            endSession(channel, ChannelState.LOGGED_OUT)
             Step(next = null)
         }
 

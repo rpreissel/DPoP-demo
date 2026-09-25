@@ -35,6 +35,9 @@ sie schließen soll.
 - **I-5 Ein Kanal wechselt nie still das Konto; ein anderes Konto ist ein Fehler, kein Umbinden.**
   - Mechanismus: `test:KcChannelIntegrationTest`
 
+- **I-22 Eine abgelaufene Anmeldung wird nie still verlängert; jede Abmeldung verwirft die Tokens.**
+  - Mechanismus: `test:TokenServiceTest`, `test:KcTokenProviderTest`, `test:CancelLogoutIntegrationTest`, `type:SessionExpiredException`
+
 ## DPoP und Zugang
 
 - **I-6 Jeder HTTP-Handler ist per DPoP an einen Kanal gebunden (`@BindingKey`) oder mit seinem eigenen Schutz benannt.**

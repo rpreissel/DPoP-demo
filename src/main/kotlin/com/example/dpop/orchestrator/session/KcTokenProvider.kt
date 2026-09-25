@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.web.client.HttpClientErrorException
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.AccountKeypairService
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
@@ -65,12 +66,21 @@ class KcTokenProvider(
             return TokenPair(authContext.accessToken!!, currentExpiry, authContext.refreshExpiresAt ?: currentExpiry)
         }
 
-        val refreshStillValid = authContext.refreshToken != null &&
-            authContext.refreshExpiresAt?.isAfter(now) == true
-        val response = if (refreshStillValid) {
-            keycloakAdminClient.refreshAccountToken(authContext.refreshToken!!)
-        } else {
+        // Only the first token of this login is requested fresh. After that, Keycloak's own session
+        // decides (SSO idle and max): an expired or refused refresh ends the login instead of opening
+        // a new Keycloak session behind its back (review 2026-09, M-4).
+        val refreshToken = authContext.refreshToken
+        val response = if (refreshToken == null) {
             keycloakAdminClient.requestAccountToken(accountId, signAssertion(authContext))
+        } else {
+            if (authContext.refreshExpiresAt?.isAfter(now) != true) {
+                throw SessionExpiredException("Keycloak refresh window of AuthContext $authContextId has lapsed")
+            }
+            try {
+                keycloakAdminClient.refreshAccountToken(refreshToken)
+            } catch (e: HttpClientErrorException) {
+                throw SessionExpiredException("Keycloak refused the refresh for AuthContext $authContextId: ${e.statusCode}")
+            }
         }
 
         val accessExpiresAt = now.plusSeconds(response.expiresInSeconds)

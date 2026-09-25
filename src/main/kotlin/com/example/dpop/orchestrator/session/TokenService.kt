@@ -31,7 +31,9 @@ data class TokenPair(
  * entity's own doc for why.
  */
 @Service
-@Transactional
+// SessionExpiredException is an answer, not a failure: the caller ends the channel in the same
+// transaction, which must still commit (ChannelService.getToken).
+@Transactional(noRollbackFor = [SessionExpiredException::class])
 class TokenService(
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceService: AuthEvidenceService,
@@ -44,8 +46,12 @@ class TokenService(
      * Covers first issuance and refresh alike - the caller never chooses which happens, only how
      * fresh the result must be. [minValiditySeconds] is the caller's tolerance: if the current
      * AccessToken still has at least that much life left, it comes back unchanged (repeatable
-     * reads stay idempotent); otherwise a new one is minted, using the remembered RefreshToken
-     * where possible (silent refresh) or a full re-issuance if that too has expired.
+     * reads stay idempotent); otherwise a new one is minted with the remembered RefreshToken
+     * (silent refresh), which also moves the refresh window on - an idle timeout of [REFRESH_TTL].
+     *
+     * A RefreshToken that exists but has expired ends the login: [SessionExpiredException], never a
+     * fresh issuance (review 2026-09, M-4). Only the very first call, before any RefreshToken
+     * exists, issues one.
      */
     fun tokenFor(authContextId: UUID, minValiditySeconds: Long = DEFAULT_MIN_VALIDITY_SECONDS): TokenPair {
         val authContext = checkNotNull(authContextRepository.findByIdOrNull(authContextId)) {
@@ -60,12 +66,13 @@ class TokenService(
             return TokenPair(authContext.accessToken!!, currentExpiry, authContext.refreshExpiresAt!!)
         }
 
-        val refreshStillValid = authContext.refreshToken != null &&
-            authContext.refreshExpiresAt?.isAfter(now) == true
-        if (!refreshStillValid) {
+        if (authContext.refreshToken == null) {
             authContext.refreshToken = "mockrt_${UUID.randomUUID()}"
-            authContext.refreshExpiresAt = now.plus(REFRESH_TTL)
+        } else if (authContext.refreshExpiresAt?.isAfter(now) != true) {
+            throw SessionExpiredException("Refresh window of AuthContext $authContextId has lapsed")
         }
+        // Sliding: every refresh moves the window on, so it lapses only after REFRESH_TTL of idleness.
+        authContext.refreshExpiresAt = now.plus(REFRESH_TTL)
 
         val accessExpiresAt = now.plus(ACCESS_TTL)
         authContext.accessToken = mintAccessToken(authContext, now, accessExpiresAt)

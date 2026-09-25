@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import io.kotest.assertions.throwables.shouldThrow
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
@@ -101,12 +102,12 @@ class TokenServiceTest : BehaviorSpec({
         every { repository.findById(authContextId) } returns Optional.of(ctx)
         every { repository.save(any()) } answers { firstArg() }
 
-        then("a new AccessToken is minted, but the RefreshToken (handle and expiry) is left untouched") {
+        then("a new AccessToken is minted with the same RefreshToken, whose window moves on (idle timeout, review 2026-09 M-4)") {
             val result = service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId, minValiditySeconds = 15)
 
             result.accessToken shouldNotBe "stale-token"
-            result.refreshExpiresAt shouldBe originalRefreshExpiry
             ctx.refreshToken shouldBe originalRefreshHandle
+            result.refreshExpiresAt.isAfter(originalRefreshExpiry) shouldBe true
             verify(exactly = 1) { repository.save(ctx) }
         }
     }
@@ -122,11 +123,26 @@ class TokenServiceTest : BehaviorSpec({
         every { repository.findById(authContextId) } returns Optional.of(ctx)
         every { repository.save(any()) } answers { firstArg() }
 
-        then("a full re-issuance mints both a new AccessToken and a new RefreshToken") {
+        then("the login is over - nothing is re-issued (review 2026-09, M-4: it used to mint a fresh pair)") {
+            shouldThrow<SessionExpiredException> {
+                service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId)
+            }
+            ctx.refreshToken shouldBe oldRefreshHandle
+            verify(exactly = 0) { repository.save(any()) }
+        }
+    }
+
+    given("the first token of a login - no RefreshToken yet") {
+        val authContextId = UUID.randomUUID()
+        val ctx = authContext(accessToken = null, accessExpiresAt = null, refreshToken = null, refreshExpiresAt = null)
+        val repository = mockk<AuthContextRepository>()
+        every { repository.findById(authContextId) } returns Optional.of(ctx)
+        every { repository.save(any()) } answers { firstArg() }
+
+        then("both are issued") {
             val result = service(repository, evidenceService(ctx.authEvidenceId, evidence())).tokenFor(authContextId)
 
-            result.accessToken shouldNotBe "stale-token"
-            ctx.refreshToken shouldNotBe oldRefreshHandle
+            ctx.refreshToken shouldNotBe null
             result.refreshExpiresAt.isAfter(Instant.now()) shouldBe true
         }
     }

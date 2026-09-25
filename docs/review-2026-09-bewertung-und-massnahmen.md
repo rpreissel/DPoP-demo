@@ -254,8 +254,8 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 14. **Schicht 0:** `active_tool_session_id` als Spalte, `ToolSession.status`.
 15. **Schicht 2:** die Constraints, soweit H2 sie ausdrücken kann (M-5 ist im Code behoben; ein
     partieller Unique-Index geht mit H2 nicht).
-16. **M-4** Refresh verlangt erneute Anmeldung, Leerlauf-Ablauf, ein gemeinsamer Logout-Pfad,
-    der Refresh-Token löscht und Keycloak-Session beendet.
+16. ~~M-4~~ – erledigt 2026-09-25 (Ablauf beendet die Anmeldung, gleitendes Refresh-Fenster,
+    `JourneyService.endSession` für beide Abmeldewege).
 17. ~~M-6~~ entschieden 2026-09-25: bleibt, Re-Identifizierung ist der Weg zurück
     (journeys/manage-auth-methods.md). ~~M-13~~ – erledigt 2026-09-25 (Nachweise beim Ersetzen,
     Management-Pfad angeglichen, `deleteProvisionalAccount`, Listener einspurig mit Konfliktauflösung).

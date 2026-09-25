@@ -180,6 +180,60 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("an authenticated channel whose refresh window has lapsed (idle)") {
+            `when`("the app asks for a token") {
+                then("the login is over: 410, the channel ends as EXPIRED, its tokens are discarded (review 2026-09, M-4)") {
+
+                val channelSessionId = loginAsSeededAccount()
+                get("/orchestrator/api/v1/channels/$channelSessionId/token")
+                val authContextId = jdbcTemplate.queryForObject(
+                    "SELECT auth_context_id FROM orchestrator.channel_session WHERE id = ?", java.util.UUID::class.java,
+                    java.util.UUID.fromString(channelSessionId)
+                )
+                jdbcTemplate.update(
+                    "UPDATE orchestrator.auth_context SET access_expires_at = DATEADD('SECOND', -10, CURRENT_TIMESTAMP), " +
+                        "refresh_expires_at = DATEADD('SECOND', -1, CURRENT_TIMESTAMP) WHERE id = ?",
+                    authContextId
+                )
+
+                val gone = assertThrows<HttpClientErrorException> { get("/orchestrator/api/v1/channels/$channelSessionId/token") }
+                gone.statusCode shouldBe HttpStatus.GONE
+                jdbcTemplate.queryForObject(
+                    "SELECT state FROM orchestrator.channel_session WHERE id = ?", String::class.java, java.util.UUID.fromString(channelSessionId)
+                ) shouldBe "EXPIRED"
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM orchestrator.auth_context WHERE id = ? AND refresh_token IS NULL AND access_token IS NULL",
+                    Int::class.java, authContextId
+                ) shouldBe 1
+
+
+                }
+            }
+        }
+
+        given("an authenticated channel that is logged out directly (DELETE)") {
+            `when`("the logout goes through") {
+                then("its RefreshToken is discarded as well, the same way as the confirmed logout (review 2026-09, M-4)") {
+
+                val channelSessionId = loginAsSeededAccount()
+                get("/orchestrator/api/v1/channels/$channelSessionId/token")
+                val authContextId = jdbcTemplate.queryForObject(
+                    "SELECT auth_context_id FROM orchestrator.channel_session WHERE id = ?", java.util.UUID::class.java,
+                    java.util.UUID.fromString(channelSessionId)
+                )
+
+                deleteNoContent("/orchestrator/api/v1/channels/$channelSessionId") shouldBe HttpStatus.NO_CONTENT
+
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM orchestrator.auth_context WHERE id = ? AND refresh_token IS NULL",
+                    Int::class.java, authContextId
+                ) shouldBe 1
+
+
+                }
+            }
+        }
+
         given("an sms user who authenticated and then logged out") {
             `when`("the completed auth-sms PATCH is replayed with the same TAN") {
                 then("it is rejected and the channel stays logged out") {

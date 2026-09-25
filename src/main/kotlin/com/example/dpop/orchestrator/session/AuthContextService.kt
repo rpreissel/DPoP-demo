@@ -15,6 +15,8 @@ class AuthContextService(
     fun createForAccount(accountId: Long, authEvidenceId: UUID): AuthContext =
         authContextRepository.save(AuthContext(accountId = accountId).apply { this.authEvidenceId = authEvidenceId })
 
+    fun save(authContext: AuthContext): AuthContext = authContextRepository.save(authContext)
+
     fun getAuthContext(authContextId: UUID): AuthContext? =
         authContextRepository.findByIdOrNull(authContextId)
 }
