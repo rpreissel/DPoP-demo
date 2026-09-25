@@ -133,8 +133,9 @@ class MigrationRunner(
             // an einem 403 oder 409 - mit einer Ursache, die niemand darin erkennt.
             throw IllegalStateException(
                 "Realm '$realmName': die Migration hat keine Rechte darauf. Sie meldet sich als " +
-                    "orchestrator-migration im Master-Realm an; dessen Service Account braucht die Rolle admin " +
-                    "(legt die Keycloak-Extension beim Start an, MigrationClientBootstrapFactory).",
+                    "orchestrator-migration im Master-Realm an und verwaltet nur Realms, die sie selbst angelegt " +
+                    "hat (Rolle create-realm, MigrationClientBootstrapFactory). Ein von Hand angelegtes Realm " +
+                    "dieses Namens muss geloescht oder dem Service Account freigegeben werden.",
                 e,
             )
         }

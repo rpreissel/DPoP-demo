@@ -92,6 +92,15 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### S-3 Ein Signaturschlüssel für drei Keycloak-Clients – der Orchestrator ist dauerhaft Master-Admin
 
+> **Behoben (2026-09-25):** Jeder Keycloak-Client hat einen eigenen Schlüssel (`node_signing_key`
+> je `keycloak-client-auth:<clientId>`) und ein eigenes JWKS
+> (`.../kc/client-jwks/{clientId}/.well-known/jwks.json`); das alte gemeinsame Paar löscht
+> `V19__node_signing_key_je_client.sql`. `orchestrator-migration` hat im Master-Realm nur noch
+> `create-realm` und verwaltet damit nur das selbst angelegte Realm; beim Umstieg von `admin` trägt
+> die Extension die Verwaltungsrollen vorhandener Realms einmalig nach. ADR-25 angepasst,
+> Unit-Test `OrchestratorClientAssertionSignerTest`. Die Theme-Umschaltung nutzt weiter den
+> Migrationsclient – jetzt nur noch mit Rechten auf das eigene Realm.
+
 - **Wo:**
   - `orchestrator/kc/OrchestratorClientAssertionSigner.kt:38-68` – ein Schlüsselpaar
     (`KEYCLOAK_CLIENT_AUTH`) signiert für `orchestrator-admin`, `orchestrator-app-token` und

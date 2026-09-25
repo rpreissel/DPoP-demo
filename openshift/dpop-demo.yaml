@@ -105,7 +105,7 @@ spec:
             # Master-Realm-Client orchestrator-migration (MigrationClientBootstrapFactory) prueft
             # gegen dieses JWKS - im selben Pod, also localhost.
             - name: KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL
-              value: http://localhost:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json
+              value: http://localhost:8080/orchestrator/api/v1/kc/client-jwks/orchestrator-migration/.well-known/jwks.json
           volumeMounts:
             - {name: keycloak-data, mountPath: /opt/keycloak/data}
           # exec statt httpGet: Podman fuehrt httpGet als curl IM Container aus, und das Keycloak-Image

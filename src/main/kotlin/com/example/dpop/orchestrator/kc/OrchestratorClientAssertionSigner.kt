@@ -13,7 +13,9 @@ import com.nimbusds.jwt.SignedJWT
 import java.time.Instant
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
@@ -26,32 +28,53 @@ import org.springframework.stereotype.Component
  * "Signatur statt Secret"): Keycloak weist sich beim Orchestrator per PeerAuthAssertion aus, der
  * Orchestrator sich bei Keycloak hiermit. Kein geteiltes Geheimnis mehr in Konfiguration,
  * Compose-Datei oder Realm - der oeffentliche Schluessel steht im JWKS
- * ([OrchestratorClientJwksController]), das die Clients in der Migration als `jwks.url` tragen.
+ * ([OrchestratorClientJwksController]), das jeder Client in Keycloak als `jwks.url` traegt.
  *
- * Das Paar liegt in der Datenbank (`orchestrator.node_signing_key`), nicht im Prozessspeicher:
- * mehrere Orchestrator-Instanzen tragen so dieselbe Client-Identitaet, und ein Neustart aendert
- * sie nicht. Erzeugt wird es beim ersten Zugriff; starten zwei Instanzen gleichzeitig, laeuft die
- * zweite in den Primaerschluessel und liest das bereits angelegte Paar.
+ * **Ein Schluessel je Client** (Review 2026-09, S-3): `orchestrator-admin`, `orchestrator-app-token`
+ * und `orchestrator-migration` haben sehr verschiedene Rechte. Mit einem gemeinsamen Schluessel
+ * waere die Rechtetrennung zwischen ihnen nur Kosmetik - wer die Assertion des rechtlosen
+ * Token-Clients faelschen kann, koennte sich genauso als Migrationsclient anmelden. Jeder Client
+ * hat deshalb sein eigenes Paar und sein eigenes JWKS; Keycloak akzeptiert fuer einen Client nur
+ * dessen Schluessel. Andere Client-Ids signiert dieser Knoten nicht.
+ *
+ * Die Paare liegen in der Datenbank (`orchestrator.node_signing_key`, eine Zeile je Client), nicht
+ * im Prozessspeicher: mehrere Orchestrator-Instanzen tragen so dieselbe Client-Identitaet, und ein
+ * Neustart aendert sie nicht. Erzeugt wird ein Paar beim ersten Zugriff; starten zwei Instanzen
+ * gleichzeitig, laeuft die zweite in den Primaerschluessel und liest das bereits angelegte Paar.
  */
 @Component
 @Profile("keycloak")
-class OrchestratorClientAssertionSigner(private val keys: NodeSigningKeyRepository) {
+class OrchestratorClientAssertionSigner(
+    private val keys: NodeSigningKeyRepository,
+    @Value("\${keycloak-sync.admin-client-id}") adminClientId: String,
+    @Value("\${keycloak-sync.app-client-id}") appClientId: String,
+) {
+    /** Die Clients, fuer die dieser Knoten signiert - jeder mit eigenem Schluessel. */
+    val clientIds: Set<String> = setOf(adminClientId, appClientId, KeycloakMigrationToken.CLIENT_ID)
 
-    val key: ECKey = loadOrCreate()
+    private val keysByClient = ConcurrentHashMap<String, ECKey>()
 
-    private val signer = ECDSASigner(key)
+    /** Oeffentlicher Schluessel von [clientId], oder `null` fuer einen Client, den dieser Knoten nicht vertritt. */
+    fun publicKeyOf(clientId: String): ECKey? =
+        if (clientId in clientIds) keyOf(clientId).toPublicJWK() else null
 
-    private fun loadOrCreate(): ECKey {
-        stored()?.let { return it }
+    private fun keyOf(clientId: String): ECKey {
+        require(clientId in clientIds) { "Fuer Client '$clientId' signiert dieser Orchestrator nicht" }
+        return keysByClient.computeIfAbsent(clientId, ::loadOrCreate)
+    }
+
+    private fun loadOrCreate(clientId: String): ECKey {
+        val purpose = NodeSigningKey.keycloakClientAuth(clientId)
+        stored(purpose)?.let { return it }
         val generated = ECKeyGenerator(Curve.P_256)
-            .keyID("orchestrator-client-" + Instant.now().toEpochMilli())
+            .keyID("$clientId-" + Instant.now().toEpochMilli())
             .algorithm(JWSAlgorithm.ES256)
             .keyUse(KeyUse.SIGNATURE)
             .generate()
         return try {
             keys.save(
                 NodeSigningKey(
-                    purpose = NodeSigningKey.KEYCLOAK_CLIENT_AUTH,
+                    purpose = purpose,
                     publicKeyJwk = generated.toPublicJWK().toJSONString(),
                     privateKeyJwk = generated.toJSONString(),
                 ),
@@ -59,13 +82,13 @@ class OrchestratorClientAssertionSigner(private val keys: NodeSigningKeyReposito
             generated
         } catch (e: DataIntegrityViolationException) {
             // Eine zweite Instanz war schneller - ihr Paar gilt, nicht das gerade erzeugte.
-            log.info("Client-Schluessel wurde parallel angelegt, uebernehme den vorhandenen", e)
-            stored() ?: throw e
+            log.info("Client-Schluessel fuer {} wurde parallel angelegt, uebernehme den vorhandenen", clientId, e)
+            stored(purpose) ?: throw e
         }
     }
 
-    private fun stored(): ECKey? =
-        keys.findById(NodeSigningKey.KEYCLOAK_CLIENT_AUTH).orElse(null)?.let { ECKey.parse(it.privateKeyJwk) }
+    private fun stored(purpose: String): ECKey? =
+        keys.findById(purpose).orElse(null)?.let { ECKey.parse(it.privateKeyJwk) }
 
     /**
      * [audience] ist die Realm-Adresse, unter der Keycloak sich selbst kennt - also die
@@ -76,6 +99,7 @@ class OrchestratorClientAssertionSigner(private val keys: NodeSigningKeyReposito
      * ("Multiple audiences not allowed"), ein vorsorgliches Nennen beider Adressen scheitert also.
      */
     fun assertionFor(clientId: String, audience: String): String {
+        val key = keyOf(clientId)
         val now = Instant.now()
         val claims = JWTClaimsSet.Builder()
             .issuer(clientId)
@@ -89,7 +113,7 @@ class OrchestratorClientAssertionSigner(private val keys: NodeSigningKeyReposito
             JWSHeader.Builder(JWSAlgorithm.ES256).keyID(key.keyID).type(JOSEObjectType.JWT).build(),
             claims,
         )
-        jwt.sign(signer)
+        jwt.sign(ECDSASigner(key))
         return jwt.serialize()
     }
 

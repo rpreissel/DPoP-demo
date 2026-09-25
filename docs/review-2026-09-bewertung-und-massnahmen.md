@@ -226,8 +226,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     produktionsreif, Frontends und Umgebung später. Die Schritte unten sind danach zugeschnitten;
     was in die Umgebung gehört, steht gesammelt in Phase G.
 2. ~~S-2 Keycloak-Sync~~ – erledigt 2026-09-25.
-3. **S-3** Ein Schlüssel je Keycloak-Client (getrennte `purpose`-Schlüssel); Migrationsclient ohne
-   dauerhafte Master-Admin-Rolle. Nach ADR-35 die volle Trennung, nicht nur Deaktivieren.
+3. ~~S-3 Ein Schlüssel je Keycloak-Client, Migrationsclient ohne Master-Admin~~ – erledigt 2026-09-25.
 4. **S-4** Trust-all an einen ausdrücklichen Schalter im `keycloak-setup`-Parametersatz binden,
    Start-Check gegen Trust-all bei nicht-lokalem Keycloak. (S-5 und M-12 sind Umgebung → Phase G.)
 5. **S-6** KVNR-Orakel: Mismatch als `Failed` mit `attemptedPersonId`.

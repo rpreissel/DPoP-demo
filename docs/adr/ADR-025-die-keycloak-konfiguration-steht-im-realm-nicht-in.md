@@ -32,16 +32,25 @@ noch in der Compose-Datei noch im Realm. Jede Richtung weist sich mit einer Sign
 
 - **Orchestrator → Keycloak (Clients im Realm).** `orchestrator-admin` und `orchestrator-app-token`
   authentifizieren sich per **`private_key_jwt`** (RFC 7523, die in ADR-9 erwogene Härtung). Der
-  Orchestrator signiert jede Anfrage nach einem Token mit seinem eigenen Schlüssel, und Keycloak holt
-  den öffentlichen Teil unter `jwks.url` ab.
+  Orchestrator signiert jede Anfrage nach einem Token mit dem Schlüssel des jeweiligen Clients, und
+  Keycloak holt den öffentlichen Teil unter dessen `jwks.url` ab
+  (`.../kc/client-jwks/{clientId}/.well-known/jwks.json`). **Jeder Client hat seinen eigenen
+  Schlüssel**: Mit einem gemeinsamen könnte, wer den rechtlosen Token-Client fälscht, sich ebenso
+  als Admin- oder Migrationsclient anmelden (Review 2026-09, S-3).
 - **Orchestrator → Keycloak (Migration).** Auch die Migration meldet sich ohne Passwort an. Die
   Erweiterung legt beim Start von Keycloak selbst einen Client `orchestrator-migration` im Master-Realm
   an (`MigrationClientBootstrapFactory`, nach der eigenen Datenbankmigration von Keycloak, beliebig oft
-  wiederholbar). Er meldet sich mit `private_key_jwt` über dasselbe JWKS des Orchestrators an und hat
-  die Rolle `admin` im Master-Realm. `create-realm` allein reicht nicht, weil Keycloak Admin-Rechte an
-  den Rollen im Token prüft und Rechte auf ein neues Realm erst nach dessen Anlegen vergäbe. Der
-  Orchestrator holt sein Token über `client_credentials` mit Assertion (`KeycloakMigrationToken`). Der
-  beim ersten Start angelegte Admin mit Passwort bleibt nur für Menschen an der Admin-Console.
+  wiederholbar). Er meldet sich mit `private_key_jwt` über sein eigenes JWKS beim Orchestrator an und
+  hat im Master-Realm nur die Rolle **`create-realm`**, nicht `admin`. Keycloak gibt dem Anleger eines
+  Realms dessen Verwaltungsrollen; mit ihnen baut die Migration ihr Realm auf und löscht es bei einem
+  Reset. Weil diese Rechte erst in einem danach ausgestellten Token stehen, holt die Migration nach
+  dem Anlegen ein neues (`MigrationRunner.onRealmCreated`). Das Master-Realm und fremde Realms bleiben
+  ihr verschlossen. Beim Umstieg von `admin` trägt die Erweiterung die Verwaltungsrollen der schon
+  vorhandenen Realms einmalig nach. Der Orchestrator holt sein Token über `client_credentials` mit
+  Assertion (`KeycloakMigrationToken`). Der beim ersten Start angelegte Admin mit Passwort bleibt nur
+  für Menschen an der Admin-Console.
+  *Früher* hatte der Client die Rolle `admin`, mit der Begründung, `create-realm` reiche wegen des
+  schon ausgestellten Tokens nicht; das löst das neue Token nach dem Anlegen.
 - **Keycloak → Orchestrator.** Die Erweiterung weist sich mit einer signierten Assertion aus (ADR-7).
   Das ist das Spiegelbild der ersten Richtung, nach demselben Prinzip.
 

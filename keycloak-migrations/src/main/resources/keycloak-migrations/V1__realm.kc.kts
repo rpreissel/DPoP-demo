@@ -425,11 +425,13 @@ fun StepContext.serviceAccountUserId(): String = clients().get(clientDbId(setup.
  * Client-Attribute fuer private_key_jwt: Keycloak holt den oeffentlichen Schluessel des
  * Orchestrators bei jedem unbekannten `kid` unter dieser Adresse ab, statt ihn hier als Zertifikat
  * eingemauert zu tragen - derselbe Weg, den der Orchestrator umgekehrt fuer Keycloaks
- * Peer-Auth-Schluessel nimmt.
+ * Peer-Auth-Schluessel nimmt. Jeder Client hat sein eigenes JWKS und damit seinen eigenen Schluessel
+ * (Review 2026-09, S-3): Der Schluessel des rechtlosen Token-Clients darf nicht fuer den
+ * Admin-Client taugen.
  */
-fun orchestratorClientJwtAttributes(setup: RealmSetup) = mapOf(
+fun orchestratorClientJwtAttributes(setup: RealmSetup, clientId: String) = mapOf(
     "use.jwks.url" to "true",
-    "jwks.url" to "${setup.orchestratorBaseUrl}/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json",
+    "jwks.url" to "${setup.orchestratorBaseUrl}/orchestrator/api/v1/kc/client-jwks/$clientId/.well-known/jwks.json",
     // Keycloak-Default ist RS256; der Orchestrator signiert mit EC P-256 wie alles andere hier.
     "token.endpoint.auth.signing.alg" to "ES256",
 )
@@ -448,7 +450,7 @@ step("orchestrator-admin client anlegen") {
             // unter jwks.url ab. Es gibt damit kein geteiltes Geheimnis mehr - spiegelbildlich zu
             // der Assertion, mit der sich Keycloak beim Orchestrator ausweist (ADR-7).
             clientAuthenticatorType = "client-jwt"
-            attributes = orchestratorClientJwtAttributes(setup)
+            attributes = orchestratorClientJwtAttributes(setup, setup.adminApiClientId)
         }).close()
     }
     down {
@@ -671,7 +673,7 @@ step("orchestrator-app-token client anlegen") {
             setServiceAccountsEnabled(false)
             // Wie orchestrator-admin: signierte Client-Assertion statt Secret (ADR-25).
             clientAuthenticatorType = "client-jwt"
-            attributes = orchestratorClientJwtAttributes(setup)
+            attributes = orchestratorClientJwtAttributes(setup, setup.appTokenClientId)
         }).close()
     }
     down {

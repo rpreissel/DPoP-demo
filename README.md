@@ -80,7 +80,7 @@ eine andere Datei nur mit `--env-file`. Die Vorlage selbst wirkt nie.
 | `ORCHESTRATOR_RUNTIME_BASE_IMAGE` | `registry.access.redhat.com/ubi9/openjdk-21-runtime:latest` | `Dockerfile` – Laufzeit-Image |
 | `KEYCLOAK_SETUP_VARIANT` | `host` (`compose.yml` setzt `compose`) | Welche Keycloak-Umgebung aufgebaut und angesprochen wird – siehe unten |
 | `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | `admin` / `admin` | Der erste Admin von Keycloak – nur noch für die Admin-Konsole. Der Orchestrator braucht ihn nicht |
-| `ORCHESTRATOR_CLIENT_JWKS_URL` | `http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json` | Wo Keycloak den Schlüssel des Orchestrators für den Client `orchestrator-migration` abholt (siehe unten) |
+| `ORCHESTRATOR_CLIENT_JWKS_URL` | `http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/orchestrator-migration/.well-known/jwks.json` | Wo Keycloak den Schlüssel des Orchestrators für den Client `orchestrator-migration` abholt (siehe unten) |
 
 ### Keycloak-Umgebung: eine Variante statt einzelner Variablen
 

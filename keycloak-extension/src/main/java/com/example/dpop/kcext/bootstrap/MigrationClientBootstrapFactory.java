@@ -26,11 +26,19 @@ import org.keycloak.services.managers.RealmManager;
  * muesste. Idempotent: fehlt der Client, entsteht er; gibt es ihn, wird nur die {@code jwks.url}
  * auf den konfigurierten Stand gebracht.
  *
- * <p>Rechte: die Master-Rolle {@code admin} - dieselben wie der Passwort-Admin, den dieser Client
- * ersetzt. {@code create-realm} allein traegt nicht: Keycloak prueft Admin-Rechte an den Rollen im
- * Token, und die Rechte auf ein neu angelegtes Realm bekommt der Anleger erst NACH dem Anlegen -
- * das schon ausgestellte Token der Migration kennt sie nicht. {@code fullScopeAllowed}, damit die
- * Rolle ueberhaupt im Token steht; ein direkt per {@code addClient} angelegter Client hat es aus.
+ * <p>Rechte: nur die Master-Rolle {@code create-realm}, nicht {@code admin} (Review 2026-09, S-3).
+ * Wer ein Realm anlegt, bekommt von Keycloak selbst die Verwaltungsrollen genau dieses Realms
+ * (die Rollen seines Admin-Clients im Master-Realm) - mehr braucht die Migration nicht: Sie legt ihr
+ * Realm an, baut es auf und loescht es bei einem Reset wieder. Die Rechte stehen erst in einem
+ * NACH dem Anlegen ausgestellten Token; die Migration holt deshalb danach ein neues
+ * ({@code MigrationRunner.onRealmCreated}). Master-Realm und fremde Realms bleiben ihr verschlossen.
+ * {@code fullScopeAllowed}, damit die Rollen ueberhaupt im Token stehen; ein direkt per
+ * {@code addClient} angelegter Client hat es aus.
+ *
+ * <p>Umstieg: Ein Client aus der Zeit mit {@code admin} hat die Realms, die er damals anlegte, OHNE
+ * deren Verwaltungsrollen angelegt - Keycloak vergibt sie nur an Anleger ohne {@code admin}. Beim
+ * Entzug von {@code admin} bekommt er sie deshalb einmalig fuer die in diesem Moment vorhandenen
+ * Realms nachgetragen, so wie Keycloak sie beim Anlegen vergeben haette.
  *
  * <p>Die {@code jwks.url} ist der eine Wert dieser Extension, der NICHT im Realm steht (ADR-25):
  * es gibt beim Start noch kein Realm, aus dem er kommen koennte. Er kommt deshalb aus der
@@ -109,15 +117,41 @@ public class MigrationClientBootstrapFactory implements OrchestratorBootstrapFac
         // Klasse, statt nur beim allerersten Anlegen zu wirken.
         client.setFullScopeAllowed(true);
         UserModel serviceAccount = session.users().getServiceAccount(client);
+        RoleModel createRealm = master.getRole(AdminRoles.CREATE_REALM);
+        if (!serviceAccount.hasDirectRole(createRealm)) {
+            serviceAccount.grantRole(createRealm);
+            log.infof("Client '%s': Rolle %s zugewiesen", CLIENT_ID, AdminRoles.CREATE_REALM);
+        }
         RoleModel admin = master.getRole(AdminRoles.ADMIN);
-        if (!serviceAccount.hasDirectRole(admin)) {
-            serviceAccount.grantRole(admin);
-            log.infof("Client '%s': Rolle %s zugewiesen", CLIENT_ID, AdminRoles.ADMIN);
+        if (serviceAccount.hasDirectRole(admin)) {
+            grantCreatorRolesOnExistingRealms(session, master, serviceAccount);
+            serviceAccount.deleteRoleMapping(admin);
+            log.infof("Client '%s': Rolle %s entzogen", CLIENT_ID, AdminRoles.ADMIN);
         }
         if (!jwksUrl.equals(client.getAttribute("jwks.url"))) {
             client.setAttribute("jwks.url", jwksUrl);
             log.infof("Client '%s': jwks.url = %s", CLIENT_ID, jwksUrl);
         }
+    }
+
+    /**
+     * Was Keycloak einem Anleger ohne {@code admin} beim Anlegen gibt (die Rollen aus
+     * {@link AdminRoles#ALL_REALM_ROLES} am Admin-Client des Realms) - hier nachgetragen fuer die
+     * Realms, die schon da sind, wenn {@code admin} entzogen wird.
+     */
+    private void grantCreatorRolesOnExistingRealms(KeycloakSession session, RealmModel master, UserModel serviceAccount) {
+        session.realms().getRealmsStream()
+                .filter(realm -> !realm.getId().equals(master.getId()))
+                .forEach(realm -> {
+                    ClientModel realmAdminClient = realm.getMasterAdminClient();
+                    for (String roleName : AdminRoles.ALL_REALM_ROLES) {
+                        RoleModel role = realmAdminClient.getRole(roleName);
+                        if (role != null && !serviceAccount.hasDirectRole(role)) {
+                            serviceAccount.grantRole(role);
+                        }
+                    }
+                    log.infof("Client '%s': Verwaltungsrollen fuer Realm '%s' nachgetragen", CLIENT_ID, realm.getName());
+                });
     }
 
     @Override

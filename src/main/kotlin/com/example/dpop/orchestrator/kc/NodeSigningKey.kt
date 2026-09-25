@@ -33,8 +33,11 @@ class NodeSigningKey(
     var createdAt: Instant = Instant.now(),
 ) {
     companion object {
-        /** Client-Authentisierung gegenueber Keycloak ([OrchestratorClientAssertionSigner]). */
-        const val KEYCLOAK_CLIENT_AUTH = "keycloak-client-auth"
+        /**
+         * Client-Authentisierung gegenueber Keycloak ([OrchestratorClientAssertionSigner]) - ein
+         * Zweck je Client, damit kein Client mit dem Schluessel eines anderen signiert.
+         */
+        fun keycloakClientAuth(clientId: String): String = "keycloak-client-auth:$clientId"
     }
 }
 

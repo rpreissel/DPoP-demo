@@ -42,7 +42,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Die Extension legt beim Start im Master-Realm den Client orchestrator-migration an
-      # (MigrationClientBootstrapFactory, private_key_jwt, Master-Rolle admin) und laesst ihn gegen
+      # (MigrationClientBootstrapFactory, private_key_jwt, Master-Rolle create-realm) und laesst ihn gegen
       # dieses JWKS pruefen - der einzige Extension-Wert, der nicht im Realm steht (ADR-25), weil es
       # beim Start noch keins gibt.
       # host.containers.internal statt "orchestrator": so traegt derselbe Wert beide Betriebsarten -
@@ -51,7 +51,7 @@ services:
       # Namen selbst auf (siehe Kommentar weiter unten); per ORCHESTRATOR_CLIENT_JWKS_URL
       # ueberschreibbar. Nur interne Adressen: wer unter dieser URL antwortet, kann Tokens dieses
       # Clients ausstellen.
-      KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL: ${ORCHESTRATOR_CLIENT_JWKS_URL:-http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/.well-known/jwks.json}
+      KC_SPI_ORCHESTRATOR_BOOTSTRAP__MIGRATION_CLIENT__JWKS_URL: ${ORCHESTRATOR_CLIENT_JWKS_URL:-http://host.containers.internal:8080/orchestrator/api/v1/kc/client-jwks/orchestrator-migration/.well-known/jwks.json}
       # Hier stehen bewusst KEINE ORCHESTRATOR_*-Variablen mehr: wohin die Extension den
       # Orchestrator anspricht, welchen iss/aud sie signiert und welchen Origin der QR-Deep-Link
       # traegt, sind Config-Properties der "orchestrator"-Komponente IM REALM
