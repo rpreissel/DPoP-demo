@@ -241,10 +241,11 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 11. **Modellbasierter Test** (P-1, Schicht 3) mit den ersten sechs Invarianten. Erwartung: findet
     noch Dinge, die kein Review sah – die werden hier eingeschoben.
-12. **ArchUnit `@BindingKey`-Regel** und **Invariantenregister** (P-1, Schicht 4) anlegen – zunächst
-    mit leeren Mechanismus-Einträgen, die die Lücken zeigen.
-13. **ArchUnit-Grenze Kern ↔ Fremdsystem-Simulation:** Der Kern referenziert kein Mock-Modul
-    direkt; „demo-only“ im Kern ist ein Befund (ADR-35).
+12. ~~ArchUnit `@BindingKey`-Regel und Invariantenregister~~ – erledigt 2026-09-25:
+    `ApiBoundaryArchitectureTest`, [invarianten.md](invarianten.md) mit `InvariantRegisterTest`.
+13. ~~ArchUnit-Grenze Kern ↔ Fremdsystem-Simulation~~ – erledigt 2026-09-25:
+    `SimulationBoundaryArchitectureTest`; der Keycloak-Sync liest Stammdaten jetzt über den neuen
+    Port `PersonMasterData` statt direkt aus dem simulierten Personenverzeichnis.
 
 **Phase C – Zustandsraum verkleinern und verbieten (eine Woche)**
 

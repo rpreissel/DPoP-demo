@@ -4,9 +4,8 @@ import com.example.dpop.account.AccountChanged
 import com.example.dpop.account.AccountDeleted
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
-import com.example.dpop.ext_personenverzeichnis.PersonData
-import com.example.dpop.ext_personenverzeichnis.strassenzeile
+import com.example.dpop.tool_api.PersonMasterData
+import com.example.dpop.tool_api.PersonRecord
 import com.example.dpop.tool_spi.AttributeType
 import java.time.Instant
 import org.springframework.context.annotation.Profile
@@ -54,7 +53,7 @@ import org.springframework.scheduling.annotation.Async
 @Profile("keycloak")
 class KeycloakAccountSyncListener(
     private val accountService: AccountService,
-    private val personenverzeichnis: Personenverzeichnis,
+    private val personMasterData: PersonMasterData,
     private val keycloakAdminClient: KeycloakAdminClient,
     private val accountKeypairService: AccountKeypairService,
     private val accountKeycloakKeypairRepository: AccountKeycloakKeypairRepository
@@ -76,7 +75,7 @@ class KeycloakAccountSyncListener(
             return
         }
         // Unidentified account (REGISTER "Enrollment zuerst") - no person to look up yet.
-        val person = profile.personId?.let { personenverzeichnis.findPersonById(it) }
+        val person = profile.personId?.let { personMasterData.masterDataOf(it) }
         val mirror = kcUserMirror(profile, person, accountService.establishedClaimValues(profile.accountId, MIRRORED_CLAIM_TYPES))
         // Deliberately NOT wrapped in a try/catch any more. A thrown exception is how this method
         // tells the Event Publication Registry "not done" - the publication stays incomplete and is
@@ -107,7 +106,7 @@ class KeycloakAccountSyncListener(
 
 /**
  * Keycloak's own realm requires a non-blank first/last name on every user - this stands in for
- * an account that has no [com.example.dpop.ext_personenverzeichnis.Person] AND no attested name claims
+ * an account that has no [PersonRecord] AND no attested name claims
  * yet (REGISTER "Enrollment zuerst"). Self-healing: every anchor write (the `PERSON_ID` anchor
  * above all) fires `AccountChanged`, which re-syncs and overwrites this with the real name. A
  * name-attesting claim alone does not fire one - it is picked up with the next sync (in practice
@@ -148,7 +147,7 @@ internal data class KcUserMirror(
  * and `versnr` exist only for a bound account - an Interessent is visible as their absence, never
  * as a hand-maintained status flag.
  */
-internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested: Map<AttributeType, String>): KcUserMirror =
+internal fun kcUserMirror(profile: AccountProfile, person: PersonRecord?, attested: Map<AttributeType, String>): KcUserMirror =
     KcUserMirror(
         firstName = (if (person != null) person.vorname else attested[AttributeType.VORNAME]) ?: UNIDENTIFIED_FIRST_NAME,
         lastName = (if (person != null) person.name else attested[AttributeType.NAME]) ?: UNIDENTIFIED_LAST_NAME,
@@ -161,14 +160,14 @@ internal fun kcUserMirror(profile: AccountProfile, person: PersonData?, attested
  * attested claims for an Interessent. Shared by [KeycloakAccountSyncListener] and
  * [KeycloakAccountSyncService], the two places that already run this exact live lookup.
  */
-internal fun stammdatenAttributes(personId: String?, person: PersonData?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
+internal fun stammdatenAttributes(personId: String?, person: PersonRecord?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
     personId?.let { put("personId", it.toString()) }
     if (person != null) {
         person.kvnr?.let { put("kvnr", it) }
         person.versnr?.let { put("versnr", it) }
         person.geburtsdatum?.let { put("geburtsdatum", it.toString()) }
-        // One street line: the Personenverzeichnis' two fields joined.
-        person.strassenzeile?.let { put("strasse", it) }
+        // One street line - the port already joins the Personenverzeichnis' two fields.
+        person.strasse?.let { put("strasse", it) }
         person.plz?.let { put("plz", it) }
         person.ort?.let { put("ort", it) }
     } else {

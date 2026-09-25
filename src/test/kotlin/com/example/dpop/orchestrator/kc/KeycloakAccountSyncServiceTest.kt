@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
+import com.example.dpop.tool_api.PersonMasterData
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -44,7 +44,7 @@ class KeycloakAccountSyncServiceTest : BehaviorSpec({
         val keypairs = mockk<AccountKeypairService>()
         every { keypairs.keypairFor(any()) } answers { AccountKeycloakKeypair(accountId = firstArg(), publicKeyJwk = "{}") }
 
-        val service = KeycloakAccountSyncService(accounts, mockk<Personenverzeichnis>(), keycloak, keypairs)
+        val service = KeycloakAccountSyncService(accounts, mockk<PersonMasterData>(), keycloak, keypairs)
 
         then("the run does not abort: account 1 is retried after account 2 and succeeds") {
             service.syncAll() shouldBe KeycloakSyncResult(upserted = 2, deletedOrphans = 0, conflicts = 0)
@@ -61,7 +61,7 @@ class KeycloakAccountSyncServiceTest : BehaviorSpec({
         every { keycloak.upsertUser(1L, any(), any(), any(), any(), any(), any()) } throws IllegalStateException("conflict")
         every { keycloak.findAllSyncedAccountIds() } returns emptySet()
 
-        val service = KeycloakAccountSyncService(accounts, mockk<Personenverzeichnis>(), keycloak, mockk())
+        val service = KeycloakAccountSyncService(accounts, mockk<PersonMasterData>(), keycloak, mockk())
 
         then("it is counted and left untouched instead of failing the run") {
             service.syncAll() shouldBe KeycloakSyncResult(upserted = 0, deletedOrphans = 0, conflicts = 1)

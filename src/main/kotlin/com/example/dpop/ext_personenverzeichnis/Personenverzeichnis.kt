@@ -11,6 +11,8 @@ import com.example.dpop.tool_api.PersonChanged
 import com.example.dpop.tool_api.Versnr
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.PersonDirectory
+import com.example.dpop.tool_api.PersonMasterData
+import com.example.dpop.tool_api.PersonRecord
 import com.example.dpop.tool_api.normalizeKvnr
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
@@ -26,7 +28,7 @@ class PersonRejectedException(val text: Text) : RuntimeException(text.template)
 class Personenverzeichnis(
     private val personRepository: PersonRepository,
     private val events: ApplicationEventPublisher
-) : PersonDirectory {
+) : PersonDirectory, PersonMasterData {
 
     private val random = SecureRandom()
 
@@ -74,6 +76,14 @@ class Personenverzeichnis(
 
     fun findPersonById(personId: String): PersonData? =
         personRepository.findByIdOrNull(personId)?.toPersonData()
+
+    override fun masterDataOf(personId: String): PersonRecord? =
+        findPersonById(personId)?.let {
+            PersonRecord(
+                kvnr = it.kvnr, name = it.name, vorname = it.vorname, geburtsdatum = it.geburtsdatum,
+                strasse = it.strassenzeile, plz = it.plz, ort = it.ort, versnr = it.versnr
+            )
+        }
 
     // ------------------------------------------------------------------ register management (/personenverzeichnis/)
 

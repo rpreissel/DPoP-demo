@@ -386,7 +386,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ## 3. Niedrig und konzeptionell
 
-- **DPoP ohne Default-Deny:** Die Prüfung hängt am Argument-Resolver (`@BindingKey`,
+- ~~**DPoP ohne Default-Deny**~~ (erledigt 2026-09-25, `ApiBoundaryArchitectureTest`): Die Prüfung hängt am Argument-Resolver (`@BindingKey`,
   `DpopBindingKeyResolver.kt:45`), nicht an einem Filter. Ein neuer Handler ohne Parameter ist
   stillschweigend offen. Vorschlag: ArchUnit-Regel „jeder Handler unter `API_V1` hat `@BindingKey`
   oder steht in einer benannten Ausnahmeliste“.

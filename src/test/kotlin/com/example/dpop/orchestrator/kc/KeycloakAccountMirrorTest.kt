@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.kc
 
 import com.example.dpop.account.AccountProfile
-import com.example.dpop.ext_personenverzeichnis.PersonData
+import com.example.dpop.tool_api.PersonRecord
 import com.example.dpop.tool_spi.AttributeType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -21,9 +21,10 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
     )
 
     given("an account with a register person bound (PERSON_ID anchor)") {
-        val person = PersonData(
-            id = "P000000007", kvnr = "A123456789", name = "Mustermann", vorname = "Max", geburtsdatum = LocalDate.of(1990, 1, 1),
-            strasse = "Musterweg", hausnummer = "1", plz = "12345", ort = "Musterstadt", versnr = "10000001"
+        // The port hands out one street line; joining "Musterweg" and "1" is the directory's job.
+        val person = PersonRecord(
+            kvnr = "A123456789", name = "Mustermann", vorname = "Max", geburtsdatum = LocalDate.of(1990, 1, 1),
+            strasse = "Musterweg 1", plz = "12345", ort = "Musterstadt", versnr = "10000001"
         )
 
         then("names, attributes and address come from the register, claims never override it") {
@@ -77,7 +78,7 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
     }
 
     given("a register person with partial stammdaten (no kvnr, no address on record)") {
-        val person = PersonData(id = "P000000009", kvnr = null, name = "Knapp", vorname = "Karl", geburtsdatum = null)
+        val person = PersonRecord(kvnr = null, name = "Knapp", vorname = "Karl", geburtsdatum = null, strasse = null, plz = null, ort = null, versnr = null)
 
         then("a gap in the Personenverzeichnis stays a gap - an old attested claim never resurfaces for a bound account (ADR-34)") {
             val mirror = kcUserMirror(

@@ -248,6 +248,8 @@ tasks.withType<Test> {
     // Tests fuer aktuell, wenn sich nur der Vertrag geaendert hat - der Test laeuft dann nicht und
     // meldet folgerichtig auch nichts.
     inputs.dir(layout.projectDirectory.dir("api")).withPropertyName("apiContract")
+    // Dasselbe fuer das Invariantenregister: InvariantRegisterTest liest docs/invarianten.md direkt.
+    inputs.file(layout.projectDirectory.file("docs/invarianten.md")).withPropertyName("invariantRegister")
     // Die Test-JVMs haengen Agenten an den Bootclasspath (Kover, ByteBuddy). Class Data Sharing
     // bricht dann ab und meldet "Sharing is only supported for boot loader classes" bei jedem
     // Start - aus, statt jedes Mal zu warnen.

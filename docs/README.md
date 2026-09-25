@@ -39,6 +39,7 @@ fachlich brauchen.
 | [12-entscheidungen.md](12-entscheidungen.md) | **Index** der Architekturentscheidungen | Review, „Warum ist das so?" |
 | [adr/](adr/) | Eine Datei je Entscheidung, samt erwogener Alternative und Kosten | Genau eine Entscheidung nachlesen |
 | [review-2026-09-sicherheit-und-konzept.md](review-2026-09-sicherheit-und-konzept.md) | Offenes Review: Sicherheitsbefunde und konzeptionelle Schwächen, nach Schwere sortiert | Härtung planen, Befunde abarbeiten |
+| [invarianten.md](invarianten.md) | Die Regeln, auf die sich der Kern verlässt, und womit jede gesichert ist (Typ, Constraint, Test) – Lücken sichtbar | Bevor man eine Invariante anfasst oder eine neue einführt |
 | [review-2026-09-bewertung-und-massnahmen.md](review-2026-09-bewertung-und-massnahmen.md) | Einschätzung des Ganzen, strukturelle Ursachen, Gegenmaßnahmen und globale Reihenfolge | Entscheiden, was zuerst passiert |
 | [archiv/](archiv/) | Abgeschlossene Reviews – historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Überlegungen samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
