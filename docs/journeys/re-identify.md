@@ -48,7 +48,7 @@ zurückfällt (`cancelledTo`):
   `AUTHENTICATED`, denn eine abgelehnte erneute Identifizierung meldet keine laufende Sitzung ab.
 
 **Bestätigen, nicht übernehmen.** Für ein erfolgreiches `Identified` liefert `transition()` immer
-dieselbe `Action.RecordIdentification`. Weil hier stets schon ein Konto gebunden ist, bestätigt sie
+dieselbe `Action.RecordIdentification`. Weil hier stets schon ein Konto zugeordnet ist, bestätigt sie
 die Identität nur und übernimmt kein anderes Konto: Die identifizierte Person muss zum bereits
 bekannten Konto passen, sonst antwortet der Server mit `409`. Das gilt unabhängig davon, welcher
 Intent die Sub-Journey angefordert hat. Einzige Ausnahme ist ein Konto, das noch nie identifiziert

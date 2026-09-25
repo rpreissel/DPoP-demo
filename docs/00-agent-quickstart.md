@@ -32,7 +32,7 @@ Ziel: In unter zwei Minuten genug Überblick, um sicher zu implementieren, ohne 
 | Warum etwas so ist | `12-entscheidungen.md` (Index) -> `adr/ADR-NNN-*.md` |
 | API-Verträge und Routen | `05-api.md` |
 | Schrittfolgen der Verfahren | `06-ablaeufe.md` |
-| DPoP-Prüfung und Gerätebindung | `09-dpop.md` |
+| DPoP-Prüfung und Geräteverknüpfung | `09-dpop.md` |
 | Verhalten des Frontends, Routing | `10-frontend.md` |
 
 ## 4) Arbeitsregeln für Agents

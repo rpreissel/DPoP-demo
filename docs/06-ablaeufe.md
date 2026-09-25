@@ -218,7 +218,7 @@ gewöhnlicher Fehlversuch wie eine falsche TAN.
 
 `id_eid` ist das zweite `IDENTIFICATION`-Tool neben `ident-fsc`: eine simulierte
 Online-Ausweisfunktion statt eines Freischaltcodes. Anders als `ident-fsc` erbringt es zwei
-Faktorarten in einem Durchlauf (`factorTypes={possession,knowledge}`, `maxAcr=loa3`): den Besitz der
+Faktortypen in einem Durchlauf (`factorTypes={possession,knowledge}`, `maxAcr=loa3`): den Besitz der
 (simulierten) eID-Karte und das Wissen um die PIN.
 
 Es gibt zwei `PATCH`-Schritte mit je eigenem `nextStep`, damit der Client zwei verschiedene
@@ -265,7 +265,7 @@ Folge der Reihenfolge: Die Bestätigung brauchte ein Konto, bevor die Zuordnung 
 vorläufige Konto geht dann im gefundenen auf, samt Bestätigung, Ankern und Protokoll der
 Identifizierung ([12-entscheidungen.md](12-entscheidungen.md) ADR-20). Danach steht die
 Registrierung da, wo jeder andere Weg zu einem bestehenden Konto auch stünde: bei der Frage, ob
-dieses Gerät an ein anderes Konto gebunden ist, und beim Angebot, ein vorhandenes Verfahren
+dieses Gerät mit einem anderen Konto verknüpft ist, und beim Angebot, ein vorhandenes Verfahren
 nachzuweisen, statt ein neues einzurichten.
 
 Zwischen beiden Schritten steht keine Ja/Nein-Frage mehr: Nach der Bestätigung zeigt `next` direkt
@@ -362,7 +362,7 @@ zusagt. Dafür gibt es drei Gründe, alle im Aufbau begründet:
   welche optionalen Felder gerade gesetzt sind.
 
 Der Anfrageinhalt ist ein echtes Entweder-oder (`sealed interface KobilUnlockCredential`): Beides
-zugleich oder keines von beiden lässt sich gar nicht bilden. Damit folgt die gemeldete Faktorart
+zugleich oder keines von beiden lässt sich gar nicht bilden. Damit folgt der gemeldete Faktortyp
 aus dem Typ statt aus einem Schalter.
 
 Das Passwort des Kontos ist auf diesem Weg das Zugangsmittel zum KOBIL-Credential, kein eigener

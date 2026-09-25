@@ -240,8 +240,8 @@ URL-Bereich der Tools:
 `DELETE .../journey` bricht die laufende `AuthJourney` ab und setzt `ChannelSession.state` zurück
 ([Domänenmodell](02-domaenenmodell.md) Abschnitt 3). Danach startet der Kanal **denselben Intent**
 erneut, mit dem er eröffnet wurde. Bricht man `STEP_UP` oder `MANAGE_AUTH_METHODS` ab, lautet die
-Antwort direkt `authenticated`. Kontobindung und `AuthContext` werden aus `DeviceAccountLink` neu
-abgeleitet; ein zuvor per `ident-fsc` angelegtes Konto bleibt bestehen.
+Antwort direkt `authenticated`. Die Zuordnung zum Konto und der `AuthContext` werden über die
+Geräteverknüpfung (`DeviceAccountLink`) neu abgeleitet; ein zuvor per `ident-fsc` angelegtes Konto bleibt bestehen.
 
 Im Web-Kanal ruft „Abbrechen“ auf der Verfahrensauswahl der Keycloak-Anmeldeseite dieses `DELETE`
 **nicht** auf, sondern beendet den ganzen Login bei Keycloak (`context.cancelLogin()` in
@@ -261,7 +261,7 @@ Zwei Varianten:
   den Kanal direkt (`AUTHENTICATED → LOGGED_OUT`, Endzustand, `204`), bricht einen laufenden Ablauf
   ab und verwirft den `AuthContext`.
 
-Die Gerätebindung bleibt nutzbar (`DeviceAccountLink`, [DPoP-Bindung](09-dpop.md) Abschnitt 3).
+Die Geräteverknüpfung bleibt nutzbar (`DeviceAccountLink`, [DPoP-Bindung](09-dpop.md) Abschnitt 3).
 
 ### AccessToken (`GET .../{channelSessionId}/token`)
 
@@ -366,7 +366,7 @@ geänderte Rückfrage braucht so keine neue App-Version.
 
 `Prompt` ist ein `sealed interface` mit `kind` als Unterscheidungsmerkmal; `Confirm` ist die einzige
 Variante. Eine weitere (z. B. eine Auswahl unter mehreren Antworten) ist denkbar, aber nicht
-angelegt. Verwendet wird es für: die Frage nach der Gerätebindung beim Login über die
+angelegt. Verwendet wird es für: die Frage nach der Geräteverknüpfung bei der Anmeldung über die
 E-Mail-Adresse, die Bestätigung beim Löschen des Kontos, die Bestätigung beim Abmelden und
 `ReIdentifyState.OfferReIdent` vor der Sub-Journey `RE_IDENTIFY`
 ([Orchestrierung](04-orchestrierung.md)).
@@ -470,11 +470,11 @@ Gerät erkennt:
 - `register`: erzwingt eine frische `REGISTER`-Journey, auch auf einem schon verknüpften Gerät
   (für ein zweites Konto). Führt die neue Identifizierung zu einem anderen Konto als dem bisher
   verknüpften, fragt der Kanal noch vor jeder Auswahl eines Verfahrens nach
-  (`RegisterState.ConfirmDeviceRebind`), ob die bestehende Bindung in `DeviceAccountLink` ersetzt
-  werden soll. Bei Zustimmung wird das Gerät umgebunden, und das bisherige Geräte-Credential des
+  (`RegisterState.ConfirmDeviceRebind`), ob die bestehende Geräteverknüpfung (`DeviceAccountLink`)
+  ersetzt werden soll. Bei Zustimmung wird das Gerät neu verknüpft, und das bisherige Geräte-Credential des
   alten Kontos (`enroll-device`) für genau diesen Schlüssel wird deaktiviert bzw. gelöscht. Bei
   Ablehnung endet die Journey regulär (kein Fehler, wie bei `DELETE .../journey`), und die alte
-  Bindung bleibt bestehen.
+  Verknüpfung bleibt bestehen.
 - `confirm_peer_login`: startet `AuthIntent.CONFIRM_PEER_LOGIN`, also das Bestätigen oder Ablehnen
   eines wartenden Web-Logins (`auth-qr`/`auth-qr-lookup`; siehe unten „Peer-Login bestätigen").
   Das geht auch von einem noch nicht angemeldeten Kanal aus, weicht aber nie auf Identifizierung
@@ -521,7 +521,7 @@ Bruch von v1; `api/published/v1.yaml` wurde dafür neu festgeschrieben.
 
 ### `GET /app/channels/device-link`
 
-Liest nur: ob dieses Gerät (per DPoP-Proof, ohne `channelSessionId`) schon an ein Konto gebunden ist
+Liest nur: ob dieses Gerät (per DPoP-Proof, ohne `channelSessionId`) schon mit einem Konto verknüpft ist
 (`DeviceAccountLink`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 1). Es legt **weder** Kanal
 noch Journey an. Antwort: `{"linked": true, "accountId": 42, "personName": "Max Muster"}` bzw.
 `{"linked": false}`.
@@ -582,10 +582,10 @@ Kandidaten (`MethodRole.LOOKUP_AUTH`; `AuthPolicy.candidateTools` wählt ausschl
   sich in Form und Antwortzeit genauso wie ein gefundenes Konto mit falschem Credential.
   `demo.email` und `demo.password` sind feste Werte, unabhängig vom gefundenen Konto.
 - Bei Erfolg ist der Ablauf nicht immer sofort zu Ende. Ist dieses Gerät noch keinem oder schon
-  demselben Konto zugeordnet, bietet der Orchestrator die Gerätebindung optional an. Ist es an ein
-  anderes Konto gebunden, fragt er ausdrücklich nach, bevor er diese Bindung in
+  demselben Konto zugeordnet, bietet der Orchestrator die Geräteverknüpfung optional an. Ist es mit
+  einem anderen Konto verknüpft, fragt er ausdrücklich nach, bevor er diese Verknüpfung in
   `DeviceAccountLink` überschreibt. Bei Ablehnung endet der Login trotzdem erfolgreich, nur ohne
-  neue Bindung; bei Zustimmung wird das Gerät umgebunden.
+  neue Verknüpfung; bei Zustimmung wird das Gerät neu verknüpft.
 
 ### Peer-Login bestätigen (AuthIntent.CONFIRM_PEER_LOGIN)
 
@@ -649,9 +649,9 @@ aktualisiert:
 
 Inhalt der Anfrage (alle Felder optional, `KcChannelUpsertRequest`):
 
-- **`accountId`** — Das Konto, das Keycloak schon kennt (`sub` ist vorhanden, Step-up). Es bindet den Kanal sofort und wird später nie überschrieben.
+- **`accountId`** — Das Konto, das Keycloak schon kennt (`sub` ist vorhanden, Step-up). Es ordnet den Kanal sofort diesem Konto zu und wird später nie überschrieben.
 - **`targetAcr`** — Das von Keycloak angefragte LoA, bereits in einen ACR-Wert des Orchestrators übersetzt. Es hebt die Untergrenze des Kanals nur an, nie ab, und filtert die Kandidaten von `KC_SELECT_METHOD` ([Orchestrierung](04-orchestrierung.md) Abschnitt 3).
-- **`amr`** — Liste `{nativeToolId, amrSourceId}`: was ein eigenes Keycloak-Verfahren (nie ein Tool des Orchestrators) in DIESEM Anmeldedurchlauf nachgewiesen hat. Methode, LoA und Faktorarten ermittelt der Orchestrator auf dem Server über `nativeToolId` (`NativeAuthenticatorDescriptor`). Es ist immer die VOLLSTÄNDIGE, derzeit gültige Menge, keine Änderungsliste.
+- **`amr`** — Liste `{nativeToolId, amrSourceId}`: was ein eigenes Keycloak-Verfahren (nie ein Tool des Orchestrators) in DIESEM Anmeldedurchlauf nachgewiesen hat. Methode, LoA und Faktortypen ermittelt der Orchestrator auf dem Server über `nativeToolId` (`NativeAuthenticatorDescriptor`). Es ist immer die VOLLSTÄNDIGE, derzeit gültige Menge, keine Änderungsliste.
 - **`restoreData` / `kcSessionId`** — Ein signiertes Token aus `GET .../restore-data` einer FRÜHEREN, unabhängigen `ChannelSession` derselben Keycloak-Nutzersitzung. Es gibt die dort erbrachten Nachweise an einen frisch angelegten Kanal weiter. `kcSessionId` bindet das Token an Keycloaks dauerhaftes `UserSessionModel`. Ein falsches, abgelaufenes oder manipuliertes Token wird als `null` behandelt, nie als Fehler.
 - **`availableTools`** — Welche `toolId`s das Keycloak-Theme darstellen kann (ein `WebToolRenderer` je Tool). Nur beim ersten Aufruf gelesen; das Gegenstück zu `availableTools` bei `POST /app/channels`.
 - **`intent`** — Nur beim ersten Aufruf gelesen. Fehlt er, gilt `kc_select_method`; sonst ist nur `register` erlaubt. Ein unbekannter oder unzulässiger Wert wird abgelehnt (`409`).

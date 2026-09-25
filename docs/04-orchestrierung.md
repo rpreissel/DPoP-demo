@@ -15,7 +15,7 @@ technischen Ablauf:
 |---|---|
 | Möglichst reibungslos anmelden, mit Ausweichmöglichkeiten | `FAST_ACCESS` |
 | Sich bewusst neu identifizieren, auch auf einem bekannten Gerät | `REGISTER` |
-| Klassischer Login ohne Gerätebindung | `LOOKUP_LOGIN` |
+| Klassischer Login ohne Geräteverknüpfung | `LOOKUP_LOGIN` |
 | Das Vertrauensniveau anheben (z. B. für eine heikle Aktion) | `STEP_UP` |
 | Anmeldeverfahren hinzufügen oder entfernen | `MANAGE_AUTH_METHODS` |
 | Das Konto unwiderruflich löschen | `DELETE_ACCOUNT` |
@@ -131,6 +131,29 @@ Sieben Wörter haben in diesem Kapitel eine feste Bedeutung:
 **Tool** und **Methode**: `enroll-sms` und `auth-sms` sind zwei Tools für *eine* Methode (`sms`). Ein
 Konto hat Methoden; angeboten und gestartet werden Tools.
 
+**Begriffe aus dem [Glossar](glossar/glossar.md).** Die Doku nutzt die Wörter des Projekts; so
+entsprechen sie denen des Glossars:
+
+- **Authentisierung und Authentifizierung.** Das Glossar trennt beides: Den Nachweis, den ein Tool
+  im Namen des Clients liefert, nennt es *Authentisierung* (Seite des Clients), die Prüfung dieses
+  Nachweises durch die `AuthPolicy` *Authentifizierung* (Seite des Servers). Das Projekt sagt für
+  beides „Authentifizierung“. Das ist eine bewusste Sprachregelung, keine Unkenntnis der
+  Unterscheidung.
+- **Authentisierungsmittel** heißt hier **Methode** oder **Anmeldeverfahren**: was im Konto
+  eingerichtet ist und eine Anmeldung ermöglicht (`AccountAuthMethod`), etwa SMS, Passwort oder ein
+  Geräteschlüssel.
+- **Identifizierungsmittel** heißt hier **Identifizierungsverfahren**: der Freischaltcode aus dem
+  Brief, der Online-Ausweis und über Nect Personalausweis, Reisepass oder EUDI-Wallet.
+- **Bescheinigte Attribute** sind die Angaben, für die ein Identifizierungsverfahren oder das
+  Personenverzeichnis einsteht; das Konto hält sie als Claims. Was der Nutzer nur selbst angibt, ist
+  unbescheinigt (`ClaimSource.SELF_REPORTED`).
+- **Faktortyp** (Wissen, Besitz, Biometrie) heißt im Code `FactorType`.
+- **Gerätebindung** heißt hier nur das Einrichten eines an das Gerät gebundenen Anmeldeverfahrens
+  (`enroll-device`, `enroll-kobil`), also eines Faktors vom Typ Besitz. Dass der DPoP-Schlüssel eines
+  Geräts mit einem Konto verknüpft ist (`DeviceAccountLink`), heißt dagegen **Geräteverknüpfung**. Sie
+  erkennt das Gerät nur wieder und zählt bewusst nicht als Anmeldung
+  ([DPoP-Bindung](09-dpop.md), Abschnitt 3).
+
 Drei weitere Wörter meinen verschiedene Dinge:
 
 - **Kandidaten** liefern der Katalog bzw. die Policy.
@@ -229,7 +252,7 @@ flowchart LR
 |---|---|---|
 | `FAST_ACCESS` | So schnell wie möglich auf diesem Gerät angemeldet sein, und so, dass es auch künftig klappt | `POST /app/channels` (Standard) |
 | `REGISTER` | Sich bewusst frisch identifizieren, auch auf einem schon verknüpften Gerät | `POST /app/channels` mit `intent=register` (App) bzw. `PATCH /kc/channels/{id}` mit `intent=register` (Web, siehe unten) |
-| `LOOKUP_LOGIN` | Ein bestehendes Konto ohne Gerätebindung anmelden (klassischer Web-Login) | `POST /app/channels` mit `intent=lookup_login` |
+| `LOOKUP_LOGIN` | Ein bestehendes Konto ohne Geräteverknüpfung anmelden (klassischer Web-Login) | `POST /app/channels` mit `intent=lookup_login` |
 | `KC_SELECT_METHOD` | Alle im Web-Kanal nutzbaren Tools in einem Auswahlschritt (`selectMethod`) anbieten; um das Ausweichen auf andere Verfahren kümmert sich Keycloak selbst | Standard-Einstieg des `KEYCLOAK`-Kanals ([05-api.md](05-api.md) Abschnitt 3) |
 | `STEP_UP` | Das Niveau anheben | nur auf einem Kanal, der `AUTHENTICATED` ist |
 | `MANAGE_AUTH_METHODS` | Verfahren hinzufügen oder entfernen | nur auf einem Kanal, der `AUTHENTICATED` ist |
@@ -247,7 +270,7 @@ verlangt `CONFIRM_PEER_LOGIN` zusätzlich einen frischen Nachweis, wie `DELETE_A
 Abschnitt unten).
 
 `REGISTER` ist ein eigener Intent mit eigener Journey (`RegisterState`). Er schlägt nicht in
-`DeviceAccountLink` nach und bietet nie eine schon bestehende Bindung an ein Konto an. Auch
+`DeviceAccountLink` nach und bietet nie eine schon bestehende Geräteverknüpfung an. Auch
 `FAST_ACCESS` nutzt diese Journey: Muss sich jemand beim schnellen Anmelden erst ausweisen, startet
 sie als vorgeschalteter Schritt (`Transition.RequireSubJourney`) – nach demselben Muster wie
 `RE_IDENTIFY`. Ein zweites Konto erzwingt `REGISTER` **nicht**: Dieselbe Person (erkannt über KVNR
@@ -351,7 +374,7 @@ beruhen alle besonderen Wege:
   gefolgt von `is ActionCompleted -> <weitere Logik>` im selben Zustand. Diese zweistufige Form
   gilt für jeden Intent, der Tools anbietet.
 - `Action.LinkDevice`, `Action.RevokeAuthMethod` und `Action.DeleteAccount`: Die Strategie liefert
-  `Perform`, statt selbst zu binden oder zu löschen (`LookupLoginState.OfferBinding`,
+  `Perform`, statt selbst zu verknüpfen oder zu löschen (`LookupLoginState.OfferBinding`,
   `ManageAuthMethodsState.RemoveRequested`, `DeleteAccountState.ConfirmationRequired`).
 - RestoreData ([05-api.md](05-api.md) Abschnitt 3): kein `JourneyEvent`, sondern der erste Übergang
   des Automaten – siehe unten.
@@ -360,13 +383,13 @@ Die Varianten von `Action`:
 
 - **`RecordIdentification(tool, outcome)`** — Eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) oder Zuordnung (`ident-kvnr`) hat eine Identität festgestellt. **Ein** Handler für beide Fälle: Ob schon ein Konto gebunden ist, liest er zur Laufzeit aus Journey und Kanal; die Strategie legt das nicht über die Variante fest
 - **`AdoptCredential(tool, outcome)`** — Ein neues Verfahren wurde eingerichtet
-- **`AcceptProof(tool, outcome)`** — Ein Nachweis wurde erbracht. Ob das Tool das Konto selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` und der aktuellen Bindung ab; widerspricht ein genanntes Konto einem schon gebundenen, gibt es `409`
+- **`AcceptProof(tool, outcome)`** — Ein Nachweis wurde erbracht. Ob das Tool das Konto selbst *nennen* darf, leitet der Executor aus `MethodRole.LOOKUP_AUTH` und der aktuellen Zuordnung zum Konto ab; widerspricht ein genanntes Konto einem schon gebundenen, gibt es `409`
 - **`AdoptAttestation(tool, outcome)`** — Ein Attribut des Kontos wurde bestätigt (z. B. die E-Mail-Adresse). Das allein darf nie zu einem *anderen* Konto wechseln; dafür braucht es eine echte Identifizierung in derselben Sitzung
 - **`ApplyRestoredEvidence(source, methods)`** — siehe „RestoreData als erster Übergang" unten
 - **`RecordApproval(tool, outcome)`** — Ein `PEER_APPROVAL`-Tool hat über die Anfrage eines anderen Kanals entschieden (`CONFIRM_PEER_LOGIN`); das wird nur verbucht und ändert keinen eigenen Nachweis
 - **`RevokeAuthMethod(methodInstanceId)`** — **Ein Anmeldeverfahren** widerrufen, also das Credential selbst, nicht nur einen Schalter. Wer sich damit aussperren würde, wird vom Automaten abgewiesen, nicht von der Strategie. Benannt nach dem, was es zerstört – neben `DeleteAccount`, das das ganze Konto zerstört
 - **`RetractAttribute(attributeType)`** — Ein Attribut des Kontos (heute die bestätigte E-Mail-Adresse) zurücknehmen; was davon abhing (`requires`), fällt mit
-- **`LinkDevice`** — Das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen. Nur auf diesem Weg darf auch *um*gebunden werden, weil ihm eine Zustimmung vorausgeht
+- **`LinkDevice`** — Das aktuelle Gerät mit dem Konto **dieser Sitzung** verknüpfen. Nur auf diesem Weg darf ein Gerät auch *neu* verknüpft werden, weil ihm eine Zustimmung vorausgeht
 - **`DeleteAccount`** — **Das ganze Konto** dieser Sitzung unwiderruflich löschen. Unmittelbar vor der Ausführung prüft der Executor `requiredAcr(account)` noch einmal gegen die aktuellen Nachweise
 
 **Sicherheitsprüfungen gehören nie in die Strategie.** Drei Lücken, über die sich fremde Konten
@@ -375,11 +398,11 @@ die *Wahl* des Handlers (oder eines Schalters darauf) aber bei der Strategie. Da
 fest im Aufbau verankert:
 
 - Identität feststellen (`IdentityResolver`), ein vorläufiges Konto übernehmen
-  (`absorbProvisionalAccount`) und ein Gerät binden (`linkDeviceToAccount`) sind aus **genau einer**
+  (`absorbProvisionalAccount`) und ein Gerät verknüpfen (`linkDeviceToAccount`) sind aus **genau einer**
   Klasse erreichbar (`JourneyActionExecutor`). Das erzwingt eine ArchUnit-Regel, nicht ein Review.
-- Jede Bindung an ein *anderes* Konto als das bisherige läuft durch dieselbe Funktion (`accountOf`),
+- Jeder Wechsel zu einem *anderen* Konto als dem bisherigen läuft durch dieselbe Funktion (`accountOf`),
   egal welche Strategie sie ausgelöst hat.
-- Für das Binden eines Geräts gibt es **eine** Implementierung (`linkDeviceTo`), die immer auch die
+- Für das Verknüpfen eines Geräts gibt es **eine** Implementierung (`linkDeviceTo`), die immer auch die
   Geräte-Credentials des vorher verknüpften Kontos widerruft. Früher gab es zwei Varianten, und
   welche lief, hing an der Action. `RegisterEnrollFirstStrategy` hatte damals noch keinen eigenen
   Zustand für die Rückfrage und erwischte die Variante, die nicht widerruft.
@@ -414,25 +437,25 @@ das Verfahren **ausgeführt** wird, und dort immer mit aktuellen Daten:
 übergebenen `JourneyContext`, den `JourneyService.advance` bei **jedem** Übergang neu aufbaut –
 auch nach jeder Action, über den wiederholten Durchlauf mit `ActionCompleted`.
 
-**Die Gerätebindung hängt an keiner Action.** Innerhalb eines Intents ändert sie sich nie; ein
+**Die Geräteverknüpfung hängt an keiner Action.** Innerhalb eines Intents ändert sie sich nie; ein
 Schalter an jeder Action wäre eine Konstante des Intents, die man überall neu (und falsch) setzen
 könnte. Stattdessen gibt es zwei unabhängige Fragen, jede dort beantwortet, wo die nötige
 Information liegt, und an genau einer Stelle zusammengeführt:
 
-- **Will dieser Ablauf binden?** `AuthIntent.bindsDeviceImplicitly` – nur `LOOKUP_LOGIN` nicht,
+- **Will dieser Ablauf verknüpfen?** `AuthIntent.bindsDeviceImplicitly` – nur `LOOKUP_LOGIN` nicht,
   weil genau diesen Intent Leute wählen, die nicht wiedererkannt werden wollen. Er fragt stattdessen
   nach (`OfferBinding` → `Perform(LinkDevice, …)`). Die Frage nach dem Kanal kann diese Eigenschaft
   gar nicht mitbeantworten: `REGISTER` läuft auf APP *und* KEYCLOAK und wäre also keine Konstante
   mehr.
 - **Gibt es hier ein Gerät?** Das hängt am Kanal und wird einmal im Executor geprüft. Die Prüfung
   gilt auch für den ausdrücklichen Weg, denn auf einem KEYCLOAK-Kanal gibt es auch nach einer
-  Zustimmung nichts zu binden.
+  Zustimmung nichts zu verknüpfen.
 
 Zusätzlich wird danach unterschieden, **ob etwas zerstört wird**, nicht nach der Strategie. Das
-stillschweigende Binden greift nur, wenn das Gerät frei ist oder schon zu diesem Konto gehört. Es
-bindet **nie** still um und widerruft nie fremde Credentials. Wer einen Ablauf erfolgreich
+stillschweigende Verknüpfen greift nur, wenn das Gerät frei ist oder schon zu diesem Konto gehört.
+Es verknüpft ein Gerät **nie** still neu und widerruft nie fremde Credentials. Wer einen Ablauf erfolgreich
 abschließt, ist damit einverstanden, von *diesem* Konto wiedererkannt zu werden – nicht damit, das
-Gerät einem anderen Konto wegzunehmen. Umbinden kann nur der ausdrückliche Weg nach einer Rückfrage
+Gerät einem anderen Konto wegzunehmen. Neu verknüpfen kann nur der ausdrückliche Weg nach einer Rückfrage
 (`ConfirmDeviceRebind`; im Experiment „Erst Anmeldeverfahren einrichten" `EnrollFirstConfirmDeviceRebind` am Ende
 des Durchlaufs).
 
@@ -465,9 +488,9 @@ Klasse zuständig. `JourneyService` bleibt der **Treiber**, nicht der Ausführen
 
 | Phase | Klasse | Aufgabe |
 |---|---|---|
-| lesen | `JourneyContextFactory` | baut den `JourneyContext` zum Lesen aus den dauerhaft gespeicherten Daten (Konto, Nachweise, Gerätebindung, Feature-Flags) |
+| lesen | `JourneyContextFactory` | baut den `JourneyContext` zum Lesen aus den dauerhaft gespeicherten Daten (Konto, Nachweise, Geräteverknüpfung, Feature-Flags) |
 | entscheiden | `IntentStrategy` | macht aus Zustand, Event und Kontext eine `Transition` – nur Werte, keine Wirkung |
-| wirken | `JourneyActionExecutor` | führt die `Action` eines `Perform` aus (Konto anlegen, Claims und Credentials schreiben, Gerät binden, widerrufen) |
+| wirken | `JourneyActionExecutor` | führt die `Action` eines `Perform` aus (Konto anlegen, Claims und Credentials schreiben, Gerät verknüpfen, widerrufen) |
 | weiterleiten | `JourneyRouting` | leitet `next` und `Step` aus dem neuen Zustand ab |
 
 Bei `JourneyService` bleibt, was keine der vier Klassen allein besitzen kann: der Lebenszyklus der
@@ -565,10 +588,11 @@ Zwei Bedingungen müssen zusammen erfüllt sein:
    Kombination welches Vertrauensniveau ergibt. Die `amr`-Werte dieses Projekts (`sms`, `password`,
    `email`, `fsc`, `eid`, `kvnr`, `nect-<verfahren>`, `device`, `kobil`, `qr`, dazu `pin`/`biometric`
    aus der Prüfung am Gerät) folgen einer eigenen Konvention.
-2. **Verschiedene Faktorarten**: Für MFA-Niveaus braucht es mindestens zwei **verschiedene**
-   Faktorarten. Gezählt werden alle `factorTypes` aller abgeschlossenen Tools zusammen, nie die
-   Anzahl der Tools. Ein Tool, das selbst zwei Faktorarten meldet (z. B. ein Passkey mit Prüfung am
-   Gerät), erfüllt MFA allein.
+2. **Verschiedene Faktortypen**: Für die Niveaus ab `loa2` braucht es mindestens zwei
+   **verschiedene** Faktortypen. Gezählt werden alle `factorTypes` aller abgeschlossenen Tools
+   zusammen, nie die Anzahl der Tools. Ein Tool, das selbst zwei Faktortypen meldet (z. B. ein
+   Passkey mit Prüfung am Gerät), ist allein schon ein 2-Faktor-Authentisierungsmittel (MFA im
+   engeren Sinn).
 
 Eine wichtige Einschränkung: Ein Tool darf nur Faktoren melden, die es dem Server gegenüber
 tatsächlich **nachweisen** kann. Für eine App-PIN, die nur lokal geprüft wird, gehört nur
@@ -603,15 +627,18 @@ Ende zu dem `acr`-Wert zusammen, der nach außen sichtbar ist:
 abgeleitet aus der `role`. Ein Schritt mit der Rolle `CORRELATION` wie `ident-kvnr` hebt keine der
 beiden Nachweisarten. Der Grund für die Trennung: Eine Identifizierung darf ihr eigenes `loa` direkt
 beisteuern (ein einzelnes `ident-fsc` erreicht `loa2`). Sie darf sich aber **nicht** mit einem
-einzelnen Anmeldefaktor anderer Art zu einer MFA-Erhöhung verbinden. Sonst würde ein gestohlenes
+einzelnen Anmeldefaktor anderer Art zu einer mehrstufigen Authentifizierung verbinden. Sonst würde ein gestohlenes
 Passwort so gelten, als wäre es durch einen weiteren, beim Login geprüften Faktor abgesichert.
 
 **`loa2` ist damit die projekteigene Bezeichnung für AAL2 nach NIST 800-63B.** Es gibt drei
 gleichwertige Wege dorthin:
 
-1. ein einzelnes Tool mit zwei eigenen Faktorarten (`device`: Besitz plus Wissen oder Inhärenz),
-2. zwei kombinierte Anmelde-Tools mit je einem Faktor unterschiedlicher Art (SMS plus Passwort,
-   über die MFA-Erhöhung),
+1. ein einzelnes Tool mit zwei eigenen Faktortypen (`device`: Besitz plus Wissen oder Inhärenz),
+2. zwei kombinierte Anmelde-Tools mit je einem Faktor unterschiedlicher Art (SMS plus Passwort).
+   Im Sinne des [Glossars](glossar/glossar.md) ist das eine **mehrstufige Authentifizierung**, keine
+   MFA im engeren Sinn, denn jedes der beiden Mittel trägt nur einen Faktor. NIST SP 800-63B stellt
+   sie für AAL2 der MFA gleich (mehrere Authenticators, die zusammen zwei Faktortypen abdecken);
+   deshalb zählt sie hier gleich viel wie Weg 1. Die Regel bleibt, nur der Name ist genau,
 3. eine Identifizierung (`ident-fsc`/`ident-eid`/`ident-nect`) allein über ihr eigenes IAL.
 
 Weil Weg 3 gleichwertig ist, bietet die Anmeldung `CandidateTools.forReIdentification`

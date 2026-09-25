@@ -33,7 +33,7 @@ Der Kern des Modells sind drei ineinander geschachtelte Sitzungen, von lang- zu 
 
 | Ebene | Steht für | Lebensdauer |
 |---|---|---|
-| `ChannelSession` | Den Kanal (App oder Web), per DPoP an das Gerät gebunden | überdauert einzelne Verfahren, ist aber bewusst kurzlebig (ADR-3); welches Gerät zu welchem Konto gehört, merkt sich `DeviceAccountLink` |
+| `ChannelSession` | Den Kanal (App oder Web), per DPoP an den Schlüssel des Geräts gebunden | überdauert einzelne Verfahren, ist aber bewusst kurzlebig (ADR-3); welches Gerät zu welchem Konto gehört, merkt sich `DeviceAccountLink` |
 | `AuthJourney` | Einen Durchlauf zu einem `AuthIntent`: einen geführten Weg zu einem Ziel | solange die Journey läuft |
 | `ToolSession` | Einen einzelnen Durchlauf eines Tools, z. B. die TAN-Eingabe | kurz, oft nur Minuten |
 
@@ -51,7 +51,7 @@ Details: [02-domaenenmodell.md](02-domaenenmodell.md)
 ## Tools beschreiben sich selbst
 
 Jedes Verfahren ist ein *Tool* mit einem einfachen Bezeichner (`toolId`) wie `enroll-sms`. Die
-Module bringen ihre Beschreibung selbst mit: Kategorie, Methode, Faktorart und das höchste
+Module bringen ihre Beschreibung selbst mit: Kategorie, Methode, Faktortyp und das höchste
 erreichbare Sicherheitsniveau. Es gibt keine zentral gepflegte Liste, die man beim Hinzufügen
 eines Verfahrens vergessen könnte.
 

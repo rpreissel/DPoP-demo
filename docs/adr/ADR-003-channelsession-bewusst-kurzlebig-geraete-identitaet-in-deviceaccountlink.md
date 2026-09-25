@@ -15,7 +15,7 @@ einer Entität: die Nutzung eines Kanals (Stunden) und die Identität des Gerät
 Gerät wieder, wird deshalb **immer** eine neue `ChannelSession` angelegt und nur mit der
 `accountId` vorbelegt.
 
-**Kosten**: Zwei Konzepte statt eines: Die Bindung des Geräts muss ausdrücklich in
+**Kosten**: Zwei Konzepte statt eines: Die Verknüpfung des Geräts muss ausdrücklich in
 `DeviceAccountLink` nachgeschlagen werden.
 
 ---

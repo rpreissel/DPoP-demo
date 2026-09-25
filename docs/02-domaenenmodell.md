@@ -55,8 +55,9 @@ classDiagram
   ChannelSession "1" --> "0..*" SessionEvent : protokolliert
 ```
 
-`DeviceAccountLink` ist bewusst **nicht** mit `ChannelSession` verknüpft. Es ist die einzige
-langlebige Zuordnung von Gerät zu Konto (`bindingKeyRef -> accountId`) und hängt an keiner
+`DeviceAccountLink`, die **Geräteverknüpfung**, hängt bewusst **nicht** an `ChannelSession`. Es ist
+die einzige langlebige Zuordnung von Gerät zu Konto (`bindingKeyRef -> accountId`), zählt nicht als
+Anmeldung (keine Gerätebindung im Sinne des Glossars) und hängt an keiner
 einzelnen `ChannelSession`; Details in [DPoP-Bindung](09-dpop.md) Abschnitt 3. Es gibt sie **nur im
 App-Kanal**: Im Web-Kanal bleibt `bindingKeyRef` `null`.
 
@@ -155,7 +156,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   E-Mail-Adresse), und trägt ebenfalls nichts zum Niveau bei
   ([Tool-Architektur](03-tool-architektur.md)).
 - `FactorType`: `KNOWLEDGE`, `POSSESSION`, `INHERENCE` – gibt das Modul ebenfalls selbst an; darauf
-  beruht die MFA-Prüfung ([Orchestrierung](04-orchestrierung.md)).
+  beruht die Prüfung, ob verschiedene Faktortypen vorliegen ([Orchestrierung](04-orchestrierung.md)).
 
 ---
 
@@ -177,9 +178,9 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   den passenden Weg zur Anmeldung.
 - Der Nachweis einer Sitzung liegt in `AuthEvidence`, nicht im `AuthContext`; der verwaltet nur die
   Tokens des App-Kanals. Je Verfahren hält ein `amrEvidence`-Eintrag Methode, Niveau und
-  Faktorarten fest. `currentAmr` und `currentFactorTypes` sind Sichten darauf. Die Faktorarten
+  Faktortypen fest. `currentAmr` und `currentFactorTypes` sind Sichten darauf. Die Faktortypen
   stehen im Eintrag selbst, statt aus dem `amr`-Namen abgeleitet zu werden, denn `amr`-Werte
-  benennen Verfahren, nicht Faktorarten. Das aktuelle Niveau wird nie gespeichert, sondern bei
+  benennen Verfahren, nicht Faktortypen. Das aktuelle Niveau wird nie gespeichert, sondern bei
   Bedarf aus dem Nachweis berechnet.
 - Zwei Ebenen: `ChannelSession.acrFloor` ist die **dauerhafte Untergrenze** des Kanals und
   überlebt einzelne Journeys. `StepUpState.targetAcr` ist das **Ziel des jeweiligen Laufs** und
@@ -259,7 +260,10 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   geändert. Protokolliert werden Änderungen, nicht Durchläufe: Eine Angabe, die genau so schon gilt
   (gleicher Typ, Wert, Quelle und Verfahren), wird nicht noch einmal geschrieben. Ein eID-Lauf mit
   unveränderter Karte erzeugt also keine sieben neuen Zeilen. Die Spalte `normalized_value`
-  (`@PrePersist`/`@PreUpdate`) hält die Regel zur Normalisierung an genau einer Stelle fest.
+  (`@PrePersist`/`@PreUpdate`) hält die Regel zur Normalisierung an genau einer Stelle fest. Im
+  Sinne des [Glossars](glossar/glossar.md) sind diese Claims **bescheinigte Attribute**, sobald ein
+  Identifizierungsverfahren oder das Personenverzeichnis für sie einsteht; was nur der Nutzer selbst
+  angibt (`SELF_REPORTED`), bleibt unbescheinigt.
 
   Die Quelle sagt, wer für einen Wert einsteht: das Personenverzeichnis (`PERSON_DIRECTORY`, in der
   Datenbank `person_directory`), ein Verfahren selbst (`ClaimSource.of(toolId)`, z. B. `ident-eid`),

@@ -17,17 +17,17 @@ angegeben.
   - *Fundstelle im Projekt:* `enum class FactorType { KNOWLEDGE, POSSESSION, INHERENCE }` (`tool_spi/ToolDescriptor.kt:309`)
   - *Warum es passt:* Eine direkte Übersetzung mit fast gleichen Definitionen („was der Nutzer weiß, hat, ist“).
 - **Authentisierungsfaktor**, auch Mittel mit nur einem Faktor
-  - *Fundstelle im Projekt:* Jedes Tool nennt seine Faktorarten selbst: das Passwort nur `KNOWLEDGE` (`auth_password/Descriptors.kt:39`), die SMS nur `POSSESSION` (`auth_sms/Descriptors.kt:32`)
+  - *Fundstelle im Projekt:* Jedes Tool nennt seine Faktortypen selbst: das Passwort nur `KNOWLEDGE` (`auth_password/Descriptors.kt:39`), die SMS nur `POSSESSION` (`auth_sms/Descriptors.kt:32`)
   - *Warum es passt:* Das Passwort ist genau das „klassische“ Mittel mit einem Faktor aus dem Glossar.
 - **Authentisierungsmittel**
-  - *Fundstelle im Projekt:* „Methode“: was im Konto eingerichtet ist und eine Anmeldung ermöglicht (`docs/04-orchestrierung.md`, Abschnitt „Begriffe“), gespeichert als `AccountAuthMethod`
+  - *Fundstelle im Projekt:* „Methode“ bzw. „Anmeldeverfahren“: was im Konto eingerichtet ist und eine Anmeldung ermöglicht, gespeichert als `AccountAuthMethod`. Die Doku nennt den Glossar-Begriff dazu ausdrücklich (`docs/04-orchestrierung.md`, Abschnitt „Begriffe“)
   - *Warum es passt:* Deckt sich nahezu wörtlich mit der Definition im Glossar.
 - **Authentisieren** (der Client übermittelt einen Nachweis)
   - *Fundstelle im Projekt:* Der Begriff „Nachweis“ in der ganzen Doku, technisch `ToolOutcome` und die `AuthEvidence` der Sitzung (`orchestrator/session/AuthEvidence.kt:56`)
   - *Warum es passt:* Dieselbe Idee wie der „Nachweis über das Innehaben“ im Glossar.
 - **2-Faktor-Authentisierungsmittel**, Beispiel 2 (Schlüssel im Gerät, lokal per PIN oder Biometrie freigegeben), und **Gerätebindung für MFA**
   - *Fundstelle im Projekt:* `enroll-device`/`auth-device`: ein eigenes, nicht exportierbares Schlüsselpaar (`frontend/src/deviceKey.ts:50`), das der Nutzer auf dem Gerät freigibt (`userVerification`, `frontend/src/deviceKey.ts:83`); `docs/06-ablaeufe.md`, Abschnitt „`enroll-device` / `auth-device`“
-  - *Warum es passt:* Genau Beispiel 2 des Glossars. Die Faktorarten werden **je Nachweis** aus der tatsächlichen Freigabe abgeleitet (PIN ergibt Besitz und Wissen, Biometrie Besitz und Biometrie, `auth_device/internal/authdevice/AuthDeviceToolHandler.kt:90-93`), nicht pauschal für das Verfahren behauptet. KOBIL macht es ebenso (`auth_kobil/internal/KobilFactors.kt:19-20`).
+  - *Warum es passt:* Genau Beispiel 2 des Glossars. Die Faktortypen werden **je Nachweis** aus der tatsächlichen Freigabe abgeleitet (PIN ergibt Besitz und Wissen, Biometrie Besitz und Biometrie, `auth_device/internal/authdevice/AuthDeviceToolHandler.kt:90-93`), nicht pauschal für das Verfahren behauptet. KOBIL macht es ebenso (`auth_kobil/internal/KobilFactors.kt:19-20`).
 - **Faktortyp Besitz**: ein nicht kopierbarer Schlüssel erkennt das Gerät, die Bindung endet mit dem Schlüssel
   - *Fundstelle im Projekt:* DPoP-Schlüssel mit `extractable=false` (`frontend/src/dpop.ts:55-61`), `bindingKeyRef` als Fingerabdruck des Schlüssels (`docs/09-dpop.md`, Abschnitte „Prinzip“ und „Anforderungen“, D-3); beim Umbinden werden alle an den Schlüssel gebundenen Credentials widerrufen (`docs/09-dpop.md`, Abschnitt „Bindung an die ChannelSession“)
   - *Warum es passt:* Trifft den Kern: Das Gerät ist über einen Schlüssel eindeutig wiederzuerkennen, der die Anwendung nicht verlassen kann, und diese Wiedererkennung endet mit dem Schlüssel. Wie sicher dieser Schlüssel im Browser liegt, steht in Abschnitt 2.
@@ -53,13 +53,20 @@ angegeben.
   - *Fundstelle im Projekt:* Der Orchestrator mit Keycloak: Er verwaltet Konten und ihre Attribute und gibt sie zusammen mit dem Stand der Authentifizierung weiter, als ID-Claims (`orchestrator/session/TokenService.kt:79-95`, u. a. `acr`, `amr`, `personId`, `versnr`) bzw. als Claims im Keycloak-Token (`keycloak-migrations/src/main/resources/keycloak-migrations/V1__realm.kc.kts:312`, `:994`). Die Personen selbst verwaltet das Personenverzeichnis (`ext_personenverzeichnis/Personenverzeichnis.kt:91`, `:108`); ändert es eine Person, folgen die Konten per Ereignis (`Personenverzeichnis.kt:121` → `account/internal/PersonChangeListener.kt:18` → `account/AccountService.kt:673`, ADR-34)
   - *Warum es passt:* Alle drei Aufgaben aus dem Glossar sind da: Identitäten verwalten, Attribute verwalten und beides zusammen mit dem Stand der Authentifizierung im Token nutzbar machen.
 
+- **Authentisierung und Authentifizierung** (Vorgang beim Client, Prüfung beim Server)
+  - *Fundstelle im Projekt:* Das Tool erbringt den Nachweis (Client), die `AuthPolicy` prüft ihn (Server). `docs/04-orchestrierung.md`, Abschnitt „Begriffe“, nennt die Unterscheidung des Glossars und erklärt „Authentifizierung“ als bewussten Oberbegriff für beides
+  - *Warum es passt:* Die Trennung ist in der Sache vorhanden und jetzt auch als Sprachregelung benannt.
+- **Mehrstufige Authentifizierung** gegenüber **2FA/MFA** („zwei unabhängig geprüfte Faktoren sind kein 2-Faktor-Mittel“)
+  - *Fundstelle im Projekt:* SMS plus Passwort, zwei einzeln geprüfte Mittel, erreichen `loa2` und heißen in der Doku „mehrstufige Authentifizierung“; dazu der Hinweis, dass NIST SP 800-63B (AAL2) sie der MFA gleichstellt (`docs/04-orchestrierung.md`, Abschnitt „IAL und AAL“). „MFA“ steht nur noch für ein einzelnes Mittel mit zwei Faktoren (`device`, `kobil`)
+  - *Warum es passt:* Genau die Unterscheidung des Glossars; die Bewertung (beides `loa2`) folgt NIST.
+- **Gerätebindung** (die Erstellung eines Faktors Besitz)
+  - *Fundstelle im Projekt:* `enroll-device` und `enroll-kobil` richten ein gerätegebundenes Anmeldeverfahren ein (`docs/06-ablaeufe.md`, Abschnitt „`enroll-kobil` / `auth-kobil`“). Die Verknüpfung des DPoP-Schlüssels mit einem Konto (`DeviceAccountLink`) heißt dagegen „Geräteverknüpfung“ und gilt bewusst **nicht** als Anmeldung (`docs/04-orchestrierung.md`, Abschnitt „Begriffe“; `docs/09-dpop.md`, Abschnitt 3)
+  - *Warum es passt:* Das Wort steht jetzt nur noch in der Bedeutung des Glossars.
+
 ## 2) Passt einigermaßen
 
-- **Authentisierung und Authentifizierung** (Vorgang beim Client und Prüfung beim Server, bewusst zwei Wörter) — Die Doku verwendet nur „Authentifizierung“ und „Anmeldung“; „Authentisierung“ kommt außerhalb des Glossars nicht vor. Der Sache nach ist die Trennung da: Das Tool erbringt den Nachweis (Client), die `AuthPolicy` prüft ihn (Server). In den Begriffen ist sie aber nicht nachgezogen.
-- **2FA / MFA** gegenüber der **mehrstufigen Authentifizierung** („zwei unabhängig geprüfte Faktoren sind kein 2-Faktor-Mittel“) — Das Projekt zählt für `loa2` die Faktorarten aller abgeschlossenen Tools zusammen. Auch SMS plus Passwort, zwei einzeln geprüfte Mittel, erreichen so `loa2`, und die Doku nennt das eine „MFA-Erhöhung“ (`docs/04-orchestrierung.md`, Abschnitt „IAL und AAL“, Weg 2). Nach dem Glossar ist das eine **mehrstufige** Authentifizierung, keine MFA. Echte 2-Faktor-Mittel im Sinne des Glossars sind nur `device` und `kobil`, bei denen der Schlüssel erst nach der Freigabe auf dem Gerät nutzbar ist. Die Gleichbewertung folgt NIST 800-63B (AAL2), das beides zulässt.
 - **Challenge-Response** als Weg zu 2FA/MFA — Der Server stellt beim Geräteschlüssel keine eigene Challenge. Der signierte Nachweis ist stattdessen an genau diese Anfrage gebunden (Methode, Adresse, Zeitpunkt, einmalige Kennung) und gegen Wiederholung geschützt (`auth_device/internal/authdevice/AuthDeviceToolHandler.kt:23-25`; `docs/09-dpop.md`, Abschnitt „Anforderungen“). Bei KOBIL löst das Backend die Bestätigung selbst beim Anbieter ein (ADR-21). Beides erfüllt den Zweck, ist aber kein Challenge-Response im engeren Sinn.
-- **Sicherer Speicher** (Secure Element, TPM) als Voraussetzung für den Faktor Besitz — Die Schlüssel liegen im Browser: Web Crypto API mit `extractable=false`, gespeichert in IndexedDB (`frontend/src/dpop.ts:55-61`, `frontend/src/deviceKey.ts:50`). Der Schlüsselwert lässt sich über die Programmierschnittstelle nicht auslesen, das kommt der Definition nahe. Eine Garantie durch Hardware und eine Zertifizierung gibt es aber nicht. Das Entsperrgeheimnis von KOBIL liegt sogar nur im Speicher des Browsers (`frontend/src/tools/kobil/localData.ts`). Für eine Demo ist das bewusst so; `docs/09-dpop.md` sagt es aber nicht ausdrücklich.
-- **Gerätebindung** (die Erstellung eines Faktors Besitz) — Das Projekt verwendet das Wort in zwei Bedeutungen. Einmal für die Verknüpfung des DPoP-Schlüssels mit einem Konto (`DeviceAccountLink`): Sie dient nur dem Wiedererkennen des Geräts und gilt bewusst **nicht** als Anmeldung (`docs/09-dpop.md`, Abschnitt „Bindung an die ChannelSession“). Zum anderen für KOBIL, das tatsächlich einen Faktor Besitz erstellt (`docs/06-ablaeufe.md`, Abschnitt „`enroll-kobil` / `auth-kobil`“). Nur die zweite Bedeutung entspricht dem Glossar.
+- **Sicherer Speicher** (Secure Element, TPM) als Voraussetzung für den Faktor Besitz — Die Schlüssel liegen im Browser: Web Crypto API mit `extractable=false`, gespeichert in IndexedDB (`frontend/src/dpop.ts:55-61`, `frontend/src/deviceKey.ts:50`). Der Schlüsselwert lässt sich über die Programmierschnittstelle nicht auslesen, das kommt der Definition nahe; eine Garantie durch Hardware und eine Zertifizierung gibt es aber nicht. Das Entsperrgeheimnis von KOBIL liegt sogar nur im `localStorage` (`frontend/src/kobilUnlockSecret.ts`). Das Projekt sagt das selbst: eine Demo, kein System für den Produktivbetrieb (`docs/09-dpop.md`, Abschnitt „Wie sicher die Schlüssel im Browser sind“).
 - **Server, Client und Person** (Client und Person teilweise gleichbedeutend) — Das Projekt trennt drei Dinge ausdrücklich: das Gerät (`bindingKeyRef`, `DeviceAccountLink`), das Konto (`Account`) und die Person (Partnernummer im Personenverzeichnis). Ein wiedererkanntes Gerät sagt nur, welches Gerät spricht, nicht, wer davor sitzt. Das verfeinert das Glossar, widerspricht ihm aber nicht.
 - **Identifizierungsmittel**, Beispiel „Versicherungs-Smartcard mit Versichertennummer“ — Eine Gesundheitskarte gibt es im Projekt nicht. Die KVNR wird eingetippt, nicht bescheinigt. `ident-kvnr` hat deshalb die Rolle `CORRELATION` (`id_kvnr/Descriptors.kt:39`) und darf nur laufen, wenn Name, Vorname und Geburtsdatum bereits bestätigt sind (`id_kvnr/Descriptors.kt:54-56`). Zugeordnet wird erst, wenn die Person hinter der Nummer zu diesen bestätigten Daten passt (`account/internal/IdentityMatchingService.kt:69`, `orchestrator/journey/JourneyActionExecutor.kt:144`). Für die Partnernummer gilt dasselbe.
 - **Unbescheinigte Attribute dürfen nie für die Zuordnung zu einem Stammdatensatz dienen** — Beim Freischaltcode (`ident-fsc`) tippt die Person KVNR bzw. Partnernummer, Namen und Geburtsdatum ein, also unbescheinigte Angaben; das Personenverzeichnis prüft sie (`id_fsc/internal/IdentFscToolHandler.kt:83`). Wofür das Personenverzeichnis einsteht, ist aber der Code aus dem Brief, den es selbst an die Person geschickt hat (`ext_personenverzeichnis/Freischaltcodes.kt:53`). Die getippten Angaben finden nur den Datensatz, der Code bestätigt ihn. Das ist der Einmalcode aus dem Glossar, ein schwächeres, nicht kryptographisches Verfahren. Deshalb erreicht `ident-fsc` nur `loa2`, der Online-Ausweis `loa3`.
@@ -120,31 +127,23 @@ ADR-19, ADR-20). Das ist eine Verfeinerung, kein Widerspruch.
 
 ### Unbedingt ändern (billig, hoher Vertrauensgewinn)
 
-Die drei Punkte aus dem letzten Abgleich sind noch offen; zwei neue sind dazugekommen.
+Alle fünf Punkte aus dem letzten Abgleich sind erledigt (2026-09-25):
 
-1. **Authentisierung und Authentifizierung ausdrücklich unterscheiden** (noch offen). Eine Zeile in
-   `docs/04-orchestrierung.md`, Abschnitt „Begriffe“: Den Nachweis durch ein Tool nennt das Glossar
-   Authentisierung (Seite des Clients), die Prüfung durch die `AuthPolicy` Authentifizierung (Seite
-   des Servers); das Projekt nutzt „Authentifizierung“ als Oberbegriff für beides. Ohne diese Zeile
-   wirkt es wie Unkenntnis der Unterscheidung, mit ihr wie eine bewusste Sprachregelung.
-2. **Wörter des Glossars in der Doku verwenden** (teilweise erledigt). „Gerätebindung“,
-   „Identifizierung“ und „Faktorart“ kommen inzwischen vor. „Authentisierungsmittel“,
-   „Identifizierungsmittel“ und „bescheinigtes Attribut“ fehlen weiter, obwohl die Sache fast überall
-   da ist. Außerdem heißt es in der Doku „Faktorart“, im Glossar „Faktortyp“. Die Wörter gehören in
-   die Doku, nicht in den Code (dort ist Englisch üblich).
-3. **Offen sagen, wie sicher der Schlüssel im Browser ist** (noch offen). In `docs/09-dpop.md`
-   ergänzen, dass die Schlüssel im Browser (Web Crypto API und IndexedDB) **nicht** das Niveau eines
-   Secure Elements oder TPM aus dem Glossar erreichen und das Entsperrgeheimnis von KOBIL nur im
-   Speicher des Browsers liegt: eine Demo, kein System für den Produktivbetrieb. Besser, das Projekt
-   sagt es selbst, als dass ein Prüfer es findet.
-4. **„Gerätebindung“ nur für das Erstellen eines Faktors verwenden** (neu). Für die Verknüpfung des
-   DPoP-Schlüssels mit einem Konto (`DeviceAccountLink`) ein anderes Wort nehmen, etwa
-   „Geräteverknüpfung“. Sonst liest ein Kenner des Glossars „Gerätebindung“ als Faktor Besitz, obwohl
-   das Projekt genau diese Verknüpfung bewusst nicht als Anmeldung zählt.
-5. **SMS plus Passwort „mehrstufig“ nennen, nicht „MFA“** (neu). In `docs/04-orchestrierung.md`,
-   Abschnitt „IAL und AAL“, den zweiten Weg zu `loa2` als mehrstufige Authentifizierung im Sinne des
-   Glossars bezeichnen und dazuschreiben, dass NIST 800-63B (AAL2) sie der MFA gleichstellt. Die
-   Regel bleibt, nur der Name wird genau.
+1. **Authentisierung und Authentifizierung** unterscheidet `docs/04-orchestrierung.md`, Abschnitt
+   „Begriffe“, jetzt ausdrücklich; „Authentifizierung“ ist dort als bewusster Oberbegriff benannt.
+2. **Die Wörter des Glossars** stehen in der Doku: Authentisierungsmittel, Identifizierungsmittel,
+   bescheinigtes Attribut und Faktortyp sind im selben Abschnitt erklärt und in
+   `02-domaenenmodell.md` und `03-tool-architektur.md` aufgegriffen. „Faktorart“ heißt überall
+   „Faktortyp“. Im Code bleibt es beim Englischen.
+3. **Wie sicher die Schlüssel im Browser sind**, sagt `docs/09-dpop.md` jetzt selbst: kein Niveau
+   eines Secure Elements oder TPM, das Entsperrgeheimnis von KOBIL im `localStorage`, eine Demo.
+4. **„Gerätebindung“** meint nur noch das Einrichten eines gerätegebundenen Anmeldeverfahrens; die
+   Verknüpfung über `DeviceAccountLink` heißt „Geräteverknüpfung“.
+5. **SMS plus Passwort** heißt „mehrstufige Authentifizierung“, mit dem Hinweis auf NIST SP 800-63B
+   (AAL2).
+
+Offen ist nur noch die Oberfläche: Einige Texte nennen das Einrichten des Geräteschlüssels bzw. von
+KOBIL „Verknüpfung“ (etwa „Verknüpfung mit dem Gerät“), dasselbe Wort wie für die Geräteverknüpfung.
 
 ### Mit Argumenten verteidigen (nicht zurückbauen)
 
@@ -165,7 +164,7 @@ Die drei Punkte aus dem letzten Abgleich sind noch offen; zwei neue sind dazugek
    Identifizierung als Ergebnis, nicht als Vorgang. Es sagt nicht, was geschieht, wenn eine neue
    Bestätigung auf ein bestehendes Konto trifft. Das Projekt beschreibt genau diesen Vorgang: Konten
    werden nur über Anker gefunden, nie automatisch zusammengeführt (ADR-11, ADR-19, ADR-20).
-5. **Faktorarten je Nachweis statt fest je Verfahren.** Das entspricht schon dem Glossar (Abschnitt 1)
+5. **Faktortypen je Nachweis statt fest je Verfahren.** Das entspricht schon dem Glossar (Abschnitt 1)
    und zeigt eine sorgfältige Umsetzung.
 6. **Vertrauen in die Freigabe auf dem Gerät.** Dass `device` und `kobil` Wissen oder Biometrie aus
    einer Freigabe melden, die der Server nicht sieht, ist kein Mangel, sondern genau das Vertrauen in
@@ -179,7 +178,6 @@ Die drei Punkte aus dem letzten Abgleich sind noch offen; zwei neue sind dazugek
 ### Nächster Schritt
 
 Dieses Dokument ist selbst die Übersetzungshilfe für den Autor des Glossars: Begriff → Entsprechung
-im Projekt (mit Fundstelle) → gegebenenfalls Begründung der Abweichung. Damit geht es in der
-Diskussion nicht mehr um „ist es da?“, sondern um „ist die Abweichung gerechtfertigt?“. Die fünf
-Punkte unter „Unbedingt ändern“ sind reine Änderungen an der Doku und lassen sich in einem Durchgang
-erledigen.
+im Projekt (mit Fundstelle) → gegebenenfalls Begründung der Abweichung. Die Punkte, die sich an der
+Doku ändern ließen, sind umgesetzt. In der Diskussion geht es damit nur noch um die Abweichungen
+unter „Mit Argumenten verteidigen“: ob sie gerechtfertigt sind.

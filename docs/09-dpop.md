@@ -1,7 +1,7 @@
 # DPoP-Bindung
 
-Dieses Kapitel beschreibt, wie der Kanal kryptografisch an das Gerät gebunden wird. Der daraus
-abgeleitete `binding_key_ref` beweist nur, welches GERÄT gerade spricht. Er ist bewusst **kein**
+Dieses Kapitel beschreibt, wie der Kanal kryptografisch an den DPoP-Schlüssel des Geräts gebunden
+wird. Der daraus abgeleitete `binding_key_ref` beweist nur, welches GERÄT gerade spricht. Er ist bewusst **kein**
 Schlüssel, über den eine `ChannelSession` gefunden oder wiederverwendet wird
 ([02-domaenenmodell.md](02-domaenenmodell.md)). Eine bestimmte Sitzung erkennt man an ihrer
 `channelSessionId`, und die muss sich der Client selbst merken.
@@ -46,6 +46,22 @@ angemeldete Anfrage eine neue Zeile; abgelaufene Einträge löscht ein geplanter
 Tabelle nach Zeit zu partitionieren oder durch einen dauerhaften Schlüssel-Wert-Speicher zu
 ersetzen, ist eine Entscheidung über die Infrastruktur und bewusst zurückgestellt.
 
+### Wie sicher die Schlüssel im Browser sind
+
+Diese Demo läuft im Browser, und das begrenzt, wie gut ihre Schlüssel geschützt sind. Der
+DPoP-Schlüssel und der Schlüssel des Anmeldeverfahrens `device` entstehen über die Web Crypto API
+und liegen in IndexedDB. Mit `extractable=false` kann kein Skript den privaten Schlüssel auslesen,
+auch kein fremdes. Das Niveau eines **Secure Element** oder **TPM** aus dem
+[Glossar](glossar/glossar.md) erreicht das aber nicht: Der Schlüssel liegt in den Daten des
+Browsers, nicht in eigener Hardware, und die Prüfung per PIN oder Biometrie simuliert die Demo nur.
+
+Noch schwächer geschützt ist das Entsperrgeheimnis von KOBIL: Es liegt im `localStorage` des
+Browsers (`frontend/src/kobilUnlockSecret.ts`) und ist dort für jedes Skript der Seite lesbar. Auf
+einem echten Gerät läge es im Schlüsselspeicher hinter einer biometrischen Abfrage.
+
+Das ist eine Demo, kein System für den Produktivbetrieb. Ein Produktivsystem bräuchte an dieser
+Stelle eine native App mit hardwaregestütztem Schlüsselspeicher.
+
 ---
 
 ## 3) Bindung an die ChannelSession
@@ -62,7 +78,10 @@ ersetzen, ist eine Entscheidung über die Infrastruktur und bewusst zurückgeste
   ohne bekannte `channelSessionId` legt eine neue an, z. B. nach dem Abmelden oder wenn der Client
   seine gemerkte ID verloren hat. Eine feste 1:1-Beziehung gibt es nicht.
 - Damit ein bereits registriertes Gerät nicht jedes Mal erneut `ident-fsc` durchlaufen muss, gibt es
-  `DeviceAccountLink` (`binding_key_ref -> accountId`, [02-domaenenmodell.md](02-domaenenmodell.md)).
+  die **Geräteverknüpfung** `DeviceAccountLink` (`binding_key_ref -> accountId`,
+  [02-domaenenmodell.md](02-domaenenmodell.md)). Sie erkennt das Gerät nur wieder und zählt bewusst
+  nicht als Anmeldung, also auch nicht als Faktor Besitz; „Gerätebindung“ heißt in dieser Doku nur
+  das Einrichten eines an das Gerät gebundenen Anmeldeverfahrens (`device`, `kobil`).
   Dieser Datensatz ist unabhängig von der einzelnen `ChannelSession`. Der Einstieg in den Kanal liest
   ihn und belegt eine neue `ChannelSession` gleich mit der `accountId` vor. Es geht dann um eine
   Anmeldung statt um eine Registrierung.
@@ -84,47 +103,49 @@ ersetzen, ist eine Entscheidung über die Infrastruktur und bewusst zurückgeste
   2. Das **Credential von `auth_device`** ist ein eigenes, nicht exportierbares Schlüsselpaar. Damit
      signiert der Client den Nachweis, dass er das Gerät besitzt.
   3. Das **Entsperrgeheimnis von KOBIL** ist kein Schlüssel im kryptografischen Sinn, sondern ein
-     Geheimnis. Die App verwahrt es geschützt durch Biometrie und legt es vor, damit das Backend den
-     KOBIL-PIN freigibt ([Abläufe](06-ablaeufe.md) Abschnitt 7).
+     Geheimnis. Die App verwahrt es (auf einem echten Gerät hinter Biometrie, in dieser Demo im
+     `localStorage`, siehe Abschnitt 2) und legt es vor, damit das Backend den KOBIL-PIN freigibt
+     ([Abläufe](06-ablaeufe.md) Abschnitt 7).
 
   Nur der erste bindet den Kanal. Die beiden anderen sind Credentials. Beim dritten liegt der
   eigentliche Nachweis über das Gerät nicht bei uns, sondern beim Anbieter. Dessen eigene
   Gerätekennung liefert `GET .../app/channels/device-link` in `boundCredentials` mit, neben dem
   Schlüssel des `device`-Credentials.
-- **Beim Umbinden muss auch der Client aufräumen.** Auf dem Server widerruft
+- **Wird das Gerät neu verknüpft, muss auch der Client aufräumen.** Auf dem Server widerruft
   `JourneyActionExecutor.linkDeviceTo` jedes an den Schlüssel gebundene Credential des bisherigen
   Kontos. Für `device` reicht das: Der Schlüssel im Browser wird dadurch wertlos, und jeder Versuch
   damit scheitert. Für `kobil` reicht es nicht, denn dort liegt im Browser ein **Geheimnis**, das den
-  PIN freigeben würde. Der Client löscht es deshalb, sobald `device-link` keine `kobil`-Bindung mehr
+  PIN freigeben würde. Der Client löscht es deshalb, sobald `device-link` kein `kobil`-Credential mehr
   aufführt (`tools/kobil/localData.ts`). Ein Geheimnis, das nichts mehr freigibt, bleibt so nicht im
   Browser liegen.
 - Wechselt der Ablauf zwischen Registrierung und Anmeldung, bleibt der Kanal derselbe: Innerhalb
   EINER `ChannelSession` bleibt die `channelSessionId` gleich; nur der Vorgang dahinter wechselt.
-- **Umgebunden wird nur mit Zustimmung, und das stellt der Aufbau sicher, nicht die Sorgfalt im
-  Einzelfall.** Es gibt zwei Wege zu einer Gerätebindung, und nur einer darf umbinden:
-  - Der *implizite* Weg (ein Ablauf war erfolgreich, `AuthIntent.bindsDeviceImplicitly`) bindet nur,
+- **Neu verknüpft wird nur mit Zustimmung, und das stellt der Aufbau sicher, nicht die Sorgfalt im
+  Einzelfall.** Es gibt zwei Wege zu einer Geräteverknüpfung, und nur einer darf ein Gerät neu
+  verknüpfen:
+  - Der *implizite* Weg (ein Ablauf war erfolgreich, `AuthIntent.bindsDeviceImplicitly`) verknüpft nur,
     wenn der Schlüssel noch frei ist oder schon auf dasselbe Konto zeigt. Zeigt er auf ein fremdes
     Konto, geschieht gar nichts.
-  - Der *ausdrückliche* Weg (`Action.LinkDevice` nach einer Rückfrage) darf umbinden und widerruft
-    dabei.
+  - Der *ausdrückliche* Weg (`Action.LinkDevice` nach einer Rückfrage) darf neu verknüpfen und
+    widerruft dabei.
 
-  Ob unbemerkt umgebunden wird, hängt damit nicht davon ab, ob die jeweilige Strategie an diesen Fall
+  Ob unbemerkt neu verknüpft wird, hängt damit nicht davon ab, ob die jeweilige Strategie an diesen Fall
   gedacht hat. `RegisterEnrollFirstStrategy` fragt deshalb an einer anderen Stelle als
   `RegisterStrategy`. `RegisterStrategy` identifiziert zuerst und kann direkt danach fragen.
-  `RegisterEnrollFirstStrategy` bindet beim ersten eingerichteten Verfahren; zu diesem Zeitpunkt ist
+  `RegisterEnrollFirstStrategy` verknüpft beim ersten eingerichteten Verfahren; zu diesem Zeitpunkt ist
   das Konto gerade erst entstanden und hat noch keine Identität. Sie fragt deshalb erst am **Ende**
   der Journey (`EnrollFirstConfirmDeviceRebind`), nach der freiwilligen Identifizierung. Lehnt der
-  Nutzer ab, endet die Registrierung ohne Gerätebindung. Das Konto bleibt über die Anmeldung per
+  Nutzer ab, endet die Registrierung ohne Geräteverknüpfung. Das Konto bleibt über die Anmeldung per
   E-Mail-Adresse voll nutzbar.
 - `DeviceAccountLink` ist immer 1:1: Ein `binding_key_ref` zeigt zu jedem Zeitpunkt auf höchstens ein
   Konto. Weist sich auf einem bereits verknüpften Gerät jemand anderes neu aus (`intent=register`,
-  „Zweitaccount“, siehe [`REGISTER`](journeys/register.md)), wird die Bindung nicht unbemerkt
+  „Zweitaccount“, siehe [`REGISTER`](journeys/register.md)), wird die Verknüpfung nicht unbemerkt
   überschrieben. Sie wird erst nach einer Rückfrage übertragen (`RegisterState.ConfirmDeviceRebind`).
   Stimmt der Nutzer zu, wird zusätzlich **jedes** an diesen Schlüssel gebundene Credential des
   bisherigen Kontos deaktiviert, und sein Datensatz im Methodenmodul wird gelöscht
   (`AccountDeletionService.revokeMethod`). Heute sind das `device` und `kobil`; `JourneyActionExecutor`
   findet sie über `keyBinding != null` und nie über eine Liste von `toolId`s. Lehnt der Nutzer ab,
-  bricht die Journey ab, und die alte Bindung bleibt bestehen. Unabhängig davon gilt ohnehin bei der
+  bricht die Journey ab, und die alte Verknüpfung bleibt bestehen. Unabhängig davon gilt ohnehin bei der
   Auswahl der Kandidaten: Ein gerätegebundenes Credential (`ToolDescriptor.usableByCaller`,
   [03-tool-architektur.md](03-tool-architektur.md)) ist nur nutzbar, solange `DeviceAccountLink` für
   seinen Schlüssel noch auf genau das Konto zeigt, dem es gehört.

@@ -11,25 +11,25 @@ gefundenes Konto voraus.
 ```mermaid
 stateDiagram-v2
   [*] --> Start
-  Start --> Credential: Anmeldeverfahren ohne Gerätebindung verfügbar
+  Start --> Credential: Anmeldeverfahren verfügbar, das nicht an ein Gerät gebunden ist
   Start --> [*]: keines verfügbar - Abort
   Credential --> Credential: ein Tool abgelehnt, weitere übrig
   Credential --> [*]: alle abgelehnt - Cancel
   Credential --> AdditionalFactor: Nachweis erbracht, acrFloor noch nicht erreicht
-  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, Gerät nicht anders gebunden
-  Credential --> ConfirmDeviceRebind: Nachweis erbracht, Gerät war an ein anderes Konto gebunden
+  Credential --> OfferBinding: Nachweis erbracht, acrFloor erreicht, Gerät nicht anders verknüpft
+  Credential --> ConfirmDeviceRebind: Nachweis erbracht, Gerät war mit einem anderen Konto verknüpft
   AdditionalFactor --> AdditionalFactor: ein Tool abgelehnt, weitere übrig
   AdditionalFactor --> [*]: alle abgelehnt - Cancel
   Credential --> RE_IDENTIFY: Nachweis erbracht, kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
-  AdditionalFactor --> OfferBinding: acrFloor erreicht, Gerät nicht anders gebunden
-  AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, Gerät war an ein anderes Konto gebunden
+  AdditionalFactor --> OfferBinding: acrFloor erreicht, Gerät nicht anders verknüpft
+  AdditionalFactor --> ConfirmDeviceRebind: acrFloor erreicht, Gerät war mit einem anderen Konto verknüpft
   AdditionalFactor --> RE_IDENTIFY: kein kombinierbares Verfahren übrig, erneute Identifizierung möglich
   RE_IDENTIFY --> Start: Identität bestätigt (SubJourneyFinished)
   RE_IDENTIFY --> [*]: abgelehnt oder nicht möglich (Cancel/Abort)
   OfferBinding --> Finished: Nutzer stimmt zu -> Gerät wird wiedererkannt
-  OfferBinding --> Finished: Nutzer lehnt ab -> keine Bindung
-  ConfirmDeviceRebind --> Finished: Nutzer stimmt zu -> Gerät wird umgebunden
-  ConfirmDeviceRebind --> Finished: Nutzer lehnt ab -> Anmeldung und alte Bindung bleiben
+  OfferBinding --> Finished: Nutzer lehnt ab -> keine Verknüpfung
+  ConfirmDeviceRebind --> Finished: Nutzer stimmt zu -> Gerät wird neu verknüpft
+  ConfirmDeviceRebind --> Finished: Nutzer lehnt ab -> Anmeldung und alte Verknüpfung bleiben
   Finished --> [*]
 
   note right of Credential
@@ -48,8 +48,8 @@ künftige Anmeldungen wiedererkennen?“ Dafür implementiert der Zustand das al
 Markierungs-Interface `AnswerableState` (Orchestrierung, Abschnitt 5). So erkennt der gemeinsame
 Mechanismus den Zustand, ohne `LookupLoginState.OfferBinding` zu kennen. Gehört das Gerät bereits
 einem anderen Konto als dem gerade angemeldeten, wechselt die Journey nach `ConfirmDeviceRebind`.
-Dort läuft dieselbe Ja/Nein-Frage, mit einem Hinweis, dass die alte Bindung verloren geht. Lehnt der
-Nutzer ab, entfällt nur das Umbinden; die Anmeldung selbst bleibt bestehen.
+Dort läuft dieselbe Ja/Nein-Frage, mit einem Hinweis, dass die alte Verknüpfung verloren geht. Lehnt der
+Nutzer ab, entfällt nur das neue Verknüpfen; die Anmeldung selbst bleibt bestehen.
 
 Die dauerhafte Zuordnung von Gerät zu Konto (`DeviceAccountLink`) entsteht in dieser Journey
 **nur** mit Zustimmung und nie nebenbei beim Anmelden.

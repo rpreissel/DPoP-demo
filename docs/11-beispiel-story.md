@@ -103,7 +103,7 @@ Der Orchestrator verlangt deshalb einen `STEP_UP`. Zwei Wege führen nach oben, 
 offen:
 
 - **Ein zweites Verfahren.** Mara gibt zusätzlich ihr Passwort ein. Zwei verschiedene Verfahren mit
-  zwei verschiedenen Faktorarten (Besitz und Wissen) heben das Niveau um eine Stufe. Begrenzt ist das
+  zwei verschiedenen Faktortypen (Besitz und Wissen) heben das Niveau um eine Stufe. Begrenzt ist das
   durch das Niveau, auf dem die Verfahren selbst eingerichtet wurden. Beide sind in ihrer Sitzung mit
   `loa2` entstanden, deshalb reicht es.
 - **Erneut ausweisen.** `ident-fsc` erreicht `loa2` allein, ohne Kombination. Dieser Weg ist der
@@ -176,7 +176,7 @@ Systeme zusammensuchen musste. Nach der Löschung bleibt davon bewusst nichts ü
 
 ## Maras Verfahren und was sie erreichen
 
-| Verfahren | Faktorart | Erreicht allein | Kam ins Spiel |
+| Verfahren | Faktortyp | Erreicht allein | Kam ins Spiel |
 |---|---|---|---|
 | `ident-fsc` (Freischaltcode per Brief) | Identifizierung, kein Anmeldeverfahren | `loa2` | Kapitel 2, erneut in 5 |
 | bestätigte Adresse | keine – gehört zur Grundausstattung des Kontos | — | Kapitel 2 |

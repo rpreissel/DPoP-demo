@@ -190,7 +190,7 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 - **Wird ein Konto gelöscht, räumt das zusätzlich zwei Sitzungstabellen für diese `accountId` auf**,
   obwohl keine von beiden einen Fremdschlüssel auf `account` hat:
   - `orchestrator.journey_log`, und zwar über **zwei** Schlüssel: das Konto **und** seine
-    `ChannelSession`s, weil Einträge aus der Zeit vor der Bindung an das Konto
+    `ChannelSession`s, weil Einträge aus der Zeit, bevor die Sitzung einem Konto zugeordnet war,
     `account_id = NULL` haben;
   - `orchestrator.attempt_throttle`, aber nur die Bereiche `ACCOUNT` und `ACCOUNT_SEND`. Würden auch
     `BINDING_KEY` und `CONTACT_SEND` gelöscht, ließen sich diese Zähler durch eine neue

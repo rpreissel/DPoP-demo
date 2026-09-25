@@ -22,7 +22,7 @@ Aufrufer, dessen Schlüssel schon zu einem Credential dieses Kontos passt, und d
 direkt danach `activeMethods`.
 
 Im Code steht das als Typ, nicht als Kommentar: `KobilUnlockCredential` ist ein `sealed interface`
-(Gerätegeheimnis **oder** Passwort) und trägt seine Faktorart selbst. Das Passwort des Kontos wird
+(Gerätegeheimnis **oder** Passwort) und trägt seinen Faktortyp selbst. Das Passwort des Kontos wird
 als `pin` gemeldet, nie als `password`: Ein `amr`-Eintrag `password` würde über
 `findActiveMethod(accountId, "password")` den Datensatz des echten Passwortverfahrens an diesen
 Durchlauf hängen und das Passwort doppelt zählen.

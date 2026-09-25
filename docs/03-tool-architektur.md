@@ -107,7 +107,10 @@ Methode in einem einzigen Namen. Die `toolId` wird nicht gespeichert, sondern au
 abgeleitet; über sie werden Handler und Datenklasse des Moduls ausgewählt.
 
 Der Tool-Katalog ist **keine zentral gepflegte Tabelle**. Er entsteht aus den Angaben, die die Module
-über sich selbst machen (`ToolDescriptor`, Abschnitt 2):
+über sich selbst machen (`ToolDescriptor`, Abschnitt 2). In den Begriffen des
+[Glossars](glossar/glossar.md): Tools der Rolle `IDENTIFICATION` sind Identifizierungsmittel, die
+Methoden der Rollen `ENROLLMENT` und `IDENTIFIED_AUTH`/`LOOKUP_AUTH` Authentisierungsmittel
+([Orchestrierung](04-orchestrierung.md), Abschnitt „Begriffe“).
 
 | toolId | role | method | factorTypes | maxAcr | allowsMultipleInstances |
 |---|---|---|---|---|---|
@@ -127,14 +130,14 @@ Der Tool-Katalog ist **keine zentral gepflegte Tabelle**. Er entsteht aus den An
 
 Die Entscheidungen dahinter:
 
-- Jedes Modul liefert Kategorie, Methode, Faktorart und Niveau selbst; es gibt keinen zentral zu
+- Jedes Modul liefert Kategorie, Methode, Faktortyp und Niveau selbst; es gibt keinen zentral zu
   pflegenden Katalog.
 - `method` wird **nicht** aus der `toolId` herausgelesen. `enroll-sms` und `auth-sms` melden
   dieselbe `method`; darüber findet ein Tool zum Anmelden die passende Zeile in
   `account.auth_method`.
 - `factorTypes` ist eine **Menge**, weil ein Verfahren mehrere Faktoren zugleich erbringen kann:
   `enroll-device`/`auth-device` und `enroll-kobil`/`auth-kobil` deklarieren bis zu drei
-  Faktorarten und erbringen je Durchlauf zwei davon mit `loa2` (ein an das Gerät gebundenes
+  Faktortypen und erbringen je Durchlauf zwei davon mit `loa2` (ein an das Gerät gebundenes
   Credential plus System-PIN oder Biometrie).
 - `requires` wird gegen die zusammengeführten Claims des Kontos geprüft
   (`AccountProfile.establishedClaims`, also Angaben abzüglich der Widerrufe, ADR-12). Die Prüfung
@@ -182,8 +185,8 @@ Die Entscheidungen dahinter:
 - `keyBinding` (`device`, `kobil`): Das Credential liegt als nicht exportierbarer Schlüssel auf
   genau einem Gerät und kann anderswo gar nicht existieren. Daraus folgt die **Regel für Angebot
   und Widerruf**: `AuthPolicy.candidateTools` bietet nur den Eintrag an, der zum anfragenden Gerät
-  passt. `usableByCaller` prüft zusätzlich, dass das Gerät laut `DeviceAccountLink` noch an dieses
-  Konto gebunden ist. Und beim Umbinden widerruft `JourneyActionExecutor` genau die Credentials,
+  passt. `usableByCaller` prüft zusätzlich, dass das Gerät laut `DeviceAccountLink` noch mit diesem
+  Konto verknüpft ist. Und wird das Gerät neu verknüpft, widerruft `JourneyActionExecutor` genau die Credentials,
   die auf diesem Schlüssel liegen.
 - `instanceDisclosure` (heute bei `device` und `kobil`) beantwortet die nächste Frage: Was darf
   über den Eintrag auf diesem Schlüssel **angezeigt** werden? Auch hier liefert das Modul die
@@ -275,7 +278,7 @@ Quellen: Online-Ausweis nach [§18 PAuswG](https://www.gesetze-im-internet.de/pa
   - *Online-Ausweis:* Pseudonym der Karte – je Diensteanbieter verschieden, bei Nect also Nects eigenes (`NECT_RESTRICTED_ID`, nicht das von `ident-eid`)
   - *Reisepass:* Dokumentnummer + Ausstellerstaat (noch nicht als Anker genutzt)
   - *EUDI-Wallet:* ✗ – die PID trägt kein Pseudonym
-- **Niveau / Faktorarten**
+- **Niveau / Faktortypen**
   - *Online-Ausweis:* `loa3`, Besitz + Wissen
   - *Reisepass:* `loa2`, Besitz + Biometrie (Lichtbildabgleich)
   - *EUDI-Wallet:* `loa3`, Besitz + Wissen

@@ -254,8 +254,8 @@ per HTTP Schritt für Schritt durchlaufen, wo sie selbst geprüft wird: `Registr
 `RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und `JourneyLogIntegrationTest` (das
 Journey-Log entsteht nur durch einen echten Durchlauf).
 
-Alle anderen Testklassen brauchen nur ihr *Ergebnis*: „ein Konto mit SMS und Passwort, an dieses
-Gerät gebunden“. Das stellt `AccountFixtures` (im Testcode) über die Dienste der Fachmodule her,
+Alle anderen Testklassen brauchen nur ihr *Ergebnis*: „ein Konto mit SMS und Passwort, mit diesem
+Gerät verknüpft“. Das stellt `AccountFixtures` (im Testcode) über die Dienste der Fachmodule her,
 nicht über SQL. So gelten dieselben Regeln wie im echten Betrieb (Mindestniveaus der Anker, Ersetzen
 eines vorhandenen Verfahrens, Herkunft der Claims). Dasselbe Vorgehen nutzt `demo_seed`
 (`KcDemoAccountSeeder`).
@@ -264,7 +264,7 @@ Einstiegspunkte in `IntegrationTestSupport`:
 
 | Hilfsfunktion | Vorbedingung |
 | --- | --- |
-| `seedRegisteredAccount()` | Konto existiert (sms + Passwort, bestätigte Adresse, Gerät gebunden), kein Kanal |
+| `seedRegisteredAccount()` | Konto existiert (sms + Passwort, bestätigte Adresse, Gerät verknüpft), kein Kanal |
 | `loginAsSeededAccount()` | dazu ein angemeldeter loa2-Kanal (`amr = [sms, password]`) |
 | `registerAndAuthenticate()` | echte Registrierung, dadurch zusätzlich mit einem eigenen `fsc`-Nachweis |
 

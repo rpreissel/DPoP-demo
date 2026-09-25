@@ -110,8 +110,9 @@ sealed interface RegisterState : JourneyState {
     ) : RegisterState, OfferingState {
         override fun withOffer(offer: Offer) = copy(offer = offer)
         override val selectionContext: String get() = "registration"
-        override val selectionTitle: Text get() = Text("Versichertennummer angeben")
-        override val selectionDescription: Text get() = Text("Ihr Konto wird damit Ihrem Datensatz bei der Krankenkasse zugeordnet.")
+        override val selectionTitle: Text get() = Text("Konto zuordnen")
+        override val selectionDescription: Text get() =
+            Text("Ihr Konto wird Ihrem Eintrag im Personenverzeichnis zugeordnet - per Versichertennummer oder, ohne sie, per Partnernummer.")
     }
 
     /**

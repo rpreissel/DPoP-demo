@@ -10,17 +10,17 @@ Auch `FAST_ACCESS` nutzt diese Journey: Muss sich jemand beim schnellen Anmelden
 startet sie als vorgeschalteter Schritt (siehe [`FAST_ACCESS`](fast-access.md)).
 
 **Das Gerät gehört schon einem anderen Konto.** Es kann sein, dass die Identifizierung ein
-**anderes** Konto findet als das, an das dieses Gerät über `DeviceAccountLink` bereits gebunden ist
-(„Zweitaccount“). Dann wird die Bindung nicht stillschweigend überschrieben. `afterIdentification`
+**anderes** Konto findet als das, mit dem dieses Gerät über `DeviceAccountLink` bereits verknüpft ist
+(„Zweitaccount“). Dann wird die Geräteverknüpfung nicht stillschweigend überschrieben. `afterIdentification`
 prüft diesen Fall als Allererstes, noch bevor ein Anmeldeverfahren angeboten wird, und wechselt nach
 `ConfirmDeviceRebind`:
 
-- Stimmt der Nutzer zu (`accept`), wird das Gerät umgebunden (`Action.LinkDevice`). Dabei wird das
+- Stimmt der Nutzer zu (`accept`), wird das Gerät neu verknüpft (`Action.LinkDevice`). Dabei wird das
   Geräte-Credential (`enroll-device`) des bisherigen Kontos für genau diesen `bindingKeyRef`
   widerrufen (`AccountDeletionService.revokeMethod`). Danach geht es mit `afterIdentification`
   weiter.
 - Lehnt er ab (`decline`), endet die Journey regulär über `Transition.Cancel`. Das ist kein Fehler,
-  sondern dasselbe wie `DELETE .../journey`, und die bestehende Bindung bleibt unverändert.
+  sondern dasselbe wie `DELETE .../journey`, und die bestehende Verknüpfung bleibt unverändert.
 
 **Ausgewiesen, aber noch keiner Person zugeordnet.** Nach `ident-eid` oder `ident-nect` steht fest,
 wer jemand ist. Eine Person im Personenverzeichnis ist damit aber noch nicht gefunden, denn ein
@@ -42,9 +42,9 @@ stateDiagram-v2
   Start --> [*]: keines verfügbar - Abort
   Identifying --> Identifying: ein Tool abgelehnt, weitere übrig
   Identifying --> [*]: alle abgelehnt - Cancel
-  Identifying --> ConfirmDeviceRebind: Identität festgestellt, Gerät bereits an anderes Konto gebunden
-  ConfirmDeviceRebind --> AuthChoice: Zustimmung - Gerät umgebunden, weiter wie nach der Identifizierung
-  ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Bindung bleibt
+  Identifying --> ConfirmDeviceRebind: Identität festgestellt, Gerät bereits mit anderem Konto verknüpft
+  ConfirmDeviceRebind --> AuthChoice: Zustimmung - Gerät neu verknüpft, weiter wie nach der Identifizierung
+  ConfirmDeviceRebind --> [*]: Ablehnung - Journey bricht ab, alte Verknüpfung bleibt
   Identifying --> AuthChoice: Identität festgestellt, Konto bereits ausreichend eingerichtet
   Identifying --> Assigning: Identität bestätigt, aber keine Person aus dem Personenverzeichnis zugeordnet (ident-eid, ident-nect)
   Assigning --> AuthChoice: zugeordnet, gefundenes Konto bereits ausreichend eingerichtet
@@ -90,7 +90,7 @@ Sub-Journey). Eine Trennung in Registrierung und Anmeldung gibt es dabei nicht. 
 es war, zeigt sich erst danach, wenn das Konto anhand der Claims gesucht wird. Deshalb darf eine
 leere Kandidatenliste hier nicht zum Abbruch führen. Ein `Identified`-Ergebnis bedeutet an dieser
 Stelle „finde das Konto oder übernimm es“. Das ist keine Besonderheit von `REGISTER`, sondern folgt
-daraus, dass hier noch kein Konto gebunden ist. Ist bereits eines gebunden (bei `RE_IDENTIFY` oder
+daraus, dass hier noch kein Konto zugeordnet ist. Ist bereits eines zugeordnet (bei `RE_IDENTIFY` oder
 bei `Identifying` nach `AuthChoice`), läuft dieselbe Action mit derselben Prüfung, nur mit anderem
 Ergebnis.
 
@@ -194,19 +194,19 @@ stateDiagram-v2
   IdentifizierungAnbieten --> EnrollFirstConfirmDeviceRebind: fertig, aber dieses Gerät gehört einem ANDEREN Konto
   IdentifizierungAnbieten --> Finished: zugestimmt und erfolgreich identifiziert, oder abgelehnt bzw. nichts anzubieten
   IdentifizierungAnbieten --> [*]: Person gehört bereits zu einem anderen, echten Konto - 409
-  EnrollFirstConfirmDeviceRebind --> Finished: zugestimmt - Gerät umgebunden, altes Geräte-Credential widerrufen
-  EnrollFirstConfirmDeviceRebind --> Finished: abgelehnt - angemeldet, aber ohne Gerätebindung
+  EnrollFirstConfirmDeviceRebind --> Finished: zugestimmt - Gerät neu verknüpft, altes Geräte-Credential widerrufen
+  EnrollFirstConfirmDeviceRebind --> Finished: abgelehnt - angemeldet, aber ohne Geräteverknüpfung
   Finished --> [*]
 
   note right of EnrollFirstConfirmDeviceRebind
     Bewusst hier am ENDE und nicht
-    dort, wo die Bindung sonst
+    dort, wo die Verknüpfung sonst
     entsteht: Beim ersten
     eingerichteten Verfahren ist das
     Konto gerade erst angelegt und
     hat noch keine Identität, nach
     der man fragen könnte. Ohne
-    Zustimmung wird nie umgebunden.
+    Zustimmung wird nie neu verknüpft.
   end note
   note right of IdentifizierungAnbieten
     Sub-Journey RE_IDENTIFY,

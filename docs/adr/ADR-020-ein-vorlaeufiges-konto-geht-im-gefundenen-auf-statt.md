@@ -58,11 +58,11 @@ gelöscht, **bevor** dieselben Werte am Zielkonto geschrieben werden. Geschriebe
 Weg über `recordClaim`, Claim für Claim in der ursprünglichen Reihenfolge; Konfliktprüfung,
 Mindestniveaus der Anker und Widerrufsregeln gelten also unverändert.
 
-Für den Kanal gilt dasselbe umgekehrt: Nachweis und Gerätebindung werden auf das neue Konto
+Für den Kanal gilt dasselbe umgekehrt: Nachweis und Geräteverknüpfung werden auf das neue Konto
 umgestellt (`AuthEvidenceService.rebindToAccount`, `linkDeviceToAccount`), **bevor** das alte Konto
 gelöscht wird. Was die Sitzung bewiesen hat, bleibt bewiesen; nur die zwischengespeicherten Tokens
 entfallen. Danach läuft die Registrierung noch einmal durch `RegisterStrategy.afterIdentification`:
-Ist das Gerät schon an ein anderes Konto gebunden? Kann das Konto ein vorhandenes Verfahren
+Ist das Gerät schon mit einem anderen Konto verknüpft? Kann das Konto ein vorhandenes Verfahren
 nachweisen, statt ein neues einzurichten?
 
 ## Begründung
