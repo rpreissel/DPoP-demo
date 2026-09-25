@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   patchTool: vi.fn(),
   getTool: vi.fn(),
   startPeerLogin: vi.fn(),
+  getDeviceLink: vi.fn(),
 }))
 
 vi.mock('../../api.ts', async (importOriginal) => {
@@ -43,6 +44,8 @@ beforeEach(() => {
   window.location.hash = ''
   window.history.replaceState(null, '', '/')
   vi.clearAllMocks()
+  // A device no account knows yet, unless a test says otherwise.
+  api.getDeviceLink.mockResolvedValue({ linked: false })
 })
 
 afterEach(() => {
@@ -250,5 +253,25 @@ describe('Back-Button bis zur Startauswahl (docs/10-frontend.md #1)', () => {
     // Back on the home screen - as the app shows it for a device without an account.
     await screen.findByRole('heading', { name: 'Willkommen' })
     expect(api.cancelJourney).not.toHaveBeenCalled()
+  })
+})
+
+describe('gescannter Pairing-Code auf einem Gerät ohne Konto', () => {
+  it('bietet erst die Anmeldung an und lässt den Code wieder verwerfen', async () => {
+    window.history.replaceState(null, '', '/?pairingCode=AB3D-7KQ2')
+    render(<AppChannelApp />)
+    const user = userEvent.setup()
+
+    // Confirming would fail without an account here - so the way in comes first, not a dead end.
+    await screen.findByText(/AB3D-7KQ2/)
+    const cancel = await screen.findByRole('button', { name: 'Abbrechen' })
+    expect(screen.getByRole('button', { name: 'Mit E-Mail-Adresse anmelden' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Anmeldung bestätigen' })).not.toBeInTheDocument()
+
+    await user.click(cancel)
+
+    // Back on the ordinary start screen, the code dropped.
+    await waitFor(() => expect(screen.queryByText(/AB3D-7KQ2/)).not.toBeInTheDocument())
+    expect(screen.getAllByRole('button', { name: 'Neues Konto anlegen' }).length).toBeGreaterThan(0)
   })
 })

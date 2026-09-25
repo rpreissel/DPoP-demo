@@ -433,6 +433,8 @@ export function fetchServerInfo(): Promise<ServerInfo> {
  * anmelden" when a QR link opens on a device with no account) - "Vergessen" would not help there.
  */
 export function describeError(prefix: string, err: unknown): string {
+  // A wording may end in its own full stop ("Der Start hat nicht geklappt.") - never "geklappt.:".
+  prefix = prefix.replace(/[.:]\s*$/, '')
   if (err instanceof ApiError) {
     const hint = err.errorCode === ErrorResponseErrorEnum.PROCESS_GONE
       ? ' ' + t('Bitte in der Struktur bei Channel auf "Vergessen" klicken, um neu zu starten.')

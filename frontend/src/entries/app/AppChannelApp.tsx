@@ -512,6 +512,13 @@ export function AppChannelApp() {
     }
   }
 
+  /** "Abbrechen" on the scanned-code screen: the code is dropped, the normal start screen returns. */
+  function handleForgetPairingCode() {
+    forgetPendingPairingCode()
+    setPendingPairingCode(undefined)
+    setError('')
+  }
+
   /** Local-only: forgets the remembered channelSessionId and resets all channel state - no backend call, unlike Logout. */
   function handleClearChannel() {
     forgetChannelSessionId()
@@ -853,10 +860,38 @@ export function AppChannelApp() {
                         <h2>{t('Web-Login bestätigen')}</h2>
                         <p>{t('Sie haben einen QR-Code gescannt. Bestätigen Sie die Anmeldung im Browser mit dieser App.')}</p>
                         <p className="hint">{t('Pairing-Code: {code}', { code: pendingPairingCode })}</p>
-                        <div className="form-actions">
-                          <button onClick={() => handleStart('confirmPeerLogin')}>{t('Anmeldung bestätigen')}</button>
-                        </div>
-                        <ButtonDiagrams entries={[{ label: t('Anmeldung bestätigen'), diagram: 'confirmPeerLogin' }]} />
+                        {deviceLink?.linked === false ? (
+                          // Confirming needs an account on this device - so sign in first; the code
+                          // stays remembered and is used by "Anmeldung im Browser bestätigen" afterwards.
+                          <>
+                            <p>{t('Dafür muss die App mit Ihrem Konto verbunden sein. Melden Sie sich zuerst an, der Code bleibt gespeichert. Danach bestätigen Sie unter „Anmeldung im Browser bestätigen“.')}</p>
+                            <div className="form-actions app-home__actions">
+                              <button onClick={() => handleStart('login')}>{t('Mit E-Mail-Adresse anmelden')}</button>
+                              <button className="secondary" onClick={() => handleStart('register')}>
+                                {t('Neues Konto anlegen')}
+                              </button>
+                              <button className="secondary" onClick={handleForgetPairingCode}>
+                                {t('Abbrechen')}
+                              </button>
+                            </div>
+                            <ButtonDiagrams
+                              entries={[
+                                { label: t('Mit E-Mail-Adresse anmelden'), diagram: 'login' },
+                                { label: t('Neues Konto anlegen'), diagram: 'register' },
+                              ]}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <div className="form-actions app-home__actions">
+                              <button onClick={() => handleStart('confirmPeerLogin')}>{t('Anmeldung bestätigen')}</button>
+                              <button className="secondary" onClick={handleForgetPairingCode}>
+                                {t('Abbrechen')}
+                              </button>
+                            </div>
+                            <ButtonDiagrams entries={[{ label: t('Anmeldung bestätigen'), diagram: 'confirmPeerLogin' }]} />
+                          </>
+                        )}
                       </>
                     ) : deviceLink?.linked ? (
                       <>
