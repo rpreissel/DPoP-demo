@@ -50,6 +50,7 @@ als Diff mitten im Fließtext.
 | [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak |
 | [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md) | Betriebsanspruch – der Backend-Kern ist produktionsreif, Frontends und Umgebung folgen später |
 | [ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md) | Niveaus und ihre Nachweise – was nur behauptet ist, läuft nur im Demomodus |
+| [ADR-37](adr/ADR-037-postfach-traegt-unidentifizierte-konten.md) | Bei einem nie identifizierten Konto genügt das Postfach auch für destruktive Aktionen |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

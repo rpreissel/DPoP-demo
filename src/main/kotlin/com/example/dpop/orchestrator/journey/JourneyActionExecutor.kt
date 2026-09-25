@@ -310,8 +310,10 @@ class JourneyActionExecutor(
     /**
      * An attested anchor value that resolves to ANOTHER account may move this session there ONLY
      * if THIS session has already proven a real Identification (ident-fsc/ident-eid -
-     * [EvidenceAxis.IDENTITY] evidence, [DefaultAuthPolicy]'s own IAL/AAL split) earlier in the
-     * SAME journey - never on the strength of the attestation alone. A mere attestation (e.g.
+     * [EvidenceAxis.IDENTITY] evidence, [DefaultAuthPolicy]'s own IAL/AAL split) earlier - read
+     * from the channel's evidence, which this session accumulates across its journeys (review
+     * 2026-09, M-7: this used to say "the same journey") - never on the strength of the attestation
+     * alone. A mere attestation (e.g.
      * `confirm-email`) is deliberately weaker than an identification - the glossary's own
      * "unbescheinigtes/schwaches Identifizierungsmittel" distinction for email applies here
      * directly - and must never by itself be enough to move a session onto another account.

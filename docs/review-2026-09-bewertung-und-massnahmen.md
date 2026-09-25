@@ -322,8 +322,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     [ADR-36 „Niveaus und ihre Nachweise“](adr/ADR-036-niveaus-und-ihre-nachweise.md) (P-4).
 23. ~~M-3~~ – entschieden 2026-09-25: Keycloak-Tokens werden nicht gebunden; die Grenze steht in
     ADR-9 und docs/09 Abschnitt 4.
-24. **M-7** Zweiter Faktor für destruktive Aktionen an unidentifizierten Konten – oder als ADR
-    ausdrücklich abgewogen.
+24. ~~M-7~~ – entschieden 2026-09-25: bleibt, abgewogen in ADR-37.
 25. **M-9 / M-10** Antwort an Keycloak signieren (TLS auf dem Hop ist Umgebung → Phase G),
     Realm-Neuaufbau nur mit Schalter.
 26. **P-3 langfristig:** Keycloak liest statt spiegelt; Sync-Listener entfällt.

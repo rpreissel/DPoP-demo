@@ -323,6 +323,10 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-7 E-Mail-Postfach genügt für destruktive Aktionen an nie identifizierten Konten
 
+> **Entschieden, nicht geändert (2026-09-25):** bewusst so, festgehalten in
+> [ADR-37](adr/ADR-037-postfach-traegt-unidentifizierte-konten.md). Der KDoc von
+> `accountOfAttestation` nennt jetzt richtig die Evidenz des Kanals statt „derselben Journey“.
+
 - **Wo:** `orchestrator/journey/IntentStrategy.kt:41-42` (`selfServiceAcrFloor` = loa1 ohne
   `personId`); `auth-email-lookup` mit maxAcr loa1.
 - **Problem:** Wer ein Postfach übernimmt, kann das Konto löschen, die Adresse zurückziehen (nimmt

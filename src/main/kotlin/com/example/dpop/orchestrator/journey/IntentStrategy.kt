@@ -36,7 +36,8 @@ import com.example.dpop.orchestrator.kernel.FeatureFlags
  * any MFA bump at the highest `enrolledUnderAcr` among its methods, and every method such an
  * account enrolls is itself capped at loa1 - there is no path to a higher `enrolledUnderAcr`
  * without an identification first). This floor therefore never grants more than such an account
- * could legitimately reach anyway; it only stops demanding a level it could never clear.
+ * could legitimately reach anyway; it only stops demanding a level it could never clear. That the
+ * mailbox alone then suffices for destructive self-service is deliberate (ADR-37, review M-7).
  */
 fun selfServiceAcrFloor(account: AccountProfile?): AcrLevel =
     if (account?.personId == null) AcrLevels.DEFAULT_REQUIRED_ACR else AcrLevel.LOA2
