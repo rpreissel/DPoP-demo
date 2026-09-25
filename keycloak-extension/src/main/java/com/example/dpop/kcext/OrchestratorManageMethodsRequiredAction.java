@@ -178,7 +178,7 @@ public class OrchestratorManageMethodsRequiredAction implements RequiredActionPr
      *                  finished" for the status line below, since both end in the exact same
      *                  {@code channelState=AUTHENTICATED, next=null} response shape.
      * @param aborted   true when THIS call is the user explicitly backing out (a tool's own
-     *                  "Zurück"/{@code orchestrator_abandon}, or declining a confirm prompt like
+     *                  "Abbrechen"/{@code orchestrator_abandon}, or declining a confirm prompt like
      *                  {@code ReIdentifyState.OfferReIdent}) rather than completing a step - an
      *                  abort can still end in {@code channelState=AUTHENTICATED, next=null} (e.g.
      *                  the only step-up candidate was abandoned), which must not be mislabeled as

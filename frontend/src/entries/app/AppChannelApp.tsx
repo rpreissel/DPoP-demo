@@ -11,6 +11,7 @@ import type { ToolRenderContext } from '../../tools/types'
 import {
   abandonTool,
   activateTool,
+  backFromTool,
   answerPrompt,
   cancelJourney,
   createChannel,
@@ -100,7 +101,7 @@ export function AppChannelApp() {
   // for now (shown as a banner near the entry choice) besides driving the auto-start effect below;
   // actually submitting it as confirm-qr-login's own `pairingCode` field is bmh.4/bmh.6.
   const [pendingPairingCode, setPendingPairingCode] = useState<string | undefined>()
-  // Gates "Anderes Verfahren" - NOT "did another candidate really exist" (abandoning is always a
+  // Gates "Zurück" - NOT "did another candidate really exist" (abandoning is always a
   // safe, backend-handled fallback regardless), only "would showing the button be worth it right
   // now". >0 whenever activeTool is set: handleSelectMethod after an explicit multi-candidate
   // choice (the real remaining count), the auto-activate effect for a direct single-candidate skip
@@ -383,7 +384,7 @@ export function AppChannelApp() {
     if (next.toolSessionId) {
       // Resuming (e.g. after a reload) - whether alternatives existed originally is lost, but
       // that's not what this count actually gates: abandoning is always a safe, backend-handled
-      // fallback (see the auto-activate branch below), so hiding "Anderes Verfahren" here isn't a
+      // fallback (see the auto-activate branch below), so hiding "Zurück" here isn't a
       // conservative default, it's a dead end - on an already-AUTHENTICATED channel (e.g.
       // CONFIRM_PEER_LOGIN's step-up) neither "Zur Startseite" nor AuthenticationCompletedView's
       // "Abmelden" render while inToolMode, leaving zero way out. Same 1-not-0 treatment as a
@@ -413,7 +414,7 @@ export function AppChannelApp() {
     // only skips the selection screen because there is exactly one OFFERED candidate right now;
     // abandoning is still a normal, backend-handled fallback for every such state (every intent's
     // JourneyEvent.Abandoned handler resolves cleanly, worst case Decision.Cancel - never an
-    // error). So "Anderes Verfahren" stays offered here, same as after an explicit selection.
+    // error). So "Zurück" stays offered here, same as after an explicit selection.
     setAlternativesCount(1)
     activatingToolIdRef.current = toolId
     const pendingText = stepDataOf(stepData, 'message')?.message
@@ -642,11 +643,10 @@ export function AppChannelApp() {
   }
 
   /**
-   * Declines the running tool - the chain's own action, distinct from Abbrechen. On a FAST
-   * fallback state this moves along the chain (other auth methods, then identification); on a
-   * mandatory one it just brings the full choice back. Abbrechen, by contrast, ends the whole
-   * journey and therefore restarts the SAME intent - which on a fallback state means landing right
-   * back where you were.
+   * Declines the running tool - the way out a tool offers itself (ToolRenderContext.onSkip, e.g.
+   * ident-kvnr's "jetzt nicht"). On a fallback state the chain moves on; on a mandatory one the full
+   * choice comes back. The sticky bar's "Zurück" is [handleBack] instead: back to the selection
+   * without declining anything. Abbrechen ends the whole journey.
    */
   async function handleAbandonTool() {
     if (!dpop || !activeTool) return
@@ -656,6 +656,18 @@ export function AppChannelApp() {
       applyResponse(response)
     } catch (err) {
       setError(describeError(t('Wechsel fehlgeschlagen'), err))
+    }
+  }
+
+  /** "Zurück": back to the selection, the running tool still on it - nothing is declined. */
+  async function handleBack() {
+    if (!dpop || !activeTool) return
+    try {
+      setError('')
+      const response = await backFromTool(dpop, activeTool.toolSessionId, activeTool.toolId)
+      applyResponse(response)
+    } catch (err) {
+      setError(describeError(t('Zurück fehlgeschlagen'), err))
     }
   }
 
@@ -838,14 +850,14 @@ export function AppChannelApp() {
                       seinem Absenden-Button (ToolRenderContext.onSkip) - hier unten waere er vom
                       Formular weg und liesse sich zweimal auf der Seite finden. */}
                   {activeTool && alternativesCount > 0 && !metaFor(activeTool.toolId).skipLabel && (
-                    <button className="secondary" onClick={handleAbandonTool} title={t('Bricht nur diesen einen Schritt ab, der Vorgang selbst läuft weiter (z. B. mit einer anderen Methode). Bei einem Vorgang mit nur einem Kandidaten (z. B. confirm-qr-login) bietet das denselben Schritt einfach erneut an - dafür ist Abbrechen daneben da.')}>
-                      {t('Anderes Verfahren')}
+                    <button className="secondary" onClick={handleBack} title={t('Zurück zur Auswahl. Dieses Verfahren bleibt dort wählbar.')}>
+                      {t('Zurück')}
                     </button>
                   )}
                   {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
                       laufenden STEP_UP_IN_PROGRESS-Kanal - z.B. mitten in CONFIRM_PEER_LOGIN - nie zutrifft): canCancel allein
                       ist schon der richtige Signalgeber (ChannelService/JourneyService kennen den echten cancelledTo()-Zielzustand,
-                      das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Anderes Verfahren" bei einem
+                      das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Zurück" bei einem
                       Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
                       erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}
                   {/* In einer laufenden Registrierung ist das kein "Abbrechen" im Sinne von

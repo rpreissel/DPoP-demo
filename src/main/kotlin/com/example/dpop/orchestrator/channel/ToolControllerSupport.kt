@@ -1,10 +1,10 @@
 package com.example.dpop.orchestrator.channel
 
-import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.AuthJourney
 import com.example.dpop.orchestrator.journey.JourneyService
+import com.example.dpop.orchestrator.journey.Step
+import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.policy.requiresSatisfied
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
@@ -14,22 +14,24 @@ import com.example.dpop.orchestrator.session.SendThrottleService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.texts.Text
+import com.example.dpop.tool_api.API_V1
+import com.example.dpop.tool_api.AuthorizedToolContext
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.Next
-import com.example.dpop.tool_api.AuthorizedToolContext
 import com.example.dpop.tool_api.ToolContext
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolCategory
+import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.util.UriComponentsBuilder
 import java.net.URI
 import java.time.Duration
 import java.util.UUID
-import com.example.dpop.tool_api.API_V1
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.util.UriComponentsBuilder
 
 /**
  * Plumbing shared by every tool-specific controller: binding check, throttling, tool-session
@@ -184,12 +186,19 @@ class ToolControllerSupport(
      * re-offered candidate can be the same toolId as the one being abandoned, so toolId matching
      * alone can't tell the abandoned session and a freshly re-activated one apart.
      */
-    override fun abandon(context: AuthorizedToolContext): ChannelResponse {
+    override fun abandon(context: AuthorizedToolContext): ChannelResponse =
+        leave(context) { journey, channel, tool -> journeyService.abandon(journey, channel, tool) }
+
+    /** "Zurück" - same session handling as [abandon], only the journey is not told the tool was declined. */
+    override fun back(context: AuthorizedToolContext): ChannelResponse =
+        leave(context) { journey, channel, tool -> journeyService.back(journey, channel, tool) }
+
+    private fun leave(context: AuthorizedToolContext, move: (AuthJourney, ChannelSession, ToolDescriptor) -> Step): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
         val channel = resolveChannel(ctx, journey)
         sessionManagementService.expireToolSession(ctx.toolSessionId)
-        val step = journeyService.abandon(journey, channel, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
+        val step = move(journey, channel, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,

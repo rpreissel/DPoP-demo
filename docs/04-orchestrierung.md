@@ -526,15 +526,16 @@ genauso wie bei jedem anderen Nachweis, ob das Vorhandene schon reicht.
 ### Was Tool-Controller sehen
 
 Tool-Controller greifen ausschließlich über `ToolControllerSupport` auf `JourneyService` zu:
-`activate` (prüft und übernimmt eine `ToolSession`), `applyOutcome`, `abandon` und `nextOf`, dazu
+`activate` (prüft und übernimmt eine `ToolSession`), `applyOutcome`, `back`, `abandon` und `nextOf`, dazu
 zum Lesen `isCurrent` und `findActive`. Das ist ihre **einzige** Berührung mit dem Journey-Modell:
 Sie setzen keine Routing-Felder, unterscheiden nicht nach dem Intent und entscheiden nicht, welches
 Tool laufen darf. Ein `Step` ist `next` plus die Daten, die der Schritt zum Anzeigen braucht.
 
-Zwei Aktionen muss der Client sauber auseinanderhalten: `abandon` lehnt den aktuellen **Zustand**
-ab und führt die Journey weiter (`DELETE /tools/{toolSessionId}/{toolId}`). `cancel` gibt die
-**Journey** auf und startet den Einstiegs-Intent neu (`DELETE .../journey`, über `ChannelService`,
-nicht über einen Tool-Controller).
+Drei Aktionen muss der Client sauber auseinanderhalten: `back` verlässt das laufende **Tool** und
+zeigt die Auswahl des Zustands wieder, ohne etwas abzulehnen (`POST /tools/{toolSessionId}/{toolId}/back`).
+`abandon` lehnt das Tool im aktuellen **Zustand** ab und führt die Journey weiter
+(`DELETE /tools/{toolSessionId}/{toolId}`). `cancel` gibt die **Journey** auf und startet den
+Einstiegs-Intent neu (`DELETE .../journey`, über `ChannelService`, nicht über einen Tool-Controller).
 
 ---
 

@@ -18,7 +18,7 @@ export function ToolQrWait({ kcContext }: { kcContext: PageContext<'tool-qr-wait
   }, [])
 
   return (
-    <ToolForm kcContext={kcContext} title={title} hint={hint} submitLabel={null} backLabel={t('Abbrechen')}>
+    <ToolForm kcContext={kcContext} title={title} hint={hint} submitLabel={null} cancel>
       <div className="orc-qr">
         <img src={qrDataUri} alt={t('QR-Code')} width={220} height={220} />
         <p>

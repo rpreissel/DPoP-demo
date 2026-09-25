@@ -5,8 +5,9 @@ import { t } from '../../texts'
 
 /**
  * The frame every tool page shares, as in the FreeMarker templates: title and hint from the
- * tool's renderer factory, one form posting to Keycloak, and "Weiter"/"Zurück" - "Zurück" leaves
- * the tool (orchestrator_abandon) and skips the browser's field validation.
+ * tool's renderer factory, one form posting to Keycloak, and "Weiter" next to a way out that skips
+ * the browser's field validation - "Zurück" (orchestrator_back: back to the selection, this tool
+ * still on it) or, with `cancel`, "Abbrechen" (orchestrator_abandon: this tool declined).
  */
 export function ToolForm({
   kcContext,
@@ -14,7 +15,7 @@ export function ToolForm({
   hint,
   children,
   submitLabel,
-  backLabel,
+  cancel = false,
 }: {
   kcContext: KcContext
   title: string
@@ -22,7 +23,8 @@ export function ToolForm({
   children?: ReactNode
   /** Default "Weiter"; null for a page without its own submit (waiting for the app). */
   submitLabel?: string | null
-  backLabel?: string
+  /** "Abbrechen" (decline the tool) instead of "Zurück" (back to the selection). */
+  cancel?: boolean
 }) {
   return (
     <Layout kcContext={kcContext} title={title}>
@@ -35,9 +37,15 @@ export function ToolForm({
               {submitLabel ?? t('Weiter')}
             </button>
           )}
-          <button className="orc-button" type="submit" name="orchestrator_abandon" value="true" formNoValidate>
-            {backLabel ?? t('Zurück')}
-          </button>
+          {cancel ? (
+            <button className="orc-button" type="submit" name="orchestrator_abandon" value="true" formNoValidate>
+              {t('Abbrechen')}
+            </button>
+          ) : (
+            <button className="orc-button" type="submit" name="orchestrator_back" value="true" formNoValidate>
+              {t('Zurück')}
+            </button>
+          )}
         </div>
       </form>
     </Layout>

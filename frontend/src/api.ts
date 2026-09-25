@@ -204,6 +204,14 @@ export function abandonTool(dpop: DpopKeyPair, toolSessionId: string, toolId: st
 }
 
 /**
+ * "Zurück": leaves the running tool WITHOUT declining it - the journey shows its selection again,
+ * this tool still among the options. Where there is no selection, the same as [abandonTool].
+ */
+export function backFromTool(dpop: DpopKeyPair, toolSessionId: string, toolId: string): Promise<ChannelResponse> {
+  return call(dpop, 'POST', `/orchestrator/api/v1/tools/${toolSessionId}/${toolId}/back`)
+}
+
+/**
  * toolId always comes from next.toolId or a chosen stepData.options entry - never constructed by
  * the client. [body] is only ever used by confirm-qr-login, to pass an already-known pairing code
  * (session.ts's pending-pairing-code) straight into activation so its own `input` step can be

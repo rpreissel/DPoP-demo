@@ -93,18 +93,10 @@ class JourneyRouting(
             // Sorted here, where the list leaves for the client - not in the state's stored offer,
             // which is frozen for the journey's lifetime: a changed order applies to a running
             // journey's very next screen too.
-            state is OfferingState && options.size > 1 -> SelectMethodStep(
-                options = toolAvailabilityService.ordered(channelTypeOf(channel), options).map { it.value },
-                title = state.selectionTitle,
-                description = state.selectionDescription
-            )
+            state is OfferingState && options.size > 1 -> selectMethodStep(state, channel, options)
             // The only candidate completes on activation: offered like a choice of one, and the
             // description says why there is just this one and what choosing it does.
-            state is OfferingState && completesAtOnce != null -> SelectMethodStep(
-                options = options.map { it.value },
-                title = state.selectionTitle,
-                description = Text("Nur dieses Verfahren steht hier noch zur Wahl. {grund}", "grund" to completesAtOnce)
-            )
+            state is OfferingState && completesAtOnce != null -> selectMethodStep(state, channel, options)
             // Single-option auto-activate: the selection screen is skipped, so pass the
             // description as a contextual message so the tool form can explain WHY this
             // step is required (e.g. "E-Mail-Bestätigung ausstehend" during fast-access).
@@ -114,6 +106,26 @@ class JourneyRouting(
             else -> null
         }
         return Step(nextFor(state, availableTools), stepData)
+    }
+
+    /**
+     * The selection page of [state] even when only one candidate is left - for "Zurück"
+     * (JourneyService.back): whoever goes back wants to choose, not to land in the same tool
+     * again at once, which [nextFor]'s single-candidate auto-start would do.
+     */
+    fun selectionFor(state: OfferingState, channel: ChannelSession): Step {
+        val options = state.activatable(availableToolsOf(channel))
+        return Step(Next.orchestrator(state.selectionContext, state.selectionStep), selectMethodStep(state, channel, options))
+    }
+
+    private fun selectMethodStep(state: OfferingState, channel: ChannelSession, options: Set<ToolId>): SelectMethodStep {
+        val completesAtOnce = options.singleOrNull()?.let { completesOnActivation(it) }
+        return SelectMethodStep(
+            options = toolAvailabilityService.ordered(channelTypeOf(channel), options).map { it.value },
+            title = state.selectionTitle,
+            description = completesAtOnce?.let { Text("Nur dieses Verfahren steht hier noch zur Wahl. {grund}", "grund" to it) }
+                ?: state.selectionDescription
+        )
     }
 
     private fun completesOnActivation(toolId: ToolId): Text? = toolRegistry.descriptorOf(toolId).completesOnActivation

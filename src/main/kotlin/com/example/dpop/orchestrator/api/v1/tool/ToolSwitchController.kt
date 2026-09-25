@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
@@ -35,7 +36,7 @@ import com.example.dpop.tool_api.API_V1
  */
 @RestController
 @RequestMapping("$API_V1/tools/{toolSessionId}/{toolId}")
-@Tag(name = "Tools", description = "Abandoning an activated tool (Back/Switch)")
+@Tag(name = "Tools", description = "Leaving an activated tool: back to the selection, or declining it")
 @SecurityRequirement(name = "dpop")
 class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
 
@@ -65,5 +66,34 @@ class ToolSwitchController(private val toolEndpoint: ToolEndpoint) {
     ): ResponseEntity<ChannelResponse> {
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, toolId)
         return ResponseEntity.ok(toolEndpoint.abandon(context))
+    }
+
+    @PostMapping("back")
+    @Operation(
+        summary = "Go back from this tool to the selection",
+        description = "Ends this tool attempt without declining it: the journey shows its selection page again, " +
+            "with every method still on offer - this one included, and even when it is the only one. " +
+            "Where the journey has no selection page (a single preferred method), this is the same as abandoning.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Back from ident-fsc during registration - both identification methods are offered again.",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ChannelResponse::class), examples = [ExampleObject(value = """
+                    {
+                      "channel": {"channelSessionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "state": "REGISTERING"},
+                      "next": {"type": "orchestrator", "context": "registration", "step": "selectIdentificationMethod"},
+                      "stepData": {"kind": "select-method", "options": ["ident-fsc", "ident-eid", "ident-nect"]}
+                    }
+                """)])]
+            )
+        ]
+    )
+    fun back(
+        @PathVariable toolSessionId: UUID,
+        @PathVariable toolId: String,
+        @BindingKey bindingKeyRef: String
+    ): ResponseEntity<ChannelResponse> {
+        val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, toolId)
+        return ResponseEntity.ok(toolEndpoint.back(context))
     }
 }

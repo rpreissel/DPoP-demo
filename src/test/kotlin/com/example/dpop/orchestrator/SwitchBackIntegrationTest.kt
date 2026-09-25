@@ -48,6 +48,31 @@ class SwitchBackIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("a fresh channel, going back instead of declining") {
+            `when`("going back from the ident-fsc tool") {
+                then("the identification choice comes back with ident-fsc still on it, and the tool session is gone") {
+
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
+
+                // "Zurück" is not "Anderes Verfahren": nothing is declined, so the same choice the
+                // user came from is shown again - found in the web channel, where going back from
+                // the Freischaltcode dropped the user straight into the Online-Ausweis.
+                val result = post("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc/back")
+                result.next() shouldBe mapOf("type" to "orchestrator", "context" to "registration", "step" to "selectIdentificationMethod")
+                @Suppress("UNCHECKED_CAST")
+                (result.stepData()["options"] as List<String>) shouldContainAll listOf("ident-fsc", "ident-eid", "ident-nect")
+
+                assertThrows<HttpClientErrorException> {
+                    patch("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc", """{"fsc":"VALIDCODE"}""")
+                }.statusCode shouldBe HttpStatus.NOT_FOUND
+
+                // And it can be chosen again right away.
+                post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] shouldNotBe identToolSessionId
+                }
+            }
+        }
+
         given("an identified channel") {
             `when`("switching away from an enroll tool") {
                 then("enrollment candidates are re-offered") {

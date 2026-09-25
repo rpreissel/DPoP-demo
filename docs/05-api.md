@@ -204,7 +204,8 @@ Pfade:
   `Location: .../tools/{toolSessionId}/{toolId}` (ohne Inhalt; die `toolId` trägt Art und Methode
   zusammen)
 - Tool fortschreiben und lesen: im Regelfall `PATCH`/`GET /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
-- Tool-Versuch verwerfen: `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
+- Zurück zur Auswahl: `POST /orchestrator/api/v1/tools/{toolSessionId}/{toolId}/back`
+- Tool-Versuch verwerfen (Verfahren ablehnen): `DELETE /orchestrator/api/v1/tools/{toolSessionId}/{toolId}`
 - Tool-Katalog: `GET /orchestrator/api/v1/tools/catalog` (ohne DPoP, ohne Kanal) –
   `{toolId, method, role}` je Tool; daraus bildet der Client seine `availableTools`.
 
@@ -403,9 +404,27 @@ identifiziertes Konto nur loa1, [Orchestrierung](04-orchestrierung.md) Abschnitt
 
 ### Zurück und Verfahren wechseln
 
-`DELETE /tools/{toolSessionId}/{toolId}` verwirft einen gestarteten, aber noch nicht
-abgeschlossenen Versuch eines Tools. Die verworfene `toolSessionId` ist sofort ungültig; die
-Journey ermittelt die Kandidaten erneut, genau wie nach dem letzten `Completed`.
+Einen gestarteten, aber noch nicht abgeschlossenen Versuch eines Tools verlässt der Client auf
+einem von zwei Wegen. In beiden Fällen ist die `toolSessionId` sofort ungültig.
+
+- **Zurück** (`POST /tools/{toolSessionId}/{toolId}/back`): Das Tool endet, ohne abgelehnt zu
+  werden. Die Journey zeigt ihre Auswahlseite wieder, mit allen Verfahren, die sie gerade anbietet
+  – das verlassene eingeschlossen, und auch dann, wenn nur eines übrig ist: Wer zurückgeht, will
+  wählen, nicht sofort wieder im selben Tool landen. Die Strategie wird nicht gefragt, es ist nichts
+  passiert, das sie bewerten müsste. Hat der Zustand keine Auswahlseite (ein einzelnes bevorzugtes
+  Verfahren, eine überspringbare Zuordnung), ist Zurück dasselbe wie Ablehnen. Im Web-Kanal ist das
+  jeder „Zurück“-Knopf einer Tool-Seite (`orchestrator_back`), in der App der „Zurück“-Knopf der
+  Fußleiste.
+- **Ablehnen** (`DELETE /tools/{toolSessionId}/{toolId}`): Das Verfahren gilt in diesem Zustand
+  als abgelehnt. Die Journey ermittelt die Kandidaten erneut, genau wie nach dem letzten
+  `Completed`: In einem Ausweichzustand geht es zum nächsten Weg, bleibt dabei nur ein Verfahren,
+  startet es von selbst; in einem Pflichtzustand kommt die volle Auswahl zurück. Im Web-Kanal ist
+  das „Abbrechen“ auf den QR-Seiten (`orchestrator_abandon`), in der App der Ausweg, den ein Tool
+  selbst anbietet (etwa „Jetzt nicht“ bei der Versichertennummer).
+
+Vor der Trennung hieß Ablehnen im Web „Zurück“ und in der App „Anderes Verfahren“: Wer bei der
+Registrierung vom Freischaltcode zurückging, landete ohne Auswahl im Online-Ausweis, weil nur
+dieser übrig blieb.
 
 Regel für die Konsistenz: Je `channelSessionId` läuft höchstens eine Journey aktiv; welche das ist,
 entscheidet das Backend.

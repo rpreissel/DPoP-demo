@@ -10,7 +10,7 @@ export function ToolQrEnroll({ kcContext }: { kcContext: PageContext<'tool-qr-en
       title={kcContext.title}
       hint={t('Erlaubt, dass Sie künftig eine Anmeldung auf der Website mit Ihrer angemeldeten App per QR-Code bestätigen. Ein zusätzliches Passwort brauchen Sie dafür nicht.')}
       submitLabel={t('Aktivieren')}
-      backLabel={t('Abbrechen')}
+      cancel
     />
   )
 }

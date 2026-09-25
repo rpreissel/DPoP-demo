@@ -36,7 +36,7 @@
                 <div class="orchestrator-actions">
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Weiter zur Freischaltcode-Eingabe")}</button>
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                            type="submit" name="orchestrator_abandon" value="true" formnovalidate>${t.of("Zurück")}</button>
+                            type="submit" name="orchestrator_back" value="true" formnovalidate>${t.of("Zurück")}</button>
                 </div>
             </form>
         <#else>
@@ -50,7 +50,7 @@
                 <div class="orchestrator-actions">
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit">${t.of("Identifizieren")}</button>
                     <button class="${properties.kcButtonClass!} ${properties.kcButtonDefaultClass!}"
-                            type="submit" name="orchestrator_abandon" value="true" formnovalidate>${t.of("Zurück")}</button>
+                            type="submit" name="orchestrator_back" value="true" formnovalidate>${t.of("Zurück")}</button>
                 </div>
             </form>
         </#if>

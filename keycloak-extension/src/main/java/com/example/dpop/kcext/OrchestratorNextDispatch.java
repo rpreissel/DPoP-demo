@@ -47,6 +47,10 @@ final class OrchestratorNextDispatch {
             OrchestratorClient client, String channelSessionId, String toolId, String toolSessionId,
             MultivaluedMap<String, String> form
     ) throws IOException, InterruptedException {
+        // "Zurück" goes back to the selection with this tool still on it; "Abbrechen" declines it.
+        if ("true".equals(form.getFirst("orchestrator_back"))) {
+            return client.backFromTool(channelSessionId, toolSessionId, toolId);
+        }
         if ("true".equals(form.getFirst("orchestrator_abandon"))) {
             return client.abandonTool(channelSessionId, toolSessionId, toolId);
         }

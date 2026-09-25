@@ -42,7 +42,7 @@ export interface ToolMeta {
   label: string
   hint: string
   /**
-   * Label for the abandon button while THIS tool is running, when "Anderes Verfahren" would be
+   * Label for the abandon button while THIS tool is running, when "Zurück" would be
    * the wrong word: a step that is optional rather than one of several ways to do the same thing
    * (ident-kvnr - abandoning it means "jetzt nicht", and the run carries on without the register
    * binding). Purely wording; the button itself is the same backend-handled abandon

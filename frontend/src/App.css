@@ -395,7 +395,7 @@
   flex-wrap: wrap;
 }
 
-/* Pinned to the bottom of the viewport so Abbrechen/Logout/Anderes Verfahren stay reachable no
+/* Pinned to the bottom of the viewport so Abbrechen/Logout/Zurück stay reachable no
    matter how far down the page the currently active step's form/card sits - previously these sat
    right after the status cards, easy to miss once several cards stack above the real form. */
 .sticky-actions {

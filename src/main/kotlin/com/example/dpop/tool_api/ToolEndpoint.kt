@@ -103,6 +103,12 @@ interface ToolEndpoint {
     fun abandon(context: AuthorizedToolContext): ChannelResponse
 
     /**
+     * Leaves the currently activated tool without declining it ("Zurück"): the journey shows its
+     * selection page again, this tool still among the options.
+     */
+    fun back(context: AuthorizedToolContext): ChannelResponse
+
+    /**
      * Applies a tool's [outcome] to the journey and builds the resulting response.
      *
      * Call this after running the tool's own logic, regardless of whether the outcome is

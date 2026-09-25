@@ -1699,6 +1699,59 @@ paths:
       summary: Abandon this tool attempt
       tags:
       - Tools
+  /orchestrator/api/v1/tools/{toolSessionId}/{toolId}/back:
+    post:
+      description: 'Ends this tool attempt without declining it: the journey shows its selection page again, with every method
+        still on offer - this one included, and even when it is the only one. Where the journey has no selection page (a single
+        preferred method), this is the same as abandoning.'
+      operationId: back
+      parameters:
+      - in: path
+        name: toolSessionId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: toolId
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                channel:
+                  channelSessionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  state: REGISTERING
+                next:
+                  context: registration
+                  step: selectIdentificationMethod
+                  type: orchestrator
+                stepData:
+                  kind: select-method
+                  options:
+                  - ident-fsc
+                  - ident-eid
+                  - ident-nect
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ChannelResponse
+          description: Back from ident-fsc during registration - both identification methods are offered again.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - dpop: [
+          ]
+      - kc-peer-auth: [
+          ]
+      summary: Go back from this tool to the selection
+      tags:
+      - Tools
   /orchestrator/demo/server-info:
     get:
       operationId: get_1
@@ -1731,6 +1784,8 @@ tags:
   name: Texts
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
   name: 'Tool: Gerät'
+- description: 'Leaving an activated tool: back to the selection, or declining it'
+  name: Tools
 - description: The full set of registered tools, independent of any journey
   name: Tool catalog
 - description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
@@ -1739,8 +1794,6 @@ tags:
   name: 'Admin: accounts'
 - description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: SMS'
-- description: Abandoning an activated tool (Back/Switch)
-  name: Tools
 - description: Read-only server status for the welcome page
   name: 'Demo: server info'
 - description: Stateless password verify/set for Keycloak's native credential

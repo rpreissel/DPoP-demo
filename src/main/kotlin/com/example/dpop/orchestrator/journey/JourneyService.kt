@@ -6,6 +6,7 @@ import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.state.AnswerableState
+import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.state.ToolRef
@@ -279,7 +280,26 @@ class JourneyService(
         is ToolOutcome.Completed -> advance(journey, channel, JourneyEvent.Completed(tool, outcome))
     }
 
-    /** "Back"/"Switch": the tool is abandoned, and the state decides whether anything is left. */
+    /**
+     * "Zurück": the running tool ends WITHOUT being declined, and this state's selection page comes
+     * back with every candidate still on offer - the abandoned one included, and even when it is the
+     * only one: whoever goes back wants to choose again, not to be moved on to the next fallback
+     * ([abandon]) or straight back into the same tool. The strategy is not asked - nothing happened
+     * that it has to judge. Only an [OfferingState] has a selection page; any other state (a single
+     * preferred tool, a skippable assignment) treats going back as [abandon].
+     */
+    fun back(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+        val state = codec.read(journey)
+        if (state !is OfferingState) return abandon(journey, channel, tool)
+        val cleared = state.withOffer(state.offer.withActive(null))
+        codec.write(journey, cleared)
+        journeyRepository.save(journey)
+        journeyLogService.record(channel.forLog(), journey.forLog(), "Back",
+            journeyState = state::class.simpleName, detail = mapOf("tool" to tool.toolId.value))
+        return routing.selectionFor(cleared, channel)
+    }
+
+    /** "Anderes Verfahren": the tool is declined, and the state decides whether anything is left. */
     fun abandon(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
         val state = codec.read(journey)
         codec.write(journey, state.withActive(null))

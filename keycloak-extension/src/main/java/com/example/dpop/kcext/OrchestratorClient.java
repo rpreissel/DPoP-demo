@@ -170,9 +170,16 @@ final class OrchestratorClient {
         return ChannelResponse.from(send("PATCH", path, channelSessionId, body));
     }
 
+    /** DELETE .../tools/{toolSessionId}/{toolId} - declines the running tool ("Abbrechen"). */
     ChannelResponse abandonTool(String channelSessionId, String toolSessionId, String toolId) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/tools/" + toolSessionId + "/" + toolId;
         return ChannelResponse.from(send("DELETE", path, channelSessionId, null));
+    }
+
+    /** POST .../tools/{toolSessionId}/{toolId}/back - leaves the running tool without declining it ("Zurück"). */
+    ChannelResponse backFromTool(String channelSessionId, String toolSessionId, String toolId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/tools/" + toolSessionId + "/" + toolId + "/back";
+        return ChannelResponse.from(send("POST", path, channelSessionId, MAPPER.createObjectNode()));
     }
 
     /**
