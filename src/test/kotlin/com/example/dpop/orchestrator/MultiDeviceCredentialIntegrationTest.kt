@@ -81,7 +81,8 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
         then("Two devices can each hold their own active credential without deactivating each other") {
             // Device A registers the account and enrolls its own key.
             val deviceAKey = ECKeyGenerator(Curve.P_256).generate()
-            currentChannelKey = deviceAKey
+            // Its own DPoP channel key beside the device credential - enroll-device refuses the same key (review 2026-09, M-1).
+            currentChannelKey = ECKeyGenerator(Curve.P_256).generate()
             val channelASessionId = identifyAndConfirmEmail()
             enrollDevice(channelASessionId, deviceAKey, "Laptop")
 
@@ -89,7 +90,8 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             // re-identifies into the SAME account (the PERSON_ID anchor resolves it) and
             // enrolls its OWN key. Must NOT deactivate device A's credential.
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()
-            currentChannelKey = deviceBKey
+            // Its own DPoP channel key beside the device credential - enroll-device refuses the same key (review 2026-09, M-1).
+            currentChannelKey = ECKeyGenerator(Curve.P_256).generate()
             val channelBSessionId = identifyAndConfirmEmail()
             enrollDevice(channelBSessionId, deviceBKey, "Handy")
 
@@ -101,7 +103,8 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
         }
         then("Auth device is only offered and resolvable on the device holding the matching key") {
             val deviceAKey = ECKeyGenerator(Curve.P_256).generate()
-            currentChannelKey = deviceAKey
+            // Its own DPoP channel key beside the device credential - enroll-device refuses the same key (review 2026-09, M-1).
+            currentChannelKey = ECKeyGenerator(Curve.P_256).generate()
             val channelASessionId = identifyAndConfirmEmail()
             enrollDevice(channelASessionId, deviceAKey, "Laptop")
 
@@ -116,7 +119,8 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             // to enrollment instead of dead-ending - enroll-device is offered so device B can register
             // its own key, never auth-device for a key it doesn't hold.
             val deviceBKey = ECKeyGenerator(Curve.P_256).generate()
-            currentChannelKey = deviceBKey
+            // Its own DPoP channel key beside the device credential - enroll-device refuses the same key (review 2026-09, M-1).
+            currentChannelKey = ECKeyGenerator(Curve.P_256).generate()
             val channelBSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
             val identToolSessionId = post("/orchestrator/api/v1/channels/$channelBSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
             val reidentified = patch(

@@ -1,6 +1,7 @@
 package com.example.dpop.id_eid
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.DemoOnly
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimDeclaration
 import com.example.dpop.tool_spi.FactorType
@@ -30,6 +31,7 @@ object IdentEidDescriptor : ToolDescriptor {
     override val method = EID_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
     override val maxAcr = AcrLevel.LOA3
+    override val demoOnly = SIMULATED_EID
     // Not the role's "input": nothing is typed to begin with, the run opens on the card read.
     override val startStep = "card"
     // Exactly what the card carries, on this procedure's own authority
@@ -50,3 +52,8 @@ object IdentEidDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.EID_RESTRICTED_ID, ClaimSource.of(toolId))
     )
 }
+
+/** Review 2026-09, ADR-36: the level rests on a simulated counterpart, not on anything this instance can check. */
+private val SIMULATED_EID = DemoOnly(
+    "Die eID-Kartenlesung ist simuliert; ein echtes Ergebnis kommt serverseitig vom eID-Server"
+)

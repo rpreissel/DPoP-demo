@@ -5,6 +5,7 @@ import com.example.dpop.auth_device.internal.DeviceEnrollment
 import com.example.dpop.auth_device.DEVICE_BINDING_KEY_REF
 import com.example.dpop.auth_device.DEVICE_ENROLLMENT_TYPE
 import com.example.dpop.auth_device.EnrollDeviceDescriptor
+import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.DevicePublicKey
 import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -48,7 +49,11 @@ class EnrollDeviceToolHandler(
     fun patch(toolSessionId: UUID, devicePublicKey: DevicePublicKey, userVerification: UserVerification, deviceBindingKeyRef: String, label: String?): ToolOutcome {
         checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-device tool session: $toolSessionId" }
 
-        val decision = EnrollDeviceFlow.decide(EnrollDeviceInput(devicePublicKey, userVerification, deviceBindingKeyRef, label))
+        val decision = when (val decided = EnrollDeviceFlow.decide(EnrollDeviceInput(devicePublicKey, userVerification, deviceBindingKeyRef, label))) {
+            EnrollDeviceDecision.SameKeyAsChannel ->
+                return ToolOutcome.Failed.NothingGuessed(Text("Der Geräteschlüssel muss ein anderer sein als der Schlüssel dieser Sitzung"))
+            is EnrollDeviceDecision.Enroll -> decided
+        }
 
         // Idempotent: getOrCreateDeviceKeyPair() on the client always returns the SAME key once
         // generated, so re-enrolling on the same device (e.g. after a rename or a lost link)

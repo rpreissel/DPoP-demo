@@ -22,11 +22,21 @@ internal data class EnrollDeviceInput(val devicePublicKey: DevicePublicKey, val 
 
 internal sealed interface EnrollDeviceDecision {
     data class Enroll(val devicePublicKey: DevicePublicKey, val userVerification: UserVerification, val deviceBindingKeyRef: String, val label: String?) : EnrollDeviceDecision
+
+    /**
+     * The credential key IS the channel's DPoP key. A second factor that is the same key as the
+     * channel binding adds nothing: whoever holds the one holds the other (review 2026-09, M-1).
+     */
+    data object SameKeyAsChannel : EnrollDeviceDecision
 }
 
 internal object EnrollDeviceFlow {
 
-    fun decide(input: EnrollDeviceInput): EnrollDeviceDecision.Enroll =
-        EnrollDeviceDecision.Enroll(input.devicePublicKey, input.userVerification, input.deviceBindingKeyRef, input.label)
+    fun decide(input: EnrollDeviceInput): EnrollDeviceDecision =
+        if (input.devicePublicKey.thumbprint == input.deviceBindingKeyRef) {
+            EnrollDeviceDecision.SameKeyAsChannel
+        } else {
+            EnrollDeviceDecision.Enroll(input.devicePublicKey, input.userVerification, input.deviceBindingKeyRef, input.label)
+        }
 
 }

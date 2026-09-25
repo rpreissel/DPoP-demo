@@ -2,6 +2,7 @@ package com.example.dpop.auth_device
 
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.CallerKeyBinding
+import com.example.dpop.tool_spi.DemoOnly
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.InstanceDisclosure
 import com.example.dpop.tool_spi.MethodRole
@@ -66,7 +67,19 @@ object AuthDeviceDescriptor : ToolDescriptor {
      * orchestrator asks this function, never the map.
      */
     override val instanceDisclosure = InstanceDisclosure { it?.get(DEVICE_BINDING_KEY_REF) as? String }
+
+    override val demoOnly = UNATTESTED_USER_VERIFICATION
 }
+
+/**
+ * Both device tools count the PIN or biometric check as a second factor (loa2), but what the server
+ * sees is only a `userVerification` claim inside a proof the app signs itself - a manipulated app
+ * claims whatever it likes. Without platform attestation that is a demonstration, not a proof
+ * (review 2026-09, M-1; ADR-36).
+ */
+private val UNATTESTED_USER_VERIFICATION = DemoOnly(
+    "Die Nutzerverifikation (PIN/Biometrie) ist nur vom Client behauptet, ohne Plattform-Attestation"
+)
 
 /**
  * maxAcr=loa2 and factorTypes cover both possible access-means outcomes (pin=KNOWLEDGE,
@@ -82,4 +95,5 @@ object EnrollDeviceDescriptor : ToolDescriptor {
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = AcrLevel.LOA2
     override val allowsMultipleInstances = true
+    override val demoOnly = UNATTESTED_USER_VERIFICATION
 }

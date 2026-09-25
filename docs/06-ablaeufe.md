@@ -179,11 +179,14 @@ Zusätzlicher Fehlerfall zum allgemeinen Vertrag: ungültige Telefonnummer (Form
 
 Anders als bei `sms`, `email` und `password` gibt es hier kein Geheimnis, das der Server ausstellt.
 Das Credential *ist* ein auf dem Gerät erzeugtes, nicht exportierbares Schlüsselpaar (ECDSA P-256),
-unabhängig vom DPoP-Schlüssel des Kanals. Der Client weist den Besitz mit einem selbst signierten
+unabhängig vom DPoP-Schlüssel des Kanals; `enroll-device` lehnt einen Geräteschlüssel ab, der der
+DPoP-Schlüssel ist. Der Client weist den Besitz mit einem selbst signierten
 `device-proof+jwt` nach. Der ist genauso aufgebaut wie ein DPoP-Proof (`jwk` im Header,
 `htm`/`htu`/`iat`/`jti`), hat aber einen eigenen `typ` und zusätzlich den Claim `userVerification`
 (`pin` oder `biometric`). Welcher Wert darin steht, bestimmt bei jedem Versuch die
-Sicherheitsabfrage des Systems (in der Demo simuliert). `DeviceProofValidator` prüft den Nachweis
+Sicherheitsabfrage des Systems (in der Demo simuliert). Weil der Server diesen Wert nur als Behauptung
+der App sieht, sind beide Tools nur im Demomodus verfügbar
+([ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md)). `DeviceProofValidator` prüft den Nachweis
 eigenständig; `DpopValidator` wurde dafür bewusst nicht erweitert
 ([Projektrahmen](08-projektrahmen.md) A11). Er nutzt aber dieselben Bausteine
 (`JwkThumbprintService`, Schutz gegen Wiederholung per Thumbprint und `jti`).

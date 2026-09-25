@@ -49,6 +49,7 @@ als Diff mitten im Fließtext.
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
 | [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak |
 | [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md) | Betriebsanspruch – der Backend-Kern ist produktionsreif, Frontends und Umgebung folgen später |
+| [ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md) | Niveaus und ihre Nachweise – was nur behauptet ist, läuft nur im Demomodus |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

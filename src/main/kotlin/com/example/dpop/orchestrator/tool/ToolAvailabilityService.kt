@@ -4,6 +4,7 @@ import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -22,14 +23,22 @@ import java.time.Instant
 class ToolAvailabilityService(
     private val repository: ToolAvailabilityRepository,
     private val toolRegistry: ToolHandlerRegistry,
-    private val defaults: ToolDefaults
+    private val defaults: ToolDefaults,
+    @Value("\${demo.mode}") private val demoMode: Boolean
 ) {
+    /**
+     * Tools that declare themselves demo-only ([com.example.dpop.tool_spi.ToolDescriptor.demoOnly])
+     * are off outside `demo.mode` - decided here, next to the operator's switches but not among
+     * them, so no setting can turn one back on (review 2026-09, M-1).
+     */
+    private val demoOnlyToolIds: Set<String> =
+        if (demoMode) emptySet() else toolRegistry.descriptors().filter { it.demoOnly != null }.mapTo(mutableSetOf()) { it.toolId.value }
 
     fun isEnabled(toolId: String, channel: ChannelType): Boolean =
-        repository.findByIdOrNull(ToolAvailabilityKey(toolId, channel))?.enabled ?: true
+        toolId !in demoOnlyToolIds && (repository.findByIdOrNull(ToolAvailabilityKey(toolId, channel))?.enabled ?: true)
 
     fun disabledToolIds(channel: ChannelType): Set<String> =
-        repository.findByChannel(channel).filterNot { it.enabled }.mapTo(mutableSetOf()) { it.toolId!! }
+        repository.findByChannel(channel).filterNot { it.enabled }.mapTo(mutableSetOf()) { it.toolId!! } + demoOnlyToolIds
 
     /** Every tool that is switched off in any channel - channel, toolId, reason. */
     fun disabledEntries(): List<ToolAvailability> = repository.findAll().filterNot { it.enabled }

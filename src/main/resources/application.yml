@@ -71,6 +71,12 @@ spring:
 # (AdminSecurityConfig, HTTP Basic). Demo-Werte - wer diese Instanz erreichbar macht, setzt sie per
 # DEMO_ADMIN_USERNAME/DEMO_ADMIN_PASSWORD neu.
 demo:
+  # Demomodus: true fuer diese Demo-Instanz. false fuer jeden Betrieb mit echten Personen - dann sind
+  # Tools, die sich als "nur Demo" erklaeren (ToolDescriptor.demoOnly, z. B. auth-device ohne
+  # Plattform-Attestation), nicht verfuegbar, und Demo-Werte (Klartext-TANs) fehlen in den Antworten.
+  mode: ${DEMO_MODE:true}
+  # Demo-Werte in Antworten (ADR-28); folgt dem Demomodus, solange nicht eigens gesetzt.
+  disclosure: ${demo.mode}
   admin:
     username: admin
     password: admin

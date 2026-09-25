@@ -17,7 +17,9 @@ Das Projekt zerfällt dafür in drei Bereiche mit verschiedenem Anspruch:
      Sie sind Backend-Code, der über Konten und Niveaus entscheidet.
    - Anspruch: Jede Sicherheitszusage gilt ohne Voraussetzung an die Umgebung, die nicht ausdrücklich
      als Annahme benannt ist. Invarianten sind per Typ, Constraint oder Test erzwungen, nicht per
-     Kommentar. Kein „demo-only“ im Kern.
+     Kommentar. Kein unerklärtes „demo-only“ im Kern: Ein Verfahren, das mehr vergibt, als es
+     beweisen kann, erklärt sich selbst und ist außerhalb des Demomodus aus
+     ([ADR-36](ADR-036-niveaus-und-ihre-nachweise.md)).
 2. **Simulierte Fremdsysteme – Vorführrahmen hinter Ports.**
    - Module: `ext_personenverzeichnis`, `kobil_mock`, `nect_mock`, `demo_seed`; dazu die
      simulierte eID-Kartenlesung in `id_eid` und der Klartextversand von TAN/Code.

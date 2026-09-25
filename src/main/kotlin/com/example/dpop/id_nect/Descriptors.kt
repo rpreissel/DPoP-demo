@@ -1,6 +1,7 @@
 package com.example.dpop.id_nect
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.DemoOnly
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimDeclaration
 import com.example.dpop.tool_spi.ClaimSource
@@ -29,6 +30,7 @@ object IdentNectDescriptor : ToolDescriptor {
     override val method = NECT_METHOD
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = AcrLevel.LOA3
+    override val demoOnly = SIMULATED_NECT
     // Nothing is typed here: the run opens on "go to Nect".
     override val startStep = "redirect"
     override val claims = setOf(
@@ -43,3 +45,8 @@ object IdentNectDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.NECT_RESTRICTED_ID, ClaimSource.of(toolId))
     )
 }
+
+/** Review 2026-09, ADR-36: the level rests on a simulated counterpart, not on anything this instance can check. */
+private val SIMULATED_NECT = DemoOnly(
+    "Die Nect-Gegenstelle ist simuliert (nect_mock); ein echtes Ergebnis kommt serverseitig von Nect"
+)

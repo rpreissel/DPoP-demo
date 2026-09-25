@@ -222,6 +222,12 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 ### M-1 Geräte-Faktor: zweiter Faktor clientbehauptet, Unabhängigkeit vom DPoP-Schlüssel nicht erzwungen
 
+> **Behoben (2026-09-25):** `auth-device`/`enroll-device` erklären sich als `demoOnly` und sind
+> außerhalb von `demo.mode` nicht verfügbar – ihre Werte bleiben, statt je nach Modus anders zu
+> lauten ([ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md)). `enroll-device` lehnt einen
+> Geräteschlüssel ab, der der DPoP-Schlüssel des Kanals ist. Tests: `DemoOnlyToolAvailabilityTest`,
+> `EnrollDeviceFlowTest`.
+
 - **Wo:** `orchestrator/dpop/DeviceProofValidator.kt:138-146` (`userVerification` als String aus
   dem selbstsignierten JWT); `auth_device/internal/enrolldevice/EnrollDeviceToolHandler.kt:48-74`
   (Gerätethumbprint wird nie mit `bindingKeyRef` verglichen).

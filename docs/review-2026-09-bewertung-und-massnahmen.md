@@ -314,8 +314,12 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 **Phase E – Niveaus und Keycloak**
 
-22. **M-1** Gerätefaktor: `thumbprint ≠ bindingKeyRef`, Descriptor auf `{possession}` ohne
-    Attestation; **ADR „Niveaus und ihre Nachweise“** (P-4).
+22. ~~M-1 Gerätefaktor~~ – erledigt 2026-09-25, anders als geplant: Statt den Descriptor ohne
+    Attestation auf `{possession}` zu setzen, erklären sich die Geräte-Tools als `demoOnly` und sind
+    außerhalb des neuen `demo.mode` aus (Entscheidung Rene: „nur im Demomodus“, dann „bei den Tools
+    definieren, ob sie nur Demo sind“). Ebenso `demoOnly`: KOBIL, eID und Nect, deren Niveau auf
+    einer simulierten Gegenstelle beruht. `thumbprint ≠ bindingKeyRef` gilt immer.
+    [ADR-36 „Niveaus und ihre Nachweise“](adr/ADR-036-niveaus-und-ihre-nachweise.md) (P-4).
 23. **M-3** `cnf.jkt` in Keycloak-Tokens – oder die Grenze in ADR-9 und docs/09 benennen.
 24. **M-7** Zweiter Faktor für destruktive Aktionen an unidentifizierten Konten – oder als ADR
     ausdrücklich abgewogen.

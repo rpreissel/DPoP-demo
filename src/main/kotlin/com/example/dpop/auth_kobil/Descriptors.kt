@@ -1,6 +1,7 @@
 package com.example.dpop.auth_kobil
 
 import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.DemoOnly
 import com.example.dpop.tool_spi.CallerKeyBinding
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.InstanceDisclosure
@@ -68,6 +69,7 @@ object EnrollKobilDescriptor : ToolDescriptor {
     override val startStep = "activate"
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = AcrLevel.LOA2
+    override val demoOnly = SIMULATED_KOBIL
     override val allowsMultipleInstances = true
     override val keyBinding = KOBIL_KEY_BINDING
     override val instanceDisclosure = KOBIL_INSTANCE_DISCLOSURE
@@ -97,7 +99,13 @@ object AuthKobilDescriptor : ToolDescriptor {
     override val startStep = "unlock"
     override val factorTypes = setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE, FactorType.INHERENCE)
     override val maxAcr = AcrLevel.LOA2
+    override val demoOnly = SIMULATED_KOBIL
     override val allowsMultipleInstances = true
     override val keyBinding = KOBIL_KEY_BINDING
     override val instanceDisclosure = KOBIL_INSTANCE_DISCLOSURE
 }
+
+/** Review 2026-09, ADR-36: the level rests on a simulated counterpart, not on anything this instance can check. */
+private val SIMULATED_KOBIL = DemoOnly(
+    "Die KOBIL-Gegenstelle ist simuliert (kobil_mock); was ein echter KOBIL-Server zusagt, steht noch aus (Fahrplan-Schritt 27)"
+)

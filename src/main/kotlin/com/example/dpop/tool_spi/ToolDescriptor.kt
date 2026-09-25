@@ -153,6 +153,16 @@ interface ToolDescriptor {
         get() = null
 
     /**
+     * Set when this tool is only fit for a demonstration - it vouches for something it cannot
+     * prove (review 2026-09, M-1: `auth-device` believes the user verification a device proof
+     * merely CLAIMS). Such a tool keeps its full self-description, but outside `demo.mode` it is not
+     * available at all - not offered, not activatable, and no operator setting can switch it on.
+     * A real counterpart (e.g. with platform attestation) is a tool of its own, not a mode of this one.
+     */
+    val demoOnly: DemoOnly?
+        get() = null
+
+    /**
      * The full "is this credential usable by this caller right now" check every caller needs.
      * A method that is not [keyBinding]-bound has nothing to restrict, so it is simply usable;
      * a key-bound one must satisfy both halves: the physical key must match (descriptor-specific,
@@ -187,6 +197,9 @@ interface ToolDescriptor {
  * How a method turns its own instance details into one showable reference - see
  * [ToolDescriptor.instanceDisclosure].
  */
+/** Why a tool is only fit for a demonstration ([ToolDescriptor.demoOnly]) - stated, so it can be reviewed. */
+data class DemoOnly(val reason: String)
+
 fun interface InstanceDisclosure {
     /**
      * A short, human-showable reference for the instance described by [instanceDetails], or
