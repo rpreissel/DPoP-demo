@@ -6,7 +6,6 @@ import com.example.dpop.orchestrator.journey.JourneyContext
 import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.LogoutState
-import com.example.dpop.orchestrator.session.ChannelState
 import org.springframework.stereotype.Component
 
 /**
@@ -32,5 +31,4 @@ class LogoutStrategy : IntentStrategy<LogoutState> {
             }
         }
 
-    override fun cancelledTo(state: LogoutState): ChannelState = ChannelState.AUTHENTICATED
 }

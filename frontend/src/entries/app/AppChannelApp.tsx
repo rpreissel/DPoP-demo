@@ -1006,7 +1006,7 @@ export function AppChannelApp() {
                     )}
                     {/* Nicht an channelState gekoppelt (frühere Fassung prüfte channelState === 'AUTHENTICATED', was auf einem
                         laufenden STEP_UP_IN_PROGRESS-Kanal - z.B. mitten in CONFIRM_PEER_LOGIN - nie zutrifft): canCancel allein
-                        ist schon der richtige Signalgeber (ChannelService/JourneyService kennen den echten cancelledTo()-Zielzustand,
+                        ist schon der richtige Signalgeber (JourneyService kennt den echten Zielzustand nach dem Abbruch,
                         das Frontend muss ihn nicht selbst erraten). Ohne dieses Abbrechen war "Zurück" bei einem
                         Ein-Kandidaten-Tool wie confirm-qr-login der einzige (aber wirkungslose, da es denselben Schritt nur
                         erneut anbietet) Fluchtweg - "Zur Startseite"/"Abmelden" rendern beide bewusst nicht während inToolMode. */}

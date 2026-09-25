@@ -11,7 +11,6 @@ import com.example.dpop.orchestrator.journey.selfServiceAcrFloor
 import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -73,8 +72,6 @@ class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
                 else -> Transition.Authenticated
             }
         }
-
-    override fun cancelledTo(state: ManageAuthMethodsState): ChannelState = ChannelState.AUTHENTICATED
 
     /**
      * Voluntary enrollment on a channel that is already authenticated - the device is already

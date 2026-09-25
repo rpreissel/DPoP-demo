@@ -9,7 +9,6 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.JourneyState
 import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
 import com.example.dpop.orchestrator.journey.state.RegisterState
-import com.example.dpop.orchestrator.session.ChannelState
 import org.springframework.stereotype.Component
 
 /**
@@ -40,7 +39,7 @@ class RegisterDispatchStrategy : IntentStrategy<JourneyState> {
 
     override val intent: AuthIntent = AuthIntent.REGISTER
 
-    /** Read ONCE, only for a brand-new journey - which variant an ALREADY RUNNING journey belongs to is decided by [state]'s own type in [transition]/[cancelledTo], never re-read from the flag, so a flag flip mid-journey can't corrupt it. */
+    /** Read ONCE, only for a brand-new journey - which variant an ALREADY RUNNING journey belongs to is decided by [state]'s own type in [transition], never re-read from the flag, so a flag flip mid-journey can't corrupt it. */
     override fun initialState(ctx: JourneyContext): JourneyState =
         if (FeatureFlags.REGISTER_ENROLL_FIRST in ctx.featureFlags) enrollFirst.initialState(ctx) else identFirst.initialState(ctx)
 
@@ -50,9 +49,4 @@ class RegisterDispatchStrategy : IntentStrategy<JourneyState> {
         else -> error("RegisterDispatchStrategy received a foreign state: ${state::class}")
     }
 
-    override fun cancelledTo(state: JourneyState): ChannelState = when (state) {
-        is RegisterEnrollFirstState -> enrollFirst.cancelledTo(state)
-        is RegisterState -> identFirst.cancelledTo(state)
-        else -> error("RegisterDispatchStrategy received a foreign state: ${state::class}")
-    }
 }

@@ -13,7 +13,6 @@ import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.toAuthAbortMessage
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import com.example.dpop.orchestrator.policy.EvidenceAxis
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -58,8 +57,6 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             }
         }
 
-    override fun cancelledTo(state: StepUpState): ChannelState = ChannelState.AUTHENTICATED
-
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Authenticated -> Action.AcceptProof(event.tool, outcome)
         is ToolOutcome.Completed.Identified, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
@@ -99,10 +96,7 @@ class StepUpStrategy : IntentStrategy<StepUpState> {
             Transition.RequireSubJourney(
                 AuthIntent.RE_IDENTIFY,
                 // ctx.currentAcr, not the (possibly stale) startingAcr this STEP_UP run started
-                // with - RE_IDENTIFY's own startingAcr only ever decides ANONYMOUS vs AUTHENTICATED
-                // on cancel (ReIdentifyStrategy.cancelledTo), and a channel STEP_UP runs on is
-                // always already-authenticated either way, so this is observational accuracy, not
-                // a behavior change.
+                // with - observational accuracy for RE_IDENTIFY's own wording and log.
                 seedWith = ReIdentifyState.forSubJourney(targetAcr, ctx.currentAcr),
                 resumeWith = StepUpState.Start(targetAcr, startingAcr)
             )

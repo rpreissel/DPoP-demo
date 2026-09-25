@@ -18,7 +18,6 @@ import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
 import com.example.dpop.orchestrator.journey.toEnrollAbortMessage
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
@@ -110,8 +109,6 @@ class RegisterEnrollFirstStrategy : IntentStrategy<RegisterEnrollFirstState> {
                 else -> afterEnrollment(ctx, emailObligation = false)
             }
         }
-
-    override fun cancelledTo(state: RegisterEnrollFirstState): ChannelState = ChannelState.ANONYMOUS
 
     private fun adoptCredential(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Enrolled -> Action.AdoptCredential(event.tool, outcome)

@@ -576,7 +576,9 @@ KOBIL-Frontend, dass es sein Gerätegeheimnis löschen muss ([09-dpop.md](09-dpo
 Hebt die geforderte Untergrenze des Kanals an (im Web-Zugang derselbe Endpunkt, Abschnitt 3).
 Anfrage: `{"requiredAcr": "loa3"}`. Reicht das aktuelle Niveau nicht, startet das Backend eine
 `AuthJourney(STEP_UP)` und liefert den fälligen Schritt als `ChannelResponse`; reicht es schon,
-zeigt `next` sofort auf `authenticated`. Man kann das Niveau nur anheben; ein niedrigeres
+zeigt `next` sofort auf `authenticated`. Ist der Kanal noch nicht angemeldet, startet kein
+Step-up: Die laufende Anmeldung oder Registrierung muss dann das neue Niveau erreichen, und die
+Antwort zeigt ihren aktuellen Schritt. Man kann das Niveau nur anheben; ein niedrigeres
 `requiredAcr` wird ignoriert. Reicht kein vorhandenes Verfahren für das geforderte Niveau, könnte
 eine erneute Identifizierung (`ident-fsc`/`ident-eid`) es aber allein erreichen, fragt die Journey
 zuerst per `stepData.prompt` nach (`context: "prompt", step: "confirm"`). Bei Zustimmung folgt die

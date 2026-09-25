@@ -14,7 +14,6 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -115,8 +114,6 @@ class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
                 else -> error("OfferLogout only accepts JourneyEvent.Answered")
             }
         }
-
-    override fun cancelledTo(state: ConfirmPeerLoginState): ChannelState = ChannelState.AUTHENTICATED
 
     private fun proofAction(event: JourneyEvent.Completed): Action = when (val outcome = event.outcome) {
         is ToolOutcome.Completed.Approved -> Action.RecordApproval(event.tool, outcome)

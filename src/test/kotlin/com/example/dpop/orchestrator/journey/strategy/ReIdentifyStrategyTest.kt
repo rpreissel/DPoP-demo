@@ -11,7 +11,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -160,16 +159,6 @@ class ReIdentifyStrategyTest : BehaviorSpec({
                     Transition.Perform(Action.RecordIdentification(IdentFscDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
             }
-        }
-    }
-
-    given("onCancel") {
-        then("falls back to ANONYMOUS when the caller had no session yet (FAST_ACCESS/LOOKUP_LOGIN)") {
-            strategy.cancelledTo(ReIdentifyState.OfferReIdent(AcrLevel.LOA2, startingAcr = AcrLevel.NONE)) shouldBe ChannelState.ANONYMOUS
-        }
-
-        then("falls back to AUTHENTICATED when the caller was already authenticated (STEP_UP) - must not de-authenticate that session") {
-            strategy.cancelledTo(ReIdentifyState.OfferReIdent(AcrLevel.LOA3, startingAcr = AcrLevel.LOA2)) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

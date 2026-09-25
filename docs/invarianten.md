@@ -20,15 +20,14 @@ sie schließen soll.
 
 ## Kanal und Journey
 
-- **I-1 Ein beendeter Kanal (`LOGGED_OUT`, `EXPIRED`) wird nie wieder `AUTHENTICATED`.**
-  - Mechanismus: `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_channel_session_ended_without_login`, `test:DatabaseInvariantConstraintTest`
-  - Lücke: kein Typ – Phase D (`LiveChannel`).
+- **I-1 Ein beendeter Kanal (`LOGGED_OUT`, `EXPIRED`) bleibt in diesem Zustand – er wird weder wieder `AUTHENTICATED` noch bekommt er eine neue Journey.**
+  - Mechanismus: `type:LiveChannel` (`JourneyService` startet, bewegt und beendet Journeys nur auf diesem Typ, seine Fabrik lehnt einen beendeten Kanal ab), `test:CancelLogoutIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_channel_session_ended_without_login`, `test:DatabaseInvariantConstraintTest`
 - **I-2 Eine verbrauchte, abgebrochene oder fehlgeschlagene Journey nimmt keine Tool-Ergebnisse mehr an.**
   - Mechanismus: `type:RunningJourney` (`JourneyService` nimmt nur diesen Typ an, seine einzige Fabrik lehnt eine beendete Journey ab), `archunit:OrchestratorArchitectureTest` (außerhalb des Journey-Pakets kommt niemand sonst an `AuthJourney`), `test:CancelLogoutIntegrationTest`, `test:DeviceBindingIntegrationTest`, `test:ModelBasedJourneyTest`, `sql:ck_tool_session_status` (eine abgeschlossene ToolSession ist `DONE`)
 - **I-3 Ein Kanal hat höchstens eine laufende (`STARTED`) Journey.**
   - Mechanismus: `test:ModelBasedJourneyTest` (fand die Verletzung, Review M-5), `type:JourneyService` (`start` bricht die laufende Kette ab), `sql:ux_journey_running_per_channel` (berechnete Spalte statt partiellem Index), `test:DatabaseInvariantConstraintTest`
 - **I-4 Ein `AUTHENTICATED`-Kanal hat Evidenz mit mindestens einem Faktor.**
-  - Mechanismus: `test:ModelBasedJourneyTest`, `sql:ck_channel_session_authenticated_with_evidence`, `test:DatabaseInvariantConstraintTest`
+  - Mechanismus: `type:ChannelState` (`isLoggedIn`: ein Abbruch kehrt nur dann zu `AUTHENTICATED` zurück, wenn der Kanal vorher angemeldet war – keine Strategie benennt ihren Rückfall mehr selbst), `test:ModelBasedJourneyTest`, `test:ConfirmPeerLoginFlowIntegrationTest`, `sql:ck_channel_session_authenticated_with_evidence`, `test:DatabaseInvariantConstraintTest`
 - **I-5 Ein Kanal wechselt nie still das Konto; ein anderes Konto ist ein Fehler, kein Umbinden.**
   - Mechanismus: `test:KcChannelIntegrationTest`
 

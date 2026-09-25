@@ -14,7 +14,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -221,13 +220,6 @@ class StepUpStrategyTest : BehaviorSpec({
             strategy.transition(state, event, theCtx) shouldBe
                 Transition.Perform(Action.AcceptProof(AuthPasswordUseDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to AUTHENTICATED - STEP_UP only ever runs on an already-authenticated channel") {
-            strategy.cancelledTo(StepUpState.Start(AcrLevel.LOA2, AcrLevel.LOA1)) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(StepUpState.AuthChoice(AcrLevel.LOA2, AcrLevel.LOA1, Offer(listOf(ToolId("auth-sms"))))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

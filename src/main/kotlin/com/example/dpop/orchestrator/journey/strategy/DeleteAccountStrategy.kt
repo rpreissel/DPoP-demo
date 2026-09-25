@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -105,8 +104,6 @@ class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
                 else -> error("ConfirmationRequired does not understand $event")
             }
         }
-
-    override fun cancelledTo(state: DeleteAccountState): ChannelState = ChannelState.AUTHENTICATED
 
     /** Null once the session already carries loa2 and the caller may proceed. */
     private fun gate(ctx: JourneyContext): Transition? {

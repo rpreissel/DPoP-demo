@@ -4,6 +4,7 @@ import com.example.dpop.texts.templateOf
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -47,8 +48,30 @@ class ConfirmPeerLoginFlowIntegrationTest : IntegrationTestSupport() {
                 registerWithSmsOnly()
 
                 val response = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
-                response.channel()["state"] shouldBe "STEP_UP_IN_PROGRESS"
+                // Not STEP_UP_IN_PROGRESS: this channel was never logged in, and that state promises a
+                // cancel leads back to AUTHENTICATED (ChannelState.isLoggedIn).
+                response.channel()["state"] shouldBe "ANONYMOUS"
                 response.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
+
+                }
+            }
+
+            `when`("the user cancels while the step-up sub-journey runs") {
+                then("the channel falls back to not logged in - never AUTHENTICATED without a proof - and nothing is left waiting") {
+
+                registerWithSmsOnly()
+                val channelSessionId = post("/orchestrator/api/v1/app/channels", """{"intent":"confirm_peer_login"}""")
+                    .channel()["channelSessionId"] as String
+
+                // Used to claim AUTHENTICATED (STEP_UP's own fallback) - since V22 the database
+                // refused that with a 500 (docs/invarianten.md I-4).
+                delete("/orchestrator/api/v1/channels/$channelSessionId/journey").channel()["state"] shouldNotBe "AUTHENTICATED"
+                // Both the confirmation and its step-up are cancelled - the parent is not left
+                // SUSPENDED. (The entry intent then starts afresh, with a new pair.)
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM orchestrator.auth_journey WHERE channel_session_id = ? AND lifecycle = 'CANCELLED'",
+                    Int::class.java, java.util.UUID.fromString(channelSessionId)
+                ) shouldBe 2
 
                 }
             }

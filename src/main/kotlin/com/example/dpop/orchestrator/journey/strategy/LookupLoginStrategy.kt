@@ -15,7 +15,6 @@ import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.journey.toAuthAbortMessage
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
@@ -97,8 +96,6 @@ class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
                 else -> error("ConfirmDeviceRebind only accepts JourneyEvent.Answered")
             }
         }
-
-    override fun cancelledTo(state: LookupLoginState): ChannelState = ChannelState.ANONYMOUS
 
     /**
      * Neither [ToolOutcome.Completed.Identified] nor [ToolOutcome.Completed.Enrolled] can be

@@ -18,7 +18,6 @@ import com.example.dpop.orchestrator.journey.state.OfferingState
 import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.policy.Reachability
 import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolOutcome
 import com.example.dpop.tool_spi.ToolId
@@ -124,8 +123,6 @@ class RegisterStrategy : IntentStrategy<RegisterState> {
                 else -> afterEnrollment(ctx, emailObligation = false)
             }
         }
-
-    override fun cancelledTo(state: RegisterState): ChannelState = ChannelState.ANONYMOUS
 
     // Offers -------------------------------------------------------------------
 

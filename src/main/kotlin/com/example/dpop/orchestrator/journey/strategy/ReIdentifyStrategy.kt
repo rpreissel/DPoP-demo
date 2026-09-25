@@ -10,7 +10,6 @@ import com.example.dpop.orchestrator.journey.JourneyEvent
 import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -58,10 +57,6 @@ class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
         is ToolOutcome.Completed.Authenticated, is ToolOutcome.Completed.Enrolled, is ToolOutcome.Completed.Approved, is ToolOutcome.Completed.Attested ->
             error("${event.tool.toolId} is not offered by RE_IDENTIFY")
     }
-
-    /** [ReIdentifyState.startingAcr] is the only signal available here (docs/04-orchestrierung.md): "none" means the caller (FAST_ACCESS/LOOKUP_LOGIN) had no session yet, a real level means the caller (STEP_UP) was already AUTHENTICATED - declining must not de-authenticate that session. */
-    override fun cancelledTo(state: ReIdentifyState): ChannelState =
-        if (state.startingAcr == AcrLevel.NONE) ChannelState.ANONYMOUS else ChannelState.AUTHENTICATED
 
     private fun offerIdentifying(targetAcr: AcrLevel, startingAcr: AcrLevel, wording: ReIdentifyState.Wording?, ctx: JourneyContext): Transition? {
         val candidates = CandidateTools.forReIdentification(targetAcr, ctx)

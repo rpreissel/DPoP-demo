@@ -10,7 +10,6 @@ import com.example.dpop.orchestrator.journey.Transition
 import com.example.dpop.orchestrator.journey.declineTool
 import com.example.dpop.orchestrator.journey.state.Offer
 import com.example.dpop.orchestrator.journey.state.KcSelectMethodState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
@@ -55,8 +54,6 @@ class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
                 else -> afterProof(ctx)
             }
         }
-
-    override fun cancelledTo(state: KcSelectMethodState): ChannelState = ChannelState.ANONYMOUS
 
     /**
      * A lookup-login tool resolves its own account on the FIRST proof only (no account known

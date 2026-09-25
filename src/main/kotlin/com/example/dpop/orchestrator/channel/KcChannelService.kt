@@ -12,6 +12,7 @@ import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.kernel.AcrLevels
 import com.example.dpop.orchestrator.kernel.AmrSource
+import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toMethodEvidence
@@ -173,8 +174,8 @@ class KcChannelService(
         // too, which this call's earlier branch already applied before any journey existed.
         if (liveFactors.isNotEmpty()) {
             val journey = journeyService.findActive(channelSessionId)
-            if (journey != null) {
-                val channel = sessionManagementService.findChannelSessionById(channelSessionId)!!
+            val channel = LiveChannel.of(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+            if (journey != null && channel != null) {
                 journeyService.applyEvidenceUpdate(journey, channel, AmrSource.KEYCLOAK, liveFactors)
                 response = channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
             }

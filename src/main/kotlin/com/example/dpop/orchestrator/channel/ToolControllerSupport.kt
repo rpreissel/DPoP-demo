@@ -8,6 +8,7 @@ import com.example.dpop.orchestrator.journey.Step
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.policy.requiresSatisfied
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.IdentThrottleService
 import com.example.dpop.orchestrator.session.LoginThrottleService
@@ -88,7 +89,8 @@ class ToolControllerSupport(
      * cannot be activated by naming it.
      */
     override fun beginActivation(channelSessionId: UUID, bindingKeyRef: String, toolId: String): Context {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
+        val channel = live.session
         val journey = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val descriptor = toolRegistry.descriptorOf(ToolId(toolId))
@@ -104,7 +106,7 @@ class ToolControllerSupport(
         }
 
         val toolSession = sessionManagementService.createToolSession(journey.journeyId, TOOL_TTL)
-        journeyService.activate(journey, channel, descriptor, toolSession.toolSessionId!!)
+        journeyService.activate(journey, live, descriptor, toolSession.toolSessionId!!)
         return Context(
             toolId = toolId,
             toolSessionId = checkNotNull(toolSession.toolSessionId),
@@ -194,12 +196,13 @@ class ToolControllerSupport(
     override fun back(context: AuthorizedToolContext): ChannelResponse =
         leave(context) { journey, channel, tool -> journeyService.back(journey, channel, tool) }
 
-    private fun leave(context: AuthorizedToolContext, move: (RunningJourney, ChannelSession, ToolDescriptor) -> Step): ChannelResponse {
+    private fun leave(context: AuthorizedToolContext, move: (RunningJourney, LiveChannel, ToolDescriptor) -> Step): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
-        val channel = resolveChannel(ctx, journey)
+        val live = resolveChannel(ctx, journey)
+        val channel = live.session
         sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.ABANDONED)
-        val step = move(journey, channel, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
+        val step = move(journey, live, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
         return ChannelResponse(
             channel = channelService.buildChannelBlock(channel),
             next = step.next,
@@ -216,14 +219,15 @@ class ToolControllerSupport(
     override fun applyOutcome(context: AuthorizedToolContext, outcome: ToolOutcome): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
-        val channel = resolveChannel(ctx, journey)
+        val live = resolveChannel(ctx, journey)
+        val channel = live.session
         val descriptor = toolRegistry.descriptorOf(ToolId(ctx.toolId))
         chargeThrottles(channel.accountId, descriptor.role.category, outcome)
         // A completed tool is done for good: its ToolSession must not be completable again, even
         // while the journey keeps running (an action's resumeState can still name it as active).
         if (outcome is ToolOutcome.Completed) sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.DONE)
 
-        val step = journeyService.applyOutcome(journey, channel, descriptor, outcome)
+        val step = journeyService.applyOutcome(journey, live, descriptor, outcome)
 
         // step.demo comes from the tool's own ToolOutcome.InProgress.demo - a field of its own, so
         // it never mixes with stepData (docs/05-api.md #2: production contract).
@@ -239,7 +243,7 @@ class ToolControllerSupport(
     override fun matchesAttestedIdentity(context: AuthorizedToolContext, personId: String): Boolean {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
-        return journeyService.matchesAttestedIdentity(journey, resolveChannel(ctx, journey), personId)
+        return journeyService.matchesAttestedIdentity(journey, resolveChannel(ctx, journey).session, personId)
     }
 
     override fun isLockedOut(accountId: Long?): Boolean =
@@ -313,7 +317,7 @@ class ToolControllerSupport(
     override fun buildReadResponse(context: ToolContext, freshOutcome: ToolOutcome.InProgress?): ChannelResponse {
         val ctx = context as Context
         val journey = resolveJourney(ctx)
-        val channel = resolveChannel(ctx, journey)
+        val channel = resolveChannel(ctx, journey).session
         val next = if (freshOutcome != null) {
             Next.tool(ctx.toolId, freshOutcome.nextStep, ctx.toolSessionId)
         } else {
@@ -337,17 +341,13 @@ class ToolControllerSupport(
         journeyService.findRunning(context.journeyId)
             ?: throw OrchestratorException.processGone(Text("Journey for this tool session is gone"))
 
-    private fun resolveChannel(context: Context, journey: RunningJourney): ChannelSession {
+    /** LOGGED_OUT/EXPIRED is final (docs/02-domaenenmodell.md #3): no tool may move it again - see [LiveChannel]. */
+    private fun resolveChannel(context: Context, journey: RunningJourney): LiveChannel {
         val journeyChannelId = journey.channelSessionId
         if (journeyChannelId != context.channelSessionId) {
             throw OrchestratorException.invalidState(Text("Tool context no longer matches its journey channel"))
         }
-        val channel = channelAccessGuard.requireChannel(journeyChannelId, context.bindingKeyRef)
-        // LOGGED_OUT/EXPIRED is final (docs/02-domaenenmodell.md #3): no tool may move it again.
-        if (channel.state?.isTerminal == true) {
-            throw OrchestratorException.invalidState(Text("This channel session has ended"), "state=${channel.state}")
-        }
-        return channel
+        return channelAccessGuard.requireLiveChannel(journeyChannelId, context.bindingKeyRef)
     }
 
     /**

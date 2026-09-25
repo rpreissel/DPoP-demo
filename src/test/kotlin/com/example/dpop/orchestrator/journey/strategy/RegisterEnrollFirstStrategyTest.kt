@@ -16,7 +16,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -209,13 +208,6 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
             val transition = strategy.transition(state, JourneyEvent.ActionCompleted, theCtx)
             transition.shouldBeInstanceOf<Transition.RequireSubJourney>()
             (transition as Transition.RequireSubJourney).intent shouldBe AuthIntent.RE_IDENTIFY
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to ANONYMOUS, same as the ident-first variant") {
-            strategy.cancelledTo(RegisterEnrollFirstState.EnrollFirstStart) shouldBe ChannelState.ANONYMOUS
-            strategy.cancelledTo(RegisterEnrollFirstState.EnrollFirstEnrolling(Offer(listOf(ToolId("enroll-sms"))))) shouldBe ChannelState.ANONYMOUS
         }
     }
 })

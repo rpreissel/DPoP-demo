@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -199,13 +198,6 @@ class DeleteAccountStrategyTest : BehaviorSpec({
         then("ends the channel for good") {
             val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
             strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Logout
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to AUTHENTICATED - this intent only ever runs on an already-authenticated channel") {
-            strategy.cancelledTo(DeleteAccountState.ConfirmPending) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

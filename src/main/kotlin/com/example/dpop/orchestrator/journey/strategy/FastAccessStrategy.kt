@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.journey.state.AuthChoice
 import com.example.dpop.orchestrator.journey.state.Enrolling
 import com.example.dpop.orchestrator.journey.state.FastAccessState
 import com.example.dpop.orchestrator.journey.state.RegisterState
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
@@ -59,8 +58,6 @@ class FastAccessStrategy : IntentStrategy<FastAccessState> {
                 else -> AuthEnrollCore.afterEnrollment(ctx, state.emailObligation, resumeAtStart = FastAccessState.Start)
             }
         }
-
-    override fun cancelledTo(state: FastAccessState): ChannelState = ChannelState.ANONYMOUS
 
     // Offers -------------------------------------------------------------------
 

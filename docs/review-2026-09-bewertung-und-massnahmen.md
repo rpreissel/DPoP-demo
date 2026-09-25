@@ -273,7 +273,26 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     des Journey-Pakets nur die Aufbewahrung `AuthJourney` berührt. `FinishedJourney` entfällt – es
     gibt keinen Aufrufer, der mit einer beendeten Journey arbeitet. Der `isTerminal`-Check am Kanal
     gehört zu Schritt 19.
-19. **`LiveChannel` / `EndedChannel`**.
+19. ~~`LiveChannel` / `EndedChannel`~~ – erledigt 2026-09-25: `JourneyService` startet, bewegt und
+    beendet Journeys nur noch auf einem `LiveChannel`; `ChannelAccessGuard.requireLiveChannel` für
+    alles, was den Kanal bewegt. Der Umbau fand zwei echte I-1-Verletzungen, die kein Test abdeckte:
+    Ein Step-up auf einem abgemeldeten oder abgelaufenen Kanal startete eine Journey und setzte ihn
+    auf `STEP_UP_IN_PROGRESS` (danach ließ sich wieder ein Tool aktivieren), und ein GET auf einen
+    `EXPIRED`-Kanal startete seine Einstiegs-Journey neu. Der modellbasierte Test kennt jetzt den
+    Step-up und prüft, dass ein beendeter Kanal seinen Endzustand behält. `EndedChannel` entfällt
+    wie `FinishedJourney`: Lesen darf jeder Kanal, dafür braucht es keinen eigenen Typ.
+
+    Mit dem Step-up fand der Modelltest zwei weitere Fehler. Ein Step-up vor der Anmeldung endete
+    ohne Konto mit 500. Mit einem über das Gerät bekannten Konto meldete sein Abbruch den Kanal ohne
+    jeden Nachweis als `AUTHENTICATED` – dasselbe galt für den Abbruch einer kalt gestarteten
+    Web-Login-Bestätigung. Seit V22 lehnte die Datenbank das ab (I-4), vorher wäre es still
+    durchgegangen. Ursache war, dass jede Strategie ihren Rückfallzustand selbst benannte
+    (`cancelledTo`) und sechs davon voraussetzten, nur auf angemeldeten Kanälen zu laufen. Jetzt gilt
+    eine Regel für alle Intents: Ein Abbruch kehrt zum Anmeldestand vor der Journey zurück
+    (`ChannelState.isLoggedIn`); `cancelledTo` ist aus der SPI entfernt, `STEP_UP_IN_PROGRESS`
+    setzt der Code nur noch auf einem angemeldeten Kanal, ein Step-up vor der Anmeldung hebt nur die
+    Untergrenze der laufenden Anmeldung, und ein Abbruch beendet die ganze Kette statt eine
+    pausierte Eltern-Journey liegen zu lassen.
 20. **`ToolOutcome.Failed` je Kategorie** (schließt S-6 strukturell).
 21. **`AccountInHand`** – räumt den toten Zweitkonto-Zweig mit auf; Doku 04 §2 angleichen.
 

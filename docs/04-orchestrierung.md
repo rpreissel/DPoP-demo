@@ -337,8 +337,12 @@ Endpunkt der Client aufruft.
 
 Sie ist das Gegenstück zu `tool_spi`: Dort beschreiben sich die Tools selbst, hier die Intents. Jede
 Strategie ist ein Moore-Automat für ihren eigenen Zustandstyp. Sie hat `transition(state, event, ctx)`,
-dazu `initialState(ctx)` (wo eine direkt gestartete Journey beginnt) und `cancelledTo` (wohin der
-Kanal bei einem Abbruch zurückfällt). Eine Sub-Journey mit vorgegebenem Zielniveau beginnt nicht
+dazu `initialState(ctx)` (wo eine direkt gestartete Journey beginnt). Wohin der Kanal bei einem
+Abbruch zurückfällt, entscheidet keine Strategie: Er kehrt zu dem Anmeldestand zurück, den er vor
+der Journey hatte (`ChannelState.isLoggedIn` – `AUTHENTICATED` oder ein darauf laufender Step-up),
+sonst nach `ANONYMOUS`. Früher legte das jede Strategie selbst fest, und die „läuft nur auf
+angemeldeten Kanälen“-Annahme stimmte für die kalte Web-Login-Bestätigung und einen Step-up vor der
+Anmeldung nicht (Review 2026-09, Phase D 19). Eine Sub-Journey mit vorgegebenem Zielniveau beginnt nicht
 über die SPI, sondern über die Fabrikmethode im Companion ihres Zustands
 (`StepUpState.forSubJourney(...)`, `ReIdentifyState.forSubJourney(...)`,
 `RegisterState.forSubJourney()`). Als Sub-Journey laufen `STEP_UP`, `RE_IDENTIFY` und `REGISTER`.

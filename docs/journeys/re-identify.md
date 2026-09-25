@@ -39,13 +39,10 @@ das abschließende Angebot von `RegisterEnrollFirstStrategy` ist er falsch. Desh
 wording)`, und nur dieser eine Aufrufer belegt es. Bleibt es `null`, gilt der Standardtext. Das
 folgt demselben Muster wie `reason` in `StepUpState.forSubJourney`.
 
-**Wohin eine Ablehnung führt.** `startingAcr` bestimmt, in welchen Zustand der Kanal bei Ablehnung
-zurückfällt (`cancelledTo`):
-
-- `"none"` bedeutet, dass der aufrufende Kanal noch nicht angemeldet war (`FAST_ACCESS`,
-  `LOOKUP_LOGIN`). Er fällt auf `ANONYMOUS` zurück.
-- Ein echtes Niveau bedeutet, dass der Kanal bereits angemeldet war (`STEP_UP`). Er bleibt
-  `AUTHENTICATED`, denn eine abgelehnte erneute Identifizierung meldet keine laufende Sitzung ab.
+**Wohin eine Ablehnung führt.** Wie bei jeder Journey zurück zum Anmeldestand vor dem Start
+([Orchestrierung](../04-orchestrierung.md), `IntentStrategy`): War der Kanal noch nicht angemeldet
+(`FAST_ACCESS`, `LOOKUP_LOGIN`), fällt er auf `ANONYMOUS` zurück. War er es schon (`STEP_UP`), bleibt
+er `AUTHENTICATED` – eine abgelehnte erneute Identifizierung meldet keine laufende Sitzung ab.
 
 **Bestätigen, nicht übernehmen.** Für ein erfolgreiches `Identified` liefert `transition()` immer
 dieselbe `Action.RecordIdentification`. Weil hier stets schon ein Konto zugeordnet ist, bestätigt sie

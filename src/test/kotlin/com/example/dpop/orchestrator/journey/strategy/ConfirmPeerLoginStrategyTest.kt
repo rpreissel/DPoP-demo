@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId
@@ -172,13 +171,6 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
             val outcome = ToolOutcome.Completed.Approved()
             val event = JourneyEvent.Completed(com.example.dpop.auth_qr.ConfirmQrLoginDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe Transition.Perform(Action.RecordApproval(com.example.dpop.auth_qr.ConfirmQrLoginDescriptor, outcome), resumeState = state)
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to AUTHENTICATED - the shared loa2 gate only ever runs on a known account") {
-            strategy.cancelledTo(ConfirmPeerLoginState.Requested(false)) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"))))) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

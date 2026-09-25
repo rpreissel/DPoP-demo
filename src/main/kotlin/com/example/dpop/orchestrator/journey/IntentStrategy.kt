@@ -69,9 +69,6 @@ interface IntentStrategy<S : JourneyState> {
      * POST-action context, never the stale one the tool outcome arrived with.
      */
     fun transition(state: S, event: JourneyEvent, ctx: JourneyContext): Transition
-
-    /** Which channel state a cancelled journey of this intent falls back to. */
-    fun cancelledTo(state: S): ChannelState
 }
 
 /**
@@ -244,8 +241,9 @@ sealed interface Transition {
 
     /**
      * The user gave up (abandoned the last thing this journey could offer). Distinct from
-     * [Abort]: nothing went wrong, so this ends like an explicit cancel - via
-     * [IntentStrategy.cancelledTo], with a fresh start offered afterwards - rather than as a 410.
+     * [Abort]: nothing went wrong, so this ends like an explicit cancel - back to the channel's
+     * login status before the journey ([ChannelState.isLoggedIn]), with a fresh start offered
+     * afterwards - rather than as a 410.
      */
     data object Cancel : Transition
 

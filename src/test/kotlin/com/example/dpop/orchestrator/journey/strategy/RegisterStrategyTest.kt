@@ -444,11 +444,4 @@ class RegisterStrategyTest : BehaviorSpec({
             }
         }
     }
-
-    given("onCancel") {
-        then("always falls back to ANONYMOUS") {
-            strategy.cancelledTo(RegisterState.Start) shouldBe com.example.dpop.orchestrator.session.ChannelState.ANONYMOUS
-            strategy.cancelledTo(RegisterState.Identifying(Offer(listOf(ToolId("ident-fsc"))))) shouldBe com.example.dpop.orchestrator.session.ChannelState.ANONYMOUS
-        }
-    }
 })

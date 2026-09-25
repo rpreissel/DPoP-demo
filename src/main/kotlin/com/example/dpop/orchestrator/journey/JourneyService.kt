@@ -16,6 +16,7 @@ import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.journeylog.JourneyLogService
 import com.example.dpop.orchestrator.kc.KeycloakSessionEnded
@@ -100,13 +101,22 @@ class JourneyService(
      * effect (e.g. restored evidence) is already reflected in [JourneyContextFactory.contextFor]'s output, so a
      * strategy that already checks sufficiency on `Started` (like `KcSelectMethodStrategy`) needs
      * no special case for it at all.
+     *
+     * Only on a [LiveChannel]: an ended channel never gets a journey again (docs/invarianten.md I-1).
      */
     fun start(
-        channel: ChannelSession,
+        channel: LiveChannel,
         intent: AuthIntent,
         seed: JourneyState? = null,
-        parentJourneyId: UUID? = null,
         seedAction: Action? = null
+    ): Step = startJourney(channel.session, intent, seed, parentJourneyId = null, seedAction = seedAction)
+
+    private fun startJourney(
+        channel: ChannelSession,
+        intent: AuthIntent,
+        seed: JourneyState?,
+        parentJourneyId: UUID?,
+        seedAction: Action?
     ): Step {
         // One running journey per channel (docs/invarianten.md I-3, review 2026-09 M-5). A new
         // top-level journey replaces whatever is still running on the channel - the whole chain,
@@ -120,8 +130,10 @@ class JourneyService(
         journey.accountId = channel.accountId
         journey.parentJourneyId = parentJourneyId
         // A step-up says so on the channel, whether it was asked for directly or demanded as
-        // another journey's precondition - the client renders the same screen either way.
-        if (intent == AuthIntent.STEP_UP && channel.state != ChannelState.STEP_UP_IN_PROGRESS) {
+        // another journey's precondition - the client renders the same screen either way. Only on
+        // a channel that IS logged in: STEP_UP_IN_PROGRESS promises that cancelling leads back to
+        // AUTHENTICATED, which a cold entry (a peer-login confirmation on a fresh channel) never was.
+        if (intent == AuthIntent.STEP_UP && channel.state == ChannelState.AUTHENTICATED) {
             channel.state = ChannelState.STEP_UP_IN_PROGRESS
             sessionManagementService.updateChannelSession(channel)
         }
@@ -156,7 +168,7 @@ class JourneyService(
      * STEP_UP specifically, so it seeds via [StepUpState.forSubJourney] itself rather than through
      * some generic per-intent seeding mechanism.
      */
-    fun startTowardAcr(channel: ChannelSession, targetAcr: AcrLevel, startingAcr: AcrLevel): Step =
+    fun startTowardAcr(channel: LiveChannel, targetAcr: AcrLevel, startingAcr: AcrLevel): Step =
         start(channel, AuthIntent.STEP_UP, seed = StepUpState.forSubJourney(targetAcr, startingAcr))
 
     /**
@@ -165,12 +177,14 @@ class JourneyService(
      * user was trying to do. [seedAction] is passed straight through to [start] - see that
      * parameter's own doc.
      */
-    fun startEntryJourney(channel: ChannelSession, seedAction: Action? = null): Step {
+    fun startEntryJourney(channel: LiveChannel, seedAction: Action? = null): Step = startEntryJourney(channel.session, seedAction)
+
+    private fun startEntryJourney(channel: ChannelSession, seedAction: Action?): Step {
         if (channel.state != ChannelState.AUTHENTICATED) {
             channel.state = if (channel.accountId == null) ChannelState.REGISTERING else ChannelState.ANONYMOUS
             sessionManagementService.updateChannelSession(channel)
         }
-        return start(channel, channel.entryIntent, seedAction = seedAction)
+        return startJourney(channel, channel.entryIntent, seed = null, parentJourneyId = null, seedAction = seedAction)
     }
 
     /** The one running journey of this channel, if any - a suspended parent is deliberately not it. */
@@ -218,12 +232,15 @@ class JourneyService(
         }
     }
 
-    /** User-initiated abandonment of the whole journey, distinct from an exhausted budget. */
-    fun cancel(journey: RunningJourney, channel: ChannelSession) = cancelJourney(journey.entity, channel)
+    /**
+     * User-initiated abandonment, distinct from an exhausted budget - of the whole chain the user
+     * started, not just the sub-journey that happens to be running (see [cancelChain]).
+     */
+    fun cancel(journey: RunningJourney, channel: LiveChannel) = cancelChain(journey.entity, channel.session)
 
     private fun cancelJourney(journey: AuthJourney, channel: ChannelSession) {
         markCancelled(journey, channel)
-        fallBack(journey, channel)
+        fallBack(channel)
     }
 
     /**
@@ -237,7 +254,9 @@ class JourneyService(
      * channel's own logout stays Keycloak's (docs/07-betrieb.md Abschnitt 3). [finalState] is
      * `LOGGED_OUT` or `EXPIRED` - either is terminal.
      */
-    fun endSession(channel: ChannelSession, finalState: ChannelState) {
+    fun endSession(channel: LiveChannel, finalState: ChannelState) = endSession(channel.session, finalState)
+
+    private fun endSession(channel: ChannelSession, finalState: ChannelState) {
         require(finalState.isTerminal) { "endSession needs a terminal state, got $finalState" }
         channel.authContextId?.let { authContextService.getAuthContext(it) }?.let { context ->
             if (channel.channel == ChannelType.APP) {
@@ -258,9 +277,12 @@ class JourneyService(
         sessionManagementService.updateChannelSession(channel)
     }
 
-    /** Cancels [running] and every ancestor suspended for it - nothing of the chain is left waiting. */
+    /**
+     * Cancels [running] and every ancestor suspended for it - nothing of the chain is left waiting
+     * (before, an explicit cancel during a sub-journey left its parent SUSPENDED for good).
+     */
     private fun cancelChain(running: AuthJourney, channel: ChannelSession) {
-        cancelJourney(running, channel)
+        markCancelled(running, channel)
         var parentId = running.parentJourneyId
         while (parentId != null) {
             val parent = journeyRepository.findByIdOrNull(parentId) ?: break
@@ -268,6 +290,7 @@ class JourneyService(
             markCancelled(parent, channel)
             parentId = parent.parentJourneyId
         }
+        fallBack(channel)
     }
 
     private fun markCancelled(journey: AuthJourney, channel: ChannelSession) {
@@ -303,8 +326,9 @@ class JourneyService(
      * state does not offer - which is why LOGIN_LOOKUP cannot be talked into an identification:
      * no state of that intent ever lists one.
      */
-    fun activate(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor, toolSessionId: UUID) {
+    fun activate(running: RunningJourney, live: LiveChannel, tool: ToolDescriptor, toolSessionId: UUID) {
         val journey = running.entity
+        val channel = live.session
         val state = codec.read(journey)
         if (tool.toolId !in state.activatable(routing.availableToolsOf(channel))) {
             throw OrchestratorException.invalidState(Text("This tool is not offered in the current step"), "toolId=${tool.toolId}")
@@ -330,10 +354,10 @@ class JourneyService(
 
     fun applyOutcome(
         running: RunningJourney,
-        channel: ChannelSession,
+        channel: LiveChannel,
         tool: ToolDescriptor,
         outcome: ToolOutcome
-    ): Step = applyOutcome(running.entity, channel, tool, outcome)
+    ): Step = applyOutcome(running.entity, channel.session, tool, outcome)
 
     private fun applyOutcome(
         journey: AuthJourney,
@@ -366,10 +390,11 @@ class JourneyService(
      * that it has to judge. Only an [OfferingState] has a selection page; any other state (a single
      * preferred tool, a skippable assignment) treats going back as [abandon].
      */
-    fun back(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+    fun back(running: RunningJourney, live: LiveChannel, tool: ToolDescriptor): Step {
         val journey = running.entity
+        val channel = live.session
         val state = codec.read(journey)
-        if (state !is OfferingState) return abandon(running, channel, tool)
+        if (state !is OfferingState) return abandon(running, live, tool)
         val cleared = state.withOffer(state.offer.withActive(null))
         codec.write(journey, cleared)
         journeyRepository.save(journey)
@@ -379,8 +404,9 @@ class JourneyService(
     }
 
     /** "Anderes Verfahren": the tool is declined, and the state decides whether anything is left. */
-    fun abandon(running: RunningJourney, channel: ChannelSession, tool: ToolDescriptor): Step {
+    fun abandon(running: RunningJourney, live: LiveChannel, tool: ToolDescriptor): Step {
         val journey = running.entity
+        val channel = live.session
         val state = codec.read(journey)
         codec.write(journey, state.withActive(null))
         journeyRepository.save(journey)
@@ -393,8 +419,9 @@ class JourneyService(
      * implements [AnswerableState], which [answer] values are valid, and what its strategy's
      * `transition` decides for them can all change without this method ever changing.
      */
-    fun answer(running: RunningJourney, channel: ChannelSession, answer: String): Step {
+    fun answer(running: RunningJourney, live: LiveChannel, answer: String): Step {
         val journey = running.entity
+        val channel = live.session
         val state = codec.read(journey)
         if (state !is AnswerableState) {
             throw OrchestratorException.invalidState(Text("Nothing is currently waiting for an answer"))
@@ -424,8 +451,9 @@ class JourneyService(
      * after every subsequent report, not just once, or a since-expired native method would never
      * actually disappear from the evidence.
      */
-    fun applyEvidenceUpdate(running: RunningJourney, channel: ChannelSession, source: String, updates: List<MethodEvidence>) {
+    fun applyEvidenceUpdate(running: RunningJourney, live: LiveChannel, source: String, updates: List<MethodEvidence>) {
         val journey = running.entity
+        val channel = live.session
         journeyRecorder.mergeEvidence(journey, channel, source, updates)
         advance(journey, channel, JourneyEvent.EvidenceReported)
     }
@@ -485,11 +513,12 @@ class JourneyService(
             // channel (ux_journey_running_per_channel), and Hibernate would otherwise insert the
             // child before it updates this row.
             journeyRepository.saveAndFlush(journey)
-            start(
+            startJourney(
                 channel,
                 transition.intent,
                 seed = transition.seedWith,
-                parentJourneyId = journey.journeyId
+                parentJourneyId = journey.journeyId,
+                seedAction = null
             )
         }
 
@@ -532,11 +561,11 @@ class JourneyService(
                 advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.intent!!))
             } else {
                 // Giving up on the last thing this TOP-LEVEL journey could offer is the same
-                // outcome as an explicit DELETE .../journey - unless cancelledTo (via fallBack)
+                // outcome as an explicit DELETE .../journey - unless fallBack
                 // already landed the channel back on AUTHENTICATED, in which case there is
                 // nothing to restart (same guard as ChannelService.cancelActiveJourney).
                 cancelJourney(journey, channel)
-                if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel)
+                if (channel.state == ChannelState.AUTHENTICATED) Step(Next.AUTHENTICATED) else startEntryJourney(channel, seedAction = null)
             }
         }
 
@@ -597,19 +626,24 @@ class JourneyService(
     // Cancellation fallout -------------------------------------------------------
 
     /**
-     * Where the channel lands after an abandoned journey. Account and evidence are re-derived from
-     * the DURABLE truth rather than blindly kept or blindly wiped: the device link is what
-     * survives a journey, an AuthContext is not.
+     * Where the channel lands after an abandoned journey: back to the login status it had before -
+     * one rule for every intent ([ChannelState.isLoggedIn]). Each strategy used to name its own
+     * fallback, and six of them said AUTHENTICATED on the assumption that they only ever run on a
+     * logged-in channel. A cold peer-login confirmation and a step-up before the login broke that
+     * assumption: cancelling them claimed AUTHENTICATED without any proof, which only the database
+     * refused (docs/invarianten.md I-4).
+     *
+     * Account and evidence are re-derived from the DURABLE truth rather than blindly kept or
+     * blindly wiped: the device link is what survives a journey, an AuthContext is not.
      */
-    private fun fallBack(journey: AuthJourney, channel: ChannelSession) {
-        val strategy = strategyFor(journey.intent!!)
-        val target = strategy.cancelledToErased(codec.read(journey))
+    private fun fallBack(channel: ChannelSession) {
+        val target = if (channel.state?.isLoggedIn == true) ChannelState.AUTHENTICATED else ChannelState.ANONYMOUS
         channel.state = target
         if (target != ChannelState.AUTHENTICATED) {
             channel.authContextId = null
             channel.authEvidenceId = null
             val abandonedAccountId = channel.accountId
-            channel.accountId = if (channel.entryIntent == AuthIntent.FAST_ACCESS) {
+            channel.accountId = if (channel.entryIntent.startsFromDeviceLink && channel.bindingKeyRef != null) {
                 sessionManagementService.findLinkedAccountId(channel.bindingKeyRef!!)
             } else {
                 null
@@ -649,10 +683,6 @@ class JourneyService(
     @Suppress("UNCHECKED_CAST")
     private fun IntentStrategy<*>.transitionErased(state: JourneyState, event: JourneyEvent, ctx: JourneyContext): Transition =
         (this as IntentStrategy<JourneyState>).transition(state, event, ctx)
-
-    @Suppress("UNCHECKED_CAST")
-    private fun IntentStrategy<*>.cancelledToErased(state: JourneyState): ChannelState =
-        (this as IntentStrategy<JourneyState>).cancelledTo(state)
 
     companion object {
         private val JOURNEY_TTL: Duration = Duration.ofMinutes(60)

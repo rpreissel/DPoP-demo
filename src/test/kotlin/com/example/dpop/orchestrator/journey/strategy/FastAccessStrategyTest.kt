@@ -18,7 +18,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.deviceDetails
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -211,13 +210,6 @@ class FastAccessStrategyTest : BehaviorSpec({
             then("aborts with a reason") {
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx).shouldBeInstanceOf<Transition.Abort>()
             }
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to ANONYMOUS") {
-            strategy.cancelledTo(FastAccessState.Start) shouldBe ChannelState.ANONYMOUS
-            strategy.cancelledTo(FastAccessState.PreferredAuth(ToolId("auth-device"))) shouldBe ChannelState.ANONYMOUS
         }
     }
 })

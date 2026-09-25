@@ -33,7 +33,7 @@ class ModelBasedJourneyTest : IntegrationTestSupport() {
 
     private enum class Step {
         OPEN_CHANNEL, SIGN_IN_SMS, WRONG_TAN, SIGN_IN_PASSWORD, REPLAY_LAST_PATCH,
-        LOG_OUT, CANCEL_JOURNEY, START_MANAGE, START_PEER_LOGIN, READ_CHANNEL, SWITCH_DEVICE
+        LOG_OUT, CANCEL_JOURNEY, START_MANAGE, START_PEER_LOGIN, START_STEP_UP, READ_CHANNEL, SWITCH_DEVICE
     }
 
     /** What one run remembers between steps - the "model" the random steps act on. */
@@ -41,7 +41,7 @@ class ModelBasedJourneyTest : IntegrationTestSupport() {
         private val deviceB = "binding-" + UUID.randomUUID()
         private var channel: String? = null
         private var lastPatch: Pair<String, String>? = null
-        private val endedChannels = mutableSetOf<String>()
+        private val endedChannels = mutableMapOf<String, String>()
         private val finishedJourneys = mutableMapOf<String, String>()
 
         fun perform(step: Step): String? = when (step) {
@@ -59,6 +59,7 @@ class ModelBasedJourneyTest : IntegrationTestSupport() {
             Step.CANCEL_JOURNEY -> channel?.let { serverError(call(HttpMethod.DELETE, "/orchestrator/api/v1/channels/$it/journey")) }
             Step.START_MANAGE -> channel?.let { serverError(call(HttpMethod.POST, "/orchestrator/api/v1/channels/$it/enrollments")) }
             Step.START_PEER_LOGIN -> channel?.let { serverError(call(HttpMethod.POST, "/orchestrator/api/v1/channels/$it/peer-logins")) }
+            Step.START_STEP_UP -> channel?.let { serverError(call(HttpMethod.POST, "/orchestrator/api/v1/channels/$it/step-ups", """{"requiredAcr":"loa3"}""")) }
             Step.READ_CHANNEL -> channel?.let { serverError(call(HttpMethod.GET, "/orchestrator/api/v1/channels/$it")) }
             Step.SWITCH_DEVICE -> {
                 currentBindingKeyRef = if (currentBindingKeyRef == deviceA) deviceB else deviceA
@@ -85,12 +86,12 @@ class ModelBasedJourneyTest : IntegrationTestSupport() {
 
         /** Every invariant of docs/invarianten.md this model can observe - checked after each step. */
         fun violations(): List<String> = buildList {
-            // I-1: an ended channel stays ended.
+            // I-1: an ended channel stays ended - in the very state it ended in.
             jdbcTemplate.queryForList("SELECT id, state FROM orchestrator.channel_session").forEach { row ->
                 val id = row["ID"].toString()
                 val state = row["STATE"].toString()
-                if (id in endedChannels && state == "AUTHENTICATED") add("I-1: channel $id authenticated again after it ended")
-                if (state == "LOGGED_OUT" || state == "EXPIRED") endedChannels += id
+                endedChannels[id]?.let { ended -> if (state != ended) add("I-1: channel $id went from $ended to $state after it ended") }
+                if (state == "LOGGED_OUT" || state == "EXPIRED") endedChannels.putIfAbsent(id, state)
             }
             // I-2: a finished journey never changes again.
             jdbcTemplate.queryForList("SELECT id, lifecycle FROM orchestrator.auth_journey").forEach { row ->
@@ -193,6 +194,13 @@ class ModelBasedJourneyTest : IntegrationTestSupport() {
                         Step.OPEN_CHANNEL, Step.SIGN_IN_PASSWORD, Step.START_MANAGE, Step.SIGN_IN_SMS,
                         Step.CANCEL_JOURNEY, Step.START_MANAGE, Step.START_PEER_LOGIN
                     ),
+                    // Phase D 19: a step-up revived a logged-out channel (STEP_UP_IN_PROGRESS).
+                    listOf(Step.OPEN_CHANNEL, Step.SIGN_IN_SMS, Step.LOG_OUT, Step.START_STEP_UP),
+                    // A step-up on a channel without an account crashed (no account to step up from).
+                    listOf(Step.SWITCH_DEVICE, Step.OPEN_CHANNEL, Step.START_STEP_UP),
+                    // A step-up before the login, then cancelled: the fallback claimed AUTHENTICATED
+                    // without any proof - only the database constraint (I-4) stopped it.
+                    listOf(Step.OPEN_CHANNEL, Step.START_STEP_UP, Step.CANCEL_JOURNEY),
                 ).mapNotNull { steps -> execute(steps)?.let { "$steps: $it" } }.shouldBeEmpty()
             }
         }

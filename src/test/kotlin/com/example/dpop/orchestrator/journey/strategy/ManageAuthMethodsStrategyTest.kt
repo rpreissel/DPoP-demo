@@ -13,7 +13,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -191,13 +190,6 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
                     Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Authenticated
             }
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to AUTHENTICATED - this intent only ever runs on an already-authenticated channel") {
-            strategy.cancelledTo(ManageAuthMethodsState.AddRequested) shouldBe ChannelState.AUTHENTICATED
-            strategy.cancelledTo(ManageAuthMethodsState.RemoveRequested("sms-instance")) shouldBe ChannelState.AUTHENTICATED
         }
     }
 })

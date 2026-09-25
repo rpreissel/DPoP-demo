@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.accou
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.FactorType
@@ -208,13 +207,6 @@ class LookupLoginStrategyTest : BehaviorSpec({
 
         then("any non-Answered/ActionCompleted event is rejected - this state never runs a tool") {
             shouldThrow<IllegalStateException> { strategy.transition(state, JourneyEvent.Started, ctx()) }
-        }
-    }
-
-    given("onCancel") {
-        then("always falls back to ANONYMOUS - this intent never carries a durable account binding of its own") {
-            strategy.cancelledTo(LookupLoginState.Start) shouldBe ChannelState.ANONYMOUS
-            strategy.cancelledTo(LookupLoginState.Credential(Offer(listOf(ToolId("auth-sms-lookup"))))) shouldBe ChannelState.ANONYMOUS
         }
     }
 })

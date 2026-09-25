@@ -3,6 +3,7 @@ package com.example.dpop.orchestrator.channel
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
+import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.SessionManagementService
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
@@ -19,7 +20,12 @@ import com.example.dpop.orchestrator.kernel.OrchestratorException
  * exactly one implementation, never the channel resource itself.
  */
 interface ChannelAccessGuard {
+    /** Any channel the caller may see - an ended one included, for reading. */
     fun requireChannel(channelSessionId: UUID, bindingKeyRef: String): ChannelSession
+
+    /** For anything that moves the channel: an ended one is refused (409), see [LiveChannel]. */
+    fun requireLiveChannel(channelSessionId: UUID, bindingKeyRef: String): LiveChannel =
+        LiveChannel.require(requireChannel(channelSessionId, bindingKeyRef))
 }
 
 /**

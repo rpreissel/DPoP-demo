@@ -234,6 +234,61 @@ class CancelLogoutIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("a channel that has ended - logged out, or expired (docs/invarianten.md I-1)") {
+            `when`("anything tries to move it again: a GET, a step-up, method management, a peer login, a deletion, a tool") {
+                then("every move is refused and the channel stays in its final state") {
+
+                fun stateOf(channel: String) = jdbcTemplate.queryForObject(
+                    "SELECT state FROM orchestrator.channel_session WHERE id = ?", String::class.java, java.util.UUID.fromString(channel)
+                )
+                fun expire(channel: String) {
+                    get("/orchestrator/api/v1/channels/$channel/token")
+                    jdbcTemplate.update(
+                        "UPDATE orchestrator.auth_context SET access_expires_at = DATEADD('SECOND', -10, CURRENT_TIMESTAMP), " +
+                            "refresh_expires_at = DATEADD('SECOND', -1, CURRENT_TIMESTAMP) " +
+                            "WHERE id = (SELECT auth_context_id FROM orchestrator.channel_session WHERE id = ?)",
+                        java.util.UUID.fromString(channel)
+                    )
+                    assertThrows<HttpClientErrorException> { get("/orchestrator/api/v1/channels/$channel/token") }
+                }
+
+                val loggedOut = loginAsSeededAccount()
+                deleteNoContent("/orchestrator/api/v1/channels/$loggedOut") shouldBe HttpStatus.NO_CONTENT
+                val expired = post("/orchestrator/api/v1/app/channels", """{"requiredAcr":"loa2"}""").channel()["channelSessionId"] as String
+                authenticateViaSms(expired)
+                authenticateViaPassword(expired)
+                expire(expired)
+
+                val moved = mutableListOf<String>()
+                listOf(loggedOut to "LOGGED_OUT", expired to "EXPIRED").forEach { (channel, finalState) ->
+                    stateOf(channel) shouldBe finalState
+                    get("/orchestrator/api/v1/channels/$channel").let {
+                        if (it.channel()["state"] != finalState || it["next"] != null) moved += "$finalState: GET -> ${it.channel()["state"]}, next=${it["next"]}"
+                    }
+                    listOf(
+                        "/orchestrator/api/v1/channels/$channel/step-ups" to """{"requiredAcr":"loa3"}""",
+                        "/orchestrator/api/v1/channels/$channel/enrollments" to "{}",
+                        "/orchestrator/api/v1/channels/$channel/peer-logins" to "{}",
+                        "/orchestrator/api/v1/channels/$channel/account-deletions" to "{}",
+                        "/orchestrator/api/v1/channels/$channel/logouts" to "{}",
+                        "/orchestrator/api/v1/channels/$channel/tools/auth-sms" to "{}",
+                    ).forEach { (url, body) ->
+                        val accepted = runCatching { post(url, body) }.isSuccess
+                        val state = stateOf(channel)
+                        if (accepted || state != finalState) moved += "$finalState: POST ${url.substringAfterLast(channel)} accepted=$accepted -> $state"
+                    }
+                    jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM orchestrator.auth_journey WHERE channel_session_id = ? AND lifecycle = 'STARTED'",
+                        Int::class.java, java.util.UUID.fromString(channel)
+                    ).let { if (it != 0) moved += "$finalState: $it running journeys" }
+                }
+                moved shouldBe emptyList()
+
+
+                }
+            }
+        }
+
         given("an sms user who authenticated and then logged out") {
             `when`("the completed auth-sms PATCH is replayed with the same TAN") {
                 then("it is rejected and the channel stays logged out") {

@@ -78,6 +78,15 @@ enum class AuthIntent {
         get() = this == FAST_ACCESS || this == REGISTER || this == LOOKUP_LOGIN || this == KC_SELECT_METHOD || this == CONFIRM_PEER_LOGIN
 
     /**
+     * An APP channel entered with this intent starts from the account this device is linked to
+     * (`DeviceAccountLink`) - when it is opened AND again after a cancel, one rule for both
+     * (they used to disagree: a cancelled cold CONFIRM_PEER_LOGIN lost its account and aborted).
+     * REGISTER and LOOKUP_LOGIN both mean "not the account this device already knows".
+     */
+    val startsFromDeviceLink: Boolean
+        get() = this == FAST_ACCESS || this == CONFIRM_PEER_LOGIN
+
+    /**
      * Whether succeeding on an APP channel links this device to the account as a side effect
      * (`DeviceAccountLink`, docs/09-dpop.md #3), or whether the intent asks the user first.
      * Only [LOOKUP_LOGIN] asks - see its own doc.

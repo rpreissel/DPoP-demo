@@ -23,6 +23,7 @@ import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelCreationThrottleService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.TokenProvider
 import com.example.dpop.orchestrator.session.TokenService
@@ -102,7 +103,7 @@ class ChannelService(
         // CONFIRM_PEER_LOGIN's cold-entry path depends on this exactly like FAST_ACCESS: no
         // DeviceAccountLink means no known account, which its own strategy treats as an immediate
         // abort rather than falling into identification/registration (see AuthIntent's own doc).
-        val linkedAccountId = if (entryIntent == AuthIntent.FAST_ACCESS || entryIntent == AuthIntent.CONFIRM_PEER_LOGIN) {
+        val linkedAccountId = if (entryIntent.startsFromDeviceLink) {
             sessionManagementService.findLinkedAccountId(bindingKeyRef)
         } else {
             null
@@ -170,10 +171,9 @@ class ChannelService(
     // even though the answer is an exception.
     @Transactional(noRollbackFor = [OrchestratorException::class])
     fun getToken(channelSessionId: UUID, bindingKeyRef: String, minValiditySeconds: Long): TokenResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        requireAuthenticatedApp(channel)
+        val channel = requireAuthenticatedApp(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef))
         val pair = try {
-            tokenProvider.tokenFor(channel, minValiditySeconds)
+            tokenProvider.tokenFor(channel.session, minValiditySeconds)
         } catch (e: SessionExpiredException) {
             journeyService.endSession(channel, ChannelState.EXPIRED)
             throw OrchestratorException.processGone(Text("Die Anmeldung ist abgelaufen. Bitte melden Sie sich neu an."), e.message)
@@ -183,8 +183,7 @@ class ChannelService(
 
     /** The fachliche (business) ID-token claims - a separate resource from the AccessToken's own claims. */
     fun getIdClaims(channelSessionId: UUID, bindingKeyRef: String): Map<String, Any?> {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        requireAuthenticatedApp(channel)
+        val channel = requireAuthenticatedApp(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)).session
         return tokenService.idClaims(channel.authContextId!!)
     }
 
@@ -193,7 +192,7 @@ class ChannelService(
      * first: a `KEYCLOAK` channel never has an [ChannelSession.authContextId], so it must be refused
      * as the wrong kind of channel (409), not trip over the missing context (500).
      */
-    private fun requireAuthenticatedApp(channel: ChannelSession) {
+    private fun requireAuthenticatedApp(channel: ChannelSession): LiveChannel {
         if (channel.channel != ChannelType.APP) {
             throw OrchestratorException.invalidState(Text("Token retrieval is only supported for APP channels"))
         }
@@ -201,6 +200,7 @@ class ChannelService(
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED for token/claims access"))
         }
         checkNotNull(channel.authContextId) { "AUTHENTICATED channel without authContextId" }
+        return LiveChannel.require(channel)
     }
 
     /**
@@ -236,9 +236,9 @@ class ChannelService(
      * (`KcChannelService`'s RestoreData case) needs one.
      */
     internal fun resumeChannel(channel: ChannelSession, seedAction: Action? = null): ChannelResponse {
-        // LOGGED_OUT is terminal (docs/02-domaenenmodell.md #3) - without this, a GET on an old
-        // channelSessionId would silently hand back a fresh login attempt on a dead channel.
-        if (channel.state == ChannelState.LOGGED_OUT) return respond(channel)
+        // An ended channel (docs/02-domaenenmodell.md #3) is only shown, never resumed - otherwise a
+        // GET on an old channelSessionId would hand back a fresh login attempt on a dead channel.
+        val live = LiveChannel.of(channel) ?: return respond(channel)
 
         val channelId = channel.channelSessionId!!
         journeyService.findActive(channelId)?.let {
@@ -247,25 +247,32 @@ class ChannelService(
         }
         if (channel.state == ChannelState.AUTHENTICATED) return respond(channel)
 
-        return startEntryJourney(channel, seedAction)
+        return startEntryJourney(live, seedAction)
     }
 
-    private fun startEntryJourney(channel: ChannelSession, seedAction: Action? = null): ChannelResponse {
+    private fun startEntryJourney(channel: LiveChannel, seedAction: Action? = null): ChannelResponse {
         val step = journeyService.startEntryJourney(channel, seedAction)
-        return respond(sessionManagementService.findChannelSessionById(channel.channelSessionId!!)!!, step.next, step.stepData)
+        return respond(sessionManagementService.findChannelSessionById(channel.session.channelSessionId!!)!!, step.next, step.stepData)
     }
 
     fun raiseRequiredAcr(channelSessionId: UUID, bindingKeyRef: String, requiredAcr: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
         sessionManagementService.raiseChannelAcrFloor(channelSessionId, requiredAcr)
-        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
+        val refreshed = live.session
+
+        // Not logged in yet: there is nothing to step up FROM. The raised floor simply applies to the
+        // login or registration already running - every strategy reads it afresh on each
+        // transition. A STEP_UP here used to crash without an account, and with a device-linked
+        // account its cancel landed on AUTHENTICATED without any proof (both found by the
+        // model-based test once it learned the step-up; the second one the database refused, I-4).
+        if (refreshed.state?.isLoggedIn != true) return resumeChannel(refreshed)
 
         val floor = refreshed.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
         val account = refreshed.accountId?.let { accountService.findAccount(it) }
         if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return respond(refreshed)
 
         val step = journeyService.startTowardAcr(
-            refreshed,
+            live,
             targetAcr = floor,
             startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account)
         )
@@ -274,14 +281,13 @@ class ChannelService(
 
     /** Abandons the running journey and offers a fresh start where applicable. */
     fun cancelActiveJourney(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val channel = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState(Text("No active journey to cancel for this channel"))
 
         journeyService.cancel(active, channel)
 
-        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
-        return if (refreshed.state == ChannelState.AUTHENTICATED) respond(refreshed) else startEntryJourney(refreshed)
+        return if (channel.session.state == ChannelState.AUTHENTICATED) respond(channel.session) else startEntryJourney(channel)
     }
 
     /**
@@ -294,16 +300,15 @@ class ChannelService(
      * The actual logout happens when the user confirms via POST .../answer.
      */
     fun startLogout(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
-        if (channel.state != ChannelState.AUTHENTICATED) {
+        val channel = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
+        if (channel.session.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to start a logout journey"))
         }
         val activeJourney = journeyService.findActive(channelSessionId)
         if (activeJourney != null) {
             journeyService.cancel(activeJourney, channel)
         }
-        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
-        val step = journeyService.start(refreshed, AuthIntent.LOGOUT)
+        val step = journeyService.start(channel, AuthIntent.LOGOUT)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
@@ -312,16 +317,15 @@ class ChannelService(
      * immediately. For non-interactive clients or as a hard logout.
      */
     fun logout(channelSessionId: UUID, bindingKeyRef: String) {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        // Ending an ended channel is nothing to do - it stays in whatever final state it reached.
+        val channel = LiveChannel.of(channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)) ?: return
         val activeJourney = journeyService.findActive(channelSessionId)
         if (activeJourney != null) {
             journeyService.cancel(activeJourney, channel)
         } else {
-            journeyLogService.recordForChannel(channel.forLog(), "LOGGED_OUT")
+            journeyLogService.recordForChannel(channel.session.forLog(), "LOGGED_OUT")
         }
-
-        val refreshed = sessionManagementService.findChannelSessionById(channelSessionId)!!
-        journeyService.endSession(refreshed, ChannelState.LOGGED_OUT)
+        journeyService.endSession(channel, ChannelState.LOGGED_OUT)
     }
 
     /**
@@ -370,13 +374,14 @@ class ChannelService(
     }
 
     private fun startManage(channelSessionId: UUID, bindingKeyRef: String, wish: ManageAuthMethodsState): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
+        val channel = live.session
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to manage methods"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
-        val step = journeyService.start(channel, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
+        val step = journeyService.start(live, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
@@ -388,14 +393,15 @@ class ChannelService(
      * [ConfirmPeerLoginState.Requested].
      */
     fun startPeerLogin(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
+        val channel = live.session
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to confirm a peer login"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(
-            channel, AuthIntent.CONFIRM_PEER_LOGIN,
+            live, AuthIntent.CONFIRM_PEER_LOGIN,
             seed = ConfirmPeerLoginState.Requested(startedAuthenticated = true)
         )
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
@@ -407,19 +413,20 @@ class ChannelService(
      * Account löschen). Resource-oriented like [startManageMethods]'s `enrollments`/step-ups.
      */
     fun startDeleteAccount(channelSessionId: UUID, bindingKeyRef: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
+        val channel = live.session
         if (channel.state != ChannelState.AUTHENTICATED) {
             throw OrchestratorException.invalidState(Text("Channel must be AUTHENTICATED to delete the account"))
         }
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
-        val step = journeyService.start(channel, AuthIntent.DELETE_ACCOUNT)
+        val step = journeyService.start(live, AuthIntent.DELETE_ACCOUNT)
         return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /** The user's answer to whatever the current step is waiting on instead of a tool run. */
     fun answer(channelSessionId: UUID, bindingKeyRef: String, answer: String): ChannelResponse {
-        val channel = channelAccessGuard.requireChannel(channelSessionId, bindingKeyRef)
+        val channel = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val step = journeyService.answer(active, channel, answer)

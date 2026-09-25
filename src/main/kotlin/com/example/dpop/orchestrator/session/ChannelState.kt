@@ -16,4 +16,13 @@ enum class ChannelState {
      */
     val isTerminal: Boolean
         get() = this == LOGGED_OUT || this == EXPIRED
+
+    /**
+     * The channel has a login: it reached AUTHENTICATED, and a step-up only runs on top of one
+     * (`JourneyService.start` sets STEP_UP_IN_PROGRESS on an authenticated channel only). This is
+     * what a cancelled journey returns to - one rule for every intent, instead of each strategy
+     * assuming where it runs (docs/04-orchestrierung.md, "Abbruch").
+     */
+    val isLoggedIn: Boolean
+        get() = this == AUTHENTICATED || this == STEP_UP_IN_PROGRESS
 }
