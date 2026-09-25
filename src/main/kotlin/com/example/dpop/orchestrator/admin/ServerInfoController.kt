@@ -1,10 +1,12 @@
 package com.example.dpop.orchestrator.admin
 
+import com.example.dpop.orchestrator.kc.LoginTheme
 import com.example.dpop.orchestrator.kernel.FeatureFlags
 import com.example.dpop.orchestrator.session.FeatureFlagService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.core.env.Environment
 import org.springframework.core.env.Profiles
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,7 +27,9 @@ data class KeycloakInfo(
     val baseUrl: String,
     val realm: String,
     val browserClientId: String,
-    val qrTestClientId: String
+    val qrTestClientId: String,
+    /** Which login theme the realm shows right now (admin page, "Anmeldeseiten"). */
+    val loginTheme: LoginTheme
 )
 
 data class ServerInfo(
@@ -52,6 +56,7 @@ class ServerInfoController(
     private val environment: Environment,
     private val featureFlagService: FeatureFlagService,
     private val toolAvailabilityService: ToolAvailabilityService,
+    private val loginThemeSwitch: ObjectProvider<LoginThemeSwitch>,
 ) {
 
     @GetMapping
@@ -69,6 +74,7 @@ class ServerInfoController(
         baseUrl = environment.getRequiredProperty("keycloak-sync.public-base-url"),
         realm = environment.getRequiredProperty("keycloak-sync.realm"),
         browserClientId = environment.getRequiredProperty("keycloak-web.browser-client-id"),
-        qrTestClientId = environment.getRequiredProperty("keycloak-web.qr-test-client-id")
+        qrTestClientId = environment.getRequiredProperty("keycloak-web.qr-test-client-id"),
+        loginTheme = loginThemeSwitch.getObject().current()
     )
 }

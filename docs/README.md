@@ -139,7 +139,10 @@ in [07-betrieb.md](07-betrieb.md).
    Step-up und der Anbindung an Keycloaks eigene Credentials von Server zu Server. Der Abgleich der
    Konten (`KeycloakSyncController`) ist ein Betriebsendpunkt unter
    `/orchestrator/admin/keycloak/sync` ([05-api.md](05-api.md) Abschnitt 3,
-   [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9).
+   [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Ob Keycloak die Anmeldeseiten mit
+   FreeMarker oder mit Keycloakify zeigt, schaltet der Betriebsendpunkt
+   `/orchestrator/admin/login-theme` zur Laufzeit um
+   ([ideen/keycloakify-statt-freemarker.md](ideen/keycloakify-statt-freemarker.md)).
 5. **`AuthPolicy`** ✅: zentrale Prüfung anhand von `currentAcr` und `currentAmr`, samt der
    Schleife über mehrere Faktoren. Welche `amr`-Kombination welchen `acr`-Wert ergibt, ist bewusst
    nur vorläufig festgelegt; eine fachlich oder regulatorisch verbindliche Festlegung gehört nicht

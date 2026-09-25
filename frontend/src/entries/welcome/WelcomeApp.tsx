@@ -367,6 +367,12 @@ function ServerStatus() {
             </a>
           </li>
         )}
+        {info.keycloak && (
+          <li>
+            <span className="label">{t('Anmeldeseiten')}</span>
+            <span className="value">{info.keycloak.loginTheme === 'KEYCLOAKIFY' ? 'Keycloakify (React)' : 'FreeMarker'}</span>
+          </li>
+        )}
         <li>
           <span className="label">{t('Registrierungsreihenfolge')}</span>
           <span className="value">{info.registrationEnrollFirst ? t('Enrollment zuerst') : t('Identifikation zuerst')}</span>

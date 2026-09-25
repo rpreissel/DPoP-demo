@@ -280,6 +280,11 @@ components:
           type: string
         browserClientId:
           type: string
+        loginTheme:
+          enum:
+          - FREEMARKER
+          - KEYCLOAKIFY
+          type: string
         qrTestClientId:
           type: string
         realm:
@@ -287,6 +292,7 @@ components:
       required:
       - baseUrl
       - browserClientId
+      - loginTheme
       - qrTestClientId
       - realm
       type: object
@@ -506,9 +512,9 @@ paths:
       - 'Admin: accounts'
   /orchestrator/admin/demo-reset:
     post:
-      description: Deletes every account, restores the preset tool order and locks per channel and the ident-first registration
-        order, then creates the demo accounts again (keycloak profile). The person register (/mock-personenverzeichnis) is
-        a foreign system and stays as it is.
+      description: Deletes every account, restores the preset tool order and locks per channel, the ident-first registration
+        order and the FreeMarker login theme, then creates the demo accounts again (keycloak profile). The person register
+        (/mock-personenverzeichnis) is a foreign system and stays as it is.
       operationId: reset
       responses:
         '200':

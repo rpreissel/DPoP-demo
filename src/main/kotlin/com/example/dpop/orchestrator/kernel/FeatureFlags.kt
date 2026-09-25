@@ -11,6 +11,12 @@ package com.example.dpop.orchestrator.kernel
 object FeatureFlags {
     /** REGISTER's "Enrollment zuerst" experiment (`FeatureFlagService`, docs/04-orchestrierung.md). */
     const val REGISTER_ENROLL_FIRST = "register-enroll-first"
+
+    /**
+     * Keycloak shows the Keycloakify login theme instead of the FreeMarker one (`LoginThemeSwitch`,
+     * docs/ideen/keycloakify-statt-freemarker.md). No strategy reads it; it only lives in the same store.
+     */
+    const val KEYCLOAK_LOGIN_KEYCLOAKIFY = "keycloak-login-keycloakify"
 }
 
 /**

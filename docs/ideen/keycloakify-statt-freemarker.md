@@ -1,6 +1,7 @@
 # Idee: Keycloakify neben FreeMarker für Anmeldung, Registrierung und Verwaltung der Verfahren
 
-Status: **Konzept, nicht umgesetzt** (Issue `DPoP-demo-an4z`). Die Verwaltung der Anmeldeverfahren im
+Status: **teilweise umgesetzt** (Issue `DPoP-demo-an4z`): gemeinsames Aussehen, Keycloakify-Theme mit
+den ersten Seiten, Build und Laufzeit-Schalter stehen; es fehlen die übrigen Seiten und die Ende-zu-Ende-Tests. Die Verwaltung der Anmeldeverfahren im
 Web-Kanal läuft bereits als Required Action von Keycloak mit FreeMarker (`orchestrator-manage-methods.ftl`,
 [API](../05-api.md), „Anmeldeverfahren verwalten im Web-Kanal“). Keycloakify würde nur deren Darstellung
 ersetzen, wie die aller anderen Seiten.
@@ -206,19 +207,19 @@ Für die Verwaltung der Verfahren selbst (den Mechanismus im Orchestrator beschr
   - neue Vertrauensgrenze: ja, eine neue Serverkomponente mit eigenem Betrieb und eigener Sicherheit,
     nur für die Selbstverwaltung
 
-## 10) Nächste Schritte (falls es umgesetzt wird)
+## 10) Schritte
 
-1. **FreeMarker im neuen Aussehen:** `tokens.css` anlegen, `orchestrator.css` darauf umstellen. Geht
+1. **FreeMarker im neuen Aussehen (erledigt):** `tokens.css` anlegen, `orchestrator.css` darauf umstellen. Geht
    sofort und unabhängig von allem anderen.
 2. **Erster Versuch mit Keycloakify (erledigt):** `keycloak-theme/` mit `orchestrator-select` und
    `orchestrator-tool` als React-Seiten; alle anderen Seiten kommen vom FreeMarker-Eltern-Theme.
    Gegen Keycloak geprüft: Auswahl (React), Passwortseite (FreeMarker), Fehlermeldung von `KcTexts`.
-3. **Schalter im Orchestrator:** `KeycloakLoginTheme` über den Migrations-Client, Endpunkt,
-   Abgleich beim Start, Admin-Seite, `ServerInfo`, Demo-Reset. Voreinstellung FreeMarker.
+3. **Schalter im Orchestrator (erledigt):** `KeycloakLoginTheme` über den Migrations-Client,
+   Endpunkt, Abgleich beim Start, Admin-Seite, `ServerInfo`, Demo-Reset. Voreinstellung FreeMarker.
 4. **Restliche allgemeine Seiten:** `orchestrator-confirm` und `orchestrator-error`. Jede `pageId`
    ohne React-Komponente zeigt weiter die FreeMarker-Vorlage.
 5. **Tool für Tool** eigene Seiten, zuletzt `orchestrator-manage-methods`.
-6. **Build:** Gradle-Tasks, `stageKeycloakArtifact`, `Dockerfile` (Abschnitt 8).
+6. **Build (erledigt):** Gradle-Tasks, `stageKeycloakArtifact`, `Dockerfile` (Abschnitt 8).
 7. **Ende-zu-Ende-Tests** mit Playwright gegen ein echtes Keycloak (Podman Compose): dieselben
    Abläufe mit beiden Themes, dazu Umschalten zur Laufzeit ohne Neustart und der Abgleich nach einem
    Neustart.

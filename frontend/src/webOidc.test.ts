@@ -6,6 +6,7 @@ const { completeLoginIfRedirected } = createWebOidc({
   realm: 'Demo',
   browserClientId: 'dpop-demo-web',
   qrTestClientId: 'dpop-demo-web-qr-test',
+  loginTheme: 'FREEMARKER',
 })
 
 describe('completeLoginIfRedirected', () => {
@@ -49,6 +50,7 @@ describe('createWebOidc', () => {
       realm: 'Andere',
       browserClientId: 'web-client',
       qrTestClientId: 'qr-client',
+      loginTheme: 'FREEMARKER',
     })
 
     const tokens = await oidc.refreshTokens('r0')

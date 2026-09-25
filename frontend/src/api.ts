@@ -327,6 +327,19 @@ export function setRegistrationOrder(enrollFirst: boolean): Promise<void> {
   return callPlain('PUT', '/orchestrator/admin/registration-order', { enrollFirst })
 }
 
+/** Which login theme Keycloak shows (docs/ideen/keycloakify-statt-freemarker.md). */
+export type LoginTheme = 'FREEMARKER' | 'KEYCLOAKIFY'
+
+/** Only under the server's `keycloak` profile - 404s otherwise, like syncKeycloak. */
+export function fetchLoginTheme(): Promise<{ theme: LoginTheme }> {
+  return callPlain('GET', `${ADMIN_PATH}/login-theme`)
+}
+
+/** Realm-wide, from the next page Keycloak renders. */
+export function setLoginTheme(theme: LoginTheme): Promise<void> {
+  return callPlain('PUT', `${ADMIN_PATH}/login-theme`, { theme })
+}
+
 export interface KeycloakSyncResult {
   upserted: number
   deletedOrphans: number
@@ -378,6 +391,7 @@ export interface KeycloakInfo {
   realm: string
   browserClientId: string
   qrTestClientId: string
+  loginTheme: LoginTheme
 }
 
 export interface ServerInfo {

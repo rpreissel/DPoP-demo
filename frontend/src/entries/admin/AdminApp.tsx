@@ -10,6 +10,7 @@ import {
   type AdminAccount,
 } from '../../api'
 import { adminAuthHeader, clearAdminCredentials, onAdminLoggedOut, setAdminCredentials } from '../../adminAuth'
+import { AdminLoginThemeView } from '../../components/AdminLoginThemeView'
 import { AdminRegistrationOrderView } from '../../components/AdminRegistrationOrderView'
 import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
 import { ChannelNav, type NavTab } from '../../components/ChannelNav'
@@ -68,6 +69,7 @@ export function AdminApp() {
           <>
             <AdminToolAvailabilityView />
             <AdminRegistrationOrderView />
+            <AdminLoginThemeView />
             <KeycloakSyncView />
             <DeveloperToolsCard />
           </>

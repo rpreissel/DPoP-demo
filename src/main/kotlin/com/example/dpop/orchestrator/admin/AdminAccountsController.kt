@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.admin
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.orchestrator.kc.LoginTheme
 import com.example.dpop.orchestrator.kernel.FeatureFlags
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.FeatureFlagService
@@ -49,6 +50,7 @@ class AdminAccountsController(
     private val toolAvailabilityService: ToolAvailabilityService,
     private val featureFlagService: FeatureFlagService,
     private val demoAccountSeed: ObjectProvider<DemoAccountSeed>,
+    private val loginThemeSwitch: ObjectProvider<LoginThemeSwitch>,
 ) {
 
     @GetMapping("accounts")
@@ -75,7 +77,7 @@ class AdminAccountsController(
     @PostMapping("demo-reset")
     @Operation(
         summary = "Put the demo back to its start",
-        description = "Deletes every account, restores the preset tool order and locks per channel and the ident-first registration order, then creates the demo accounts again (keycloak profile). " +
+        description = "Deletes every account, restores the preset tool order and locks per channel, the ident-first registration order and the FreeMarker login theme, then creates the demo accounts again (keycloak profile). " +
             "The person register (/mock-personenverzeichnis) is a foreign system and stays as it is."
     )
     fun reset(): DemoResetResult {
@@ -83,6 +85,7 @@ class AdminAccountsController(
         accountIds.forEach { accountDeletionService.deleteAccount(it) }
         toolAvailabilityService.applyDefaults()
         featureFlagService.setEnabled(FeatureFlags.REGISTER_ENROLL_FIRST, false)
+        loginThemeSwitch.ifAvailable?.switchTo(LoginTheme.FREEMARKER)
         // Back to the start means the demo accounts too, not an empty system until the next boot.
         val seeded = demoAccountSeed.ifAvailable?.seed() ?: 0
         return DemoResetResult(deletedAccounts = accountIds.size, seededAccounts = seeded)
