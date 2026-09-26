@@ -43,11 +43,11 @@ gehörte. Soll ein Modul später ein eigener Dienst werden, ist klar, wo die Gre
   führt.
 
 **Rückblick**: Das Schema wurde dreimal neu aufgesetzt. Zuerst ersetzte ein Neubau die Migrationen
-des ursprünglichen Codes ([ADR-4](ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md)). Dann
+des ursprünglichen Codes ([ADR-4](../archiv/adr/ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md)). Dann
 fasste eine zweite Ausgangsbasis 37 Migrationen zusammen und bereinigte das Kontomodell
 ([ADR-14](ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md)). Zuletzt wurde die
 gemeinsame Datei in einen Ordner je Modul aufgeteilt (früher eigene Entscheidung,
-[ADR-30](ADR-030-eine-migration-je-modul.md)). Weil sich dabei die Prüfsummen bereits angewendeter
+[ADR-30](../archiv/adr/ADR-030-eine-migration-je-modul.md)). Weil sich dabei die Prüfsummen bereits angewendeter
 Migrationen ändern, muss jede Datenbank mit altem Stand neu angelegt werden. Lokal übernimmt das
 `FlywayResetConfig`, das eine nicht mehr passende H2-Datei löscht und neu aufbaut; die Testdaten kommen
 aus `demo_seed/V16__testdata.sql`. Mit Produktivdaten wäre keiner dieser Schritte vertretbar.

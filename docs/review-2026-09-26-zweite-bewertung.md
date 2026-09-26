@@ -284,7 +284,10 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
     (824 → 584 Zeilen), `EvidenceTrail` statt zweitem `AuthEvidence`, `ToolState` und
     `resolveAccountByInsuranceNumber` entfernt, `PersonChanged.insuranceNumber`. `journey.accountId`
     bleibt als nur geschriebener Nachweis.
-17. A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a.
+17. ~~A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a~~ – entschieden 2026-09-26: Nur die
+    Stubs ADR-4/13/23/30 liegen jetzt in `docs/archiv/adr/`; **keine Zusammenlegungen** (ADRs sind
+    Entscheidungsprotokolle und behalten ihre Geschichte). A-7 Stufe a (Katalog per Quelltext statt
+    ASM) **zurückgestellt**.
 
 **Phase L – Tests**
 

@@ -17,7 +17,7 @@ als Diff mitten im Fließtext.
 | [ADR-1](adr/ADR-001-ein-controller-je-tool-kein-generischer-dispatcher.md) | Ein Controller je Tool, kein generischer Dispatcher |
 | [ADR-2](adr/ADR-002-zustand-statt-vererbung-bei-authjourney.md) | Zustand statt Vererbung bei `AuthJourney` |
 | [ADR-3](adr/ADR-003-channelsession-bewusst-kurzlebig-geraete-identitaet-in-deviceaccountlink.md) | `ChannelSession` bewusst kurzlebig, Geräte-Identität in `DeviceAccountLink` |
-| [ADR-4](adr/ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md) | Neue Flyway-Ausgangsbasis statt Migration des Altcodes *(abgelöst durch ADR-14 und ADR-16)* |
+| [ADR-4](archiv/adr/ADR-004-flyway-neubaseline-statt-migration-des-altcodes.md) | Neue Flyway-Ausgangsbasis statt Migration des Altcodes *(abgelöst durch ADR-14 und ADR-16)* |
 | [ADR-5](adr/ADR-005-drei-obergrenzen-fuer-das-sicherheitsniveau.md) | Zwei Obergrenzen für das Sicherheitsniveau |
 | [ADR-6](adr/ADR-006-next-als-reine-adresse-feste-routing-tabelle-statt.md) | `next` als reine Adresse, feste Routing-Tabelle statt HATEOAS |
 | [ADR-7](adr/ADR-007-web-kanal-ohne-mtls-signierte-request-assertion-statt.md) | Web-Kanal ohne mTLS, signierte Request-Assertion statt Client-Zertifikat |
@@ -26,7 +26,7 @@ als Diff mitten im Fließtext.
 | [ADR-10](adr/ADR-010-interessent-ist-konto-zustand-kein-eigener-authintent.md) | Interessent ist Konto-Zustand, kein eigener AuthIntent |
 | [ADR-11](adr/ADR-011-kontouebergreifender-person-id-konflikt-ist-abweisung-merge-nie.md) | Ein Anker, der schon einem anderen Konto gehört, wird abgewiesen; Konten werden nie automatisch zusammengeführt |
 | [ADR-12](adr/ADR-012-ein-widerruf-ist-eine-eigene-zeile-mit-eigenem.md) | Ein Widerruf ist eine eigene Zeile mit eigenem Vertrauensanker |
-| [ADR-13](adr/ADR-013-account-domaenentypen-ueber-eigene-attributeconverter-nicht-enumerated.md) | Account-Domänentypen über eigene `AttributeConverter`, nicht `@Enumerated` *(aufgegangen in `db/migration/KONVENTIONEN.md`)* |
+| [ADR-13](archiv/adr/ADR-013-account-domaenentypen-ueber-eigene-attributeconverter-nicht-enumerated.md) | Account-Domänentypen über eigene `AttributeConverter`, nicht `@Enumerated` *(aufgegangen in `db/migration/KONVENTIONEN.md`)* |
 | [ADR-14](adr/ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md) | Das Konto als gemeinsame Sperre, jeder Fakt an genau einer Stelle |
 | [ADR-15](adr/ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md) | Nachweise und ausgestellte Tokens in getrennten Tabellen |
 | [ADR-16](adr/ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md) | Ein Schema und ein Migrationsordner je Modul |
@@ -36,14 +36,14 @@ als Diff mitten im Fließtext.
 | [ADR-20](adr/ADR-020-ein-vorlaeufiges-konto-geht-im-gefundenen-auf-statt.md) | Ein vorläufiges Konto geht im gefundenen auf, statt den Lauf abzuweisen |
 | [ADR-21](adr/ADR-021-der-kobil-pin-liegt-im-backend-und-das.md) | KOBIL-Anbindung — PIN im Backend, Nachweis über eine Einmalkennung |
 | [ADR-22](adr/ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md) | Demo-Geheimnisse liegen im Klartext — benannt statt verschwiegen |
-| [ADR-23](adr/ADR-023-der-client-traegt-eine-einmalkennung-nicht-die-assertion.md) | Der Client trägt eine Einmalkennung, nicht die Assertion *(aufgegangen in ADR-21)* |
+| [ADR-23](archiv/adr/ADR-023-der-client-traegt-eine-einmalkennung-nicht-die-assertion.md) | Der Client trägt eine Einmalkennung, nicht die Assertion *(aufgegangen in ADR-21)* |
 | [ADR-24](adr/ADR-024-eine-methode-haengt-von-einer-anderen-ab-indem.md) | Eine Methode hängt von einer anderen ab, indem sie deren Angabe verlangt |
 | [ADR-25](adr/ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md) | Die Keycloak-Konfiguration steht im Realm, nicht in der Container-Umgebung |
 | [ADR-26](adr/ADR-026-api-vertrag-wird-generiert.md) | Der API-Vertrag wird generiert, nicht dreimal von Hand gepflegt |
 | [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md) | Gemeinsame Typen liegen im Paket `orchestrator.kernel` |
 | [ADR-28](adr/ADR-028-demo-werte-abschaltbar.md) | Demo-Werte lassen sich abschalten |
 | [ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md) | Die Event Publication Registry von Spring Modulith statt einer eigenen Outbox-Tabelle |
-| [ADR-30](adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul *(aufgegangen in ADR-16)* |
+| [ADR-30](archiv/adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul *(aufgegangen in ADR-16)* |
 | [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es über einen Port |
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |

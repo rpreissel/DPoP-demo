@@ -74,5 +74,5 @@ Format würde sich als das echte ausgeben.
 ## Geschichte
 
 Die zweite Entscheidung stand ursprünglich als eigene
-[ADR-23](ADR-023-der-client-traegt-eine-einmalkennung-nicht-die-assertion.md). Beide beschreiben
+[ADR-23](../archiv/adr/ADR-023-der-client-traegt-eine-einmalkennung-nicht-die-assertion.md). Beide beschreiben
 dieselbe Anbindung und sind deshalb hier zusammengeführt.
