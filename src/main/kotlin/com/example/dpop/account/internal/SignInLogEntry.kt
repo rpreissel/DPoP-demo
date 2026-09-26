@@ -10,6 +10,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -75,7 +76,11 @@ class SignInLogEntry(
 interface SignInLogRepository : JpaRepository<SignInLogEntry, Long> {
     fun findByAccountIdOrderByOccurredAt(accountId: Long): List<SignInLogEntry>
 
+    /** One retention batch, oldest first (`SignInLogRetention`). */
+    @Query("select e.id from SignInLogEntry e where e.occurredAt < :cutoff order by e.occurredAt")
+    fun idsOlderThan(cutoff: Instant, pageable: Pageable): List<Long>
+
     @Modifying
-    @Query("delete from SignInLogEntry e where e.occurredAt < :cutoff")
-    fun deleteOlderThan(cutoff: Instant): Int
+    @Query("delete from SignInLogEntry e where e.id in :ids")
+    fun deleteByIdIn(ids: Collection<Long>): Int
 }

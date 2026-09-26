@@ -5,11 +5,13 @@ import com.example.dpop.account.internal.SignInType
 import com.example.dpop.account.internal.SignInLogEntry
 import com.example.dpop.account.internal.SignInLogRepository
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -85,19 +87,38 @@ class SignInLog(
     }
 }
 
-/** Deletes sign-in log lines older than `account.sign-in-log.retention-months` (6 by default) - daily. */
+/**
+ * Deletes sign-in log lines older than `account.sign-in-log.retention-months` (6 by default) - daily.
+ *
+ * In batches, each in its own transaction (review 2026-09-26, B-7): one sign-in line per login makes
+ * this a table of many millions, and a single delete over a month of them would hold one
+ * transaction - and its locks and undo - for all of it.
+ */
 @Component
 class SignInLogRetention(
     private val repository: SignInLogRepository,
+    private val transactions: TransactionTemplate,
     @Value("\${account.sign-in-log.retention-months:6}") private val retentionMonths: Long,
 ) {
     @Scheduled(fixedDelay = 86_400_000, initialDelay = 300_000)
-    @Transactional
     fun sweep() {
         purge(Instant.now())
     }
 
-    @Transactional
-    fun purge(now: Instant): Int =
-        repository.deleteOlderThan(now.atZone(ZoneOffset.UTC).minusMonths(retentionMonths).toInstant())
+    fun purge(now: Instant): Int {
+        val cutoff = now.atZone(ZoneOffset.UTC).minusMonths(retentionMonths).toInstant()
+        var total = 0
+        while (true) {
+            val deleted = transactions.execute {
+                val ids = repository.idsOlderThan(cutoff, Pageable.ofSize(BATCH))
+                if (ids.isEmpty()) 0 else repository.deleteByIdIn(ids)
+            } ?: 0
+            if (deleted == 0) return total
+            total += deleted
+        }
+    }
+
+    private companion object {
+        const val BATCH = 500
+    }
 }

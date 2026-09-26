@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 
 /** Why a method stopped being active. */
@@ -108,28 +109,31 @@ class ChangeLog(private val repository: ChangeLogRepository) {
 
 /**
  * Deletes the change log of accounts deleted longer than `account.change-log.retention-years` ago
- * (ADR-39; default 10 years, to be confirmed by data protection). In batches - with millions of
- * accounts, a year's deletions can be many rows.
+ * (ADR-39; default 10 years, to be confirmed by data protection). In batches, each in its own
+ * transaction - with millions of accounts, a year's deletions can be many rows (like
+ * `SignInLogRetention`, review 2026-09-26, B-7).
  */
 @Component
 class ChangeLogRetention(
     private val repository: ChangeLogRepository,
+    private val transactions: TransactionTemplate,
     @Value("\${account.change-log.retention-years:10}") private val retentionYears: Long,
 ) {
     @Scheduled(fixedDelay = 86_400_000, initialDelay = 300_000)
-    @Transactional
     fun sweep() {
         purge(Instant.now())
     }
 
-    @Transactional
     fun purge(now: Instant): Int {
         val cutoff = now.atZone(java.time.ZoneOffset.UTC).minusYears(retentionYears).toInstant()
         var total = 0
         while (true) {
-            val accounts = repository.accountsDeletedBefore(cutoff, Pageable.ofSize(BATCH))
-            if (accounts.isEmpty()) return total
-            total += repository.deleteByAccountIdIn(accounts)
+            val deleted = transactions.execute {
+                val accounts = repository.accountsDeletedBefore(cutoff, Pageable.ofSize(BATCH))
+                if (accounts.isEmpty()) 0 else repository.deleteByAccountIdIn(accounts)
+            } ?: 0
+            if (deleted == 0) return total
+            total += deleted
         }
     }
 

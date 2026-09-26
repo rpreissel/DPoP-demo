@@ -92,14 +92,14 @@ class OrchestratorExceptionHandler {
         return respond(ErrorCode.INVALID_STATE_TRANSITION, e.text)
     }
 
-    // MVC also matches nested causes: this covers repository flushes AND transaction-commit errors.
+    // Nested in a flush or commit exception it is found by handleUnexpected.
     @ExceptionHandler(ConstraintViolationException::class)
     fun handleConstraintViolation(e: ConstraintViolationException): ResponseEntity<ErrorResponse> {
         // H2 reports schema-qualified names, optionally followed by " ON ..." (unique index) or
         // " INDEX <backing index> ON ..." (named unique constraint); never inspect values.
         val constraint = e.constraintName?.substringBefore(" ON ")?.substringBefore(" INDEX ")
             ?.substringAfterLast('.')?.trim('"')?.lowercase(Locale.ROOT)
-        if (e.sqlState != "23505" || constraint !in ACCOUNT_BINDING_CONSTRAINTS) throw e
+        if (e.sqlState != "23505" || constraint !in ACCOUNT_BINDING_CONSTRAINTS) return internalError(e)
         log.warn("Concurrent account binding rejected by {}", constraint)
         return respond(ErrorCode.INVALID_STATE_TRANSITION, Text("Diese Identität gehört bereits zu einem anderen Konto."))
     }
@@ -123,6 +123,36 @@ class OrchestratorExceptionHandler {
         // identical from outside, and only the contended entity tells them apart.
         log.warn("Optimistic lock conflict on {} id={}", e.persistentClassName, e.identifier, e)
         return respond(ErrorCode.CONCURRENT_MODIFICATION, Text("Gleichzeitige Anfrage in derselben Sitzung - bitte erneut versuchen."))
+    }
+
+    /**
+     * Everything no handler above names - a database that is down, a failed transaction, a bug -
+     * gets the same contract as a broken internal assumption: 500 INTERNAL_ERROR, a fixed text,
+     * details in the log only (review 2026-09-26, B-4). Without it such a failure left with Spring
+     * Boot's default body, not the `ErrorResponse` docs/07-betrieb.md #1 promises for every answer.
+     *
+     * Spring's own web exceptions (404 no such path, 405, 415, a missing parameter) carry their
+     * status themselves ([org.springframework.web.ErrorResponse]); they are the framework's to
+     * answer and are passed on unchanged.
+     *
+     * Spring matches the outermost exception first and only looks at causes when nothing matches;
+     * with this handler something always does. A wrapped exception that has a rule of its own - a
+     * binding conflict inside the flush's or commit's `DataIntegrityViolationException` - is
+     * therefore looked for here.
+     */
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpected(e: Exception): ResponseEntity<ErrorResponse> {
+        if (e is org.springframework.web.ErrorResponse) throw e
+        return when (val known = generateSequence(e.cause) { it.cause }.firstOrNull { it is ConstraintViolationException || it is ObjectOptimisticLockingFailureException }) {
+            is ConstraintViolationException -> handleConstraintViolation(known)
+            is ObjectOptimisticLockingFailureException -> handleConcurrentModification(known)
+            else -> internalError(e)
+        }
+    }
+
+    private fun internalError(e: Exception): ResponseEntity<ErrorResponse> {
+        log.error("Unexpected error", e)
+        return respond(ErrorCode.INTERNAL_ERROR, Text("Ein interner Fehler ist aufgetreten."))
     }
 
     private fun respond(code: ErrorCode, text: Text): ResponseEntity<ErrorResponse> =

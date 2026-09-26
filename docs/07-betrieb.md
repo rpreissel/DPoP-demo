@@ -29,8 +29,12 @@ Die üblichen Fehlerantworten (heutiger Stand und Ziel):
 - `429 Too Many Requests`: Eine Mengenbegrenzung ist erreicht; das Konto ist dabei nicht gesperrt
   (`OrchestratorException.tooManyRequests()`, Abschnitt 4: `ChannelCreationThrottleService`,
   gezählt je `bindingKeyRef`).
-- `500 Internal Server Error`: Eine interne Annahme ist verletzt (`INTERNAL_ERROR`). Die Antwort
-  enthält eine feste Text-Referenz; die Einzelheiten stehen nur im Log.
+- `500 Internal Server Error`: Eine interne Annahme ist verletzt oder etwas ist unerwartet
+  fehlgeschlagen, z. B. die Datenbank nicht erreichbar (`INTERNAL_ERROR`). Die Antwort enthält eine
+  feste Text-Referenz; die Einzelheiten stehen nur im Log. Jede Exception, für die es keine eigene
+  Regel gibt, landet hier (`OrchestratorExceptionHandler.handleUnexpected`). Ausgenommen sind nur
+  Springs eigene Web-Fehler (unbekannter Pfad `404`, falsche Methode `405`, falscher Inhaltstyp
+  `415`), die ihren Status selbst mitbringen.
 
 **Form und Quelle.** Jede Fehlerantwort hat die Form `ErrorResponse`
 (`{"error": "<CODE>", "text": {"key": …, "args": …}}`; der Text ist eine Referenz wie in
@@ -143,7 +147,7 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
 - **`account.sign_in_log`**
   - *Frist beginnt mit:* dem Ereignis
   - *Richtwert:* 6 Monate (`account.sign-in-log.retention-months`)
-  - *Grund:* wer sich wann womit angemeldet hat, Fehlversuche, Sperren und Logouts – für die Aufklärung einer Kontoübernahme; Verhaltensdaten, deshalb kurz und mit dem Konto gelöscht (ADR-39, Nachtrag); `SignInLogRetention` räumt ab
+  - *Grund:* wer sich wann womit angemeldet hat, Fehlversuche, Sperren und Logouts – für die Aufklärung einer Kontoübernahme; Verhaltensdaten, deshalb kurz und mit dem Konto gelöscht (ADR-39, Nachtrag); `SignInLogRetention` räumt ab – in Stapeln zu 500 Zeilen, jeder in einer eigenen Transaktion
 - **`*Enrollment` (Credentials der Module)**
   - *Frist beginnt mit:* —
   - *Richtwert:* kein Aufräumen mit der Sitzung

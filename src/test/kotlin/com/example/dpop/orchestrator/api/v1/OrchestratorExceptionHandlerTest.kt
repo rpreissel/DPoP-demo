@@ -11,7 +11,10 @@ import io.kotest.matchers.shouldBe
 import org.springframework.http.HttpStatus
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.hibernate.exception.ConstraintViolationException
+import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpMethod
+import org.springframework.web.servlet.resource.NoResourceFoundException
 import org.springframework.context.annotation.Profile
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -56,9 +59,12 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
             "ux_anchor" to "23502",
             null to "23505"
         )) {
-            then("unrelated or unnamed integrity failures remain errors: $constraint / $state") {
+            then("unrelated or unnamed integrity failures are internal errors that reveal nothing: $constraint / $state") {
                 val failure = ConstraintViolationException("unrelated failure", SQLException("SQL error", state), constraint)
-                shouldThrow<ConstraintViolationException> { handler.handleConstraintViolation(failure) } shouldBe failure
+                val response = handler.handleConstraintViolation(failure)
+                response.statusCode shouldBe HttpStatus.INTERNAL_SERVER_ERROR
+                response.body?.error shouldBe ErrorCode.INTERNAL_ERROR
+                response.body?.text.toString() shouldNotContain "SQL"
             }
         }
 
@@ -75,6 +81,20 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
                     .andExpect(status().isConflict)
                     .andExpect(jsonPath("$.error").value("INVALID_STATE_TRANSITION"))
             }
+        }
+
+        then("a failure no handler names - the database is down - still answers in the error contract") {
+            MockMvcBuilders.standaloneSetup(FailingController(DataAccessResourceFailureException("jdbc:h2:file:/secret/path unreachable")))
+                .setControllerAdvice(handler).build()
+                .perform(get("/failure"))
+                .andExpect(status().isInternalServerError)
+                .andExpect(jsonPath("$.error").value("INTERNAL_ERROR"))
+                .andExpect { it.response.contentAsString shouldNotContain "secret" }
+        }
+
+        then("Spring's own web errors keep their status - an unknown path is a 404, not a 500") {
+            val notFound = NoResourceFoundException(HttpMethod.GET, "/nothing", "nothing")
+            shouldThrow<NoResourceFoundException> { handler.handleUnexpected(notFound) } shouldBe notFound
         }
 
         then("a broken internal assumption is a 500 whose text reveals nothing") {
