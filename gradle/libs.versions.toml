@@ -19,6 +19,8 @@ nimbus-jose-jwt = "10.10"
 # Jackson 2 nur fuer keycloak-extension (der Orchestrator laeuft auf Jackson 3 / tools.jackson).
 jackson2 = "2.19.0"
 shadow = "9.2.2"
+# Argon2id fuer Passwoerter (Spring Securitys Argon2PasswordEncoder braucht die Implementierung).
+bouncycastle = "1.81"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
@@ -46,6 +48,7 @@ h2 = { module = "com.h2database:h2" }
 spring-boot-h2console = { module = "org.springframework.boot:spring-boot-h2console" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
 jackson2-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }
 httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5" }

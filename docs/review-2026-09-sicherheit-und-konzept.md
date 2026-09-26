@@ -484,7 +484,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
   Verhalten, das nur mit `intent=register` existiert.
 - **Frontend-Thumbprint** (`frontend/src/dpop.ts:89-98`) weicht vom RFC-7638-Wert des Backends ab –
   nur Anzeige, aber irreführend.
-- **Passwort:** PBKDF2 mit 210 000 Iterationen (OWASP 2023: 600 000), keine Maximallänge, keine
+- **Passwort** – *behoben 2026-09-26: Argon2id (OWASP-Parameter) mit Umhashen beim nächsten Login, 8–128 Zeichen, Liste häufiger Passwörter, dieselben Regeln auch für den Passwortwechsel über Keycloak (`PasswordPolicy`):* PBKDF2 mit 210 000 Iterationen (OWASP 2023: 600 000), keine Maximallänge, keine
   Prüfung gegen bekannte Passwortlisten.
 - **KOBIL-Aktivierungsgeheimnisse** 24 h im Klartext in der ToolSession, bei jedem GET erneut
   ausgeliefert (`EnrollKobilToolHandler.kt:139-152`).

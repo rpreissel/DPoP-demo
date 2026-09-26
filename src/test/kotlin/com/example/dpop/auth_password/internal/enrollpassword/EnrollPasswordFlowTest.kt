@@ -1,5 +1,7 @@
 package com.example.dpop.auth_password.internal.enrollpassword
 
+import com.example.dpop.auth_password.internal.PasswordPolicy
+
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import com.example.dpop.tool_spi.MissingFields
@@ -14,7 +16,19 @@ class EnrollPasswordFlowTest : BehaviorSpec({
 
     given("a password shorter than the minimum length") {
         then("it is rejected as too short") {
-            EnrollPasswordFlow.decide(EnrollPasswordInput("short")) shouldBe EnrollPasswordDecision.TooShort("short")
+            EnrollPasswordFlow.decide(EnrollPasswordInput("short")) shouldBe EnrollPasswordDecision.Rejected(PasswordPolicy.Rejection.TOO_SHORT)
+        }
+    }
+
+    given("a password longer than the maximum length") {
+        then("it is rejected as too long") {
+            EnrollPasswordFlow.decide(EnrollPasswordInput("x".repeat(129))) shouldBe EnrollPasswordDecision.Rejected(PasswordPolicy.Rejection.TOO_LONG)
+        }
+    }
+
+    given("one of the passwords every guessing attack tries first") {
+        then("it is rejected as too common, whatever its case") {
+            EnrollPasswordFlow.decide(EnrollPasswordInput("Passwort123")) shouldBe EnrollPasswordDecision.Rejected(PasswordPolicy.Rejection.TOO_COMMON)
         }
     }
 

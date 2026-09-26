@@ -98,6 +98,7 @@ dependencies {
     // (docs/07-betrieb.md Abschnitt 3a). Bringt events-api/-core/-jpa/-jackson mit.
     implementation(libs.spring.modulith.starter.jdbc)
     implementation(libs.nimbus.jose.jwt)
+    implementation(libs.bouncycastle.bcprov)
     implementation(libs.kotlin.reflect)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.springdoc.openapi.starter.webmvc.ui)

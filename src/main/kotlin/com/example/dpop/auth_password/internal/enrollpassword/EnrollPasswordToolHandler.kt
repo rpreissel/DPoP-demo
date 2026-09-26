@@ -1,5 +1,6 @@
 package com.example.dpop.auth_password.internal.enrollpassword
 import com.example.dpop.auth_password.internal.PasswordHasher
+import com.example.dpop.auth_password.internal.PasswordPolicy
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
 
@@ -45,8 +46,8 @@ class EnrollPasswordToolHandler(
 
         return when (val decision = EnrollPasswordFlow.decide(EnrollPasswordInput(password))) {
             EnrollPasswordDecision.Unchanged -> outcomeFor()
-            is EnrollPasswordDecision.TooShort ->
-                throw IllegalArgumentException("Passwort zu kurz (mindestens ${EnrollPasswordFlow.MIN_PASSWORD_LENGTH} Zeichen)")
+            is EnrollPasswordDecision.Rejected ->
+                throw IllegalArgumentException(PasswordPolicy.message(decision.rejection))
 
             is EnrollPasswordDecision.Enroll -> {
                 val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(decision.password)))

@@ -64,6 +64,7 @@ class AuthPasswordUseToolHandler(
                     ?: return ToolOutcome.Failed.IdentifiedAuth(Text("Passwort ungueltig"))
 
                 if (PasswordHasher.matches(decision.password, enrollment.passwordHash)) {
+                    PasswordHasher.upgrade(enrollment, decision.password)
                     ToolOutcome.Completed.Authenticated(
                         amr = listOf(descriptor.method),
                         achievedAcr = descriptor.maxAcr,

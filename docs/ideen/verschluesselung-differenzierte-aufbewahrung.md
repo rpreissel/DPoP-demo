@@ -6,7 +6,7 @@
 > [07-betrieb.md](../07-betrieb.md). Im Projekt werden gespeicherte Daten derzeit **nicht**
 > verschlüsselt; alle Spalten mit personenbezogenen Daten stehen im Klartext
 > (`db/migration/<modul>/`). Der vorhandene kryptografische Code beschränkt sich auf das Hashen von
-> Passwörtern mit PBKDF2, auf HMAC (TAN, E-Mail-Code, Zähler) und auf das Erzeugen von EC-Schlüsseln
+> Passwörtern (seit 2026-09 Argon2id, vorher PBKDF2), auf HMAC (TAN, E-Mail-Code, Zähler) und auf das Erzeugen von EC-Schlüsseln
 > für die Assertions von Keycloak. Eine Regel „eID-Daten höchstens ein Jahr“ steht nirgends in der
 > Doku; sie dient hier nur als Beispiel.
 
@@ -24,7 +24,7 @@ ausdrücklich **nicht** zur Frage.
   Daten (`account.claim.claim_value`, `account.anchor.normalized_value`,
   `ext_personenverzeichnis.person.*`, `id_eid.ident_tool_session.*`) sind `VARCHAR` bzw. `DATE` im
   Klartext (`db/migration/<modul>/`). Dazu kommt das simulierte Nect: `nect_mock.ident_case.result`
-  hält die ausgelesenen Ausweisdaten eines Vorgangs als JSON im Klartext. Kryptografisch gibt es nur PBKDF2 (Hash des Passworts), HMAC
+  hält die ausgelesenen Ausweisdaten eines Vorgangs als JSON im Klartext. Kryptografisch gibt es nur Argon2id (Hash des Passworts, vorher PBKDF2), HMAC
   (TAN, E-Mail-Code, Zähler) und das Erzeugen von EC-Schlüsseln für die Assertions von Keycloak.
   `AccountKeycloakKeypair.privateKeyJwk` ist ausdrücklich als „Demo-only: plaintext, not encrypted at
   rest“ dokumentiert (`orchestrator/kc/AccountKeycloakKeypair.kt:16`).

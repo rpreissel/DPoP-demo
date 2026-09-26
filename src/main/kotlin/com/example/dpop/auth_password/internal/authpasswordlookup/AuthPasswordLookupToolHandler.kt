@@ -64,6 +64,7 @@ class AuthPasswordLookupToolHandler(
                 val passwordOk = PasswordHasher.matches(decision.password, enrollment?.passwordHash)
 
                 if (accountId != null && enrollment != null && passwordOk) {
+                    PasswordHasher.upgrade(enrollment, decision.password)
                     ToolOutcome.Completed.Authenticated(
                         amr = listOf(descriptor.method),
                         achievedAcr = descriptor.maxAcr,

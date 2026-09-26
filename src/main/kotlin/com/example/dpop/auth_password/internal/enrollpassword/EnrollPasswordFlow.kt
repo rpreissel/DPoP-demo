@@ -1,5 +1,7 @@
 package com.example.dpop.auth_password.internal.enrollpassword
 
+import com.example.dpop.auth_password.internal.PasswordPolicy
+
 import com.example.dpop.auth_password.DEMO_PASSWORD
 import com.example.dpop.tool_spi.MissingFields
 import com.example.dpop.tool_spi.StepData
@@ -14,7 +16,8 @@ internal data class EnrollPasswordInput(val password: String? = null)
 /** What [EnrollPasswordFlow.decide] concluded should happen. */
 internal sealed interface EnrollPasswordDecision {
     data class Enroll(val password: String) : EnrollPasswordDecision
-    data class TooShort(val raw: String) : EnrollPasswordDecision
+    /** Fails the password rules ([com.example.dpop.auth_password.internal.PasswordPolicy]). */
+    data class Rejected(val rejection: PasswordPolicy.Rejection) : EnrollPasswordDecision
     data object Unchanged : EnrollPasswordDecision
 }
 
@@ -22,11 +25,7 @@ internal object EnrollPasswordFlow {
 
     fun decide(input: EnrollPasswordInput): EnrollPasswordDecision {
         val value = input.password ?: return EnrollPasswordDecision.Unchanged
-        return if (value.length < MIN_PASSWORD_LENGTH) {
-            EnrollPasswordDecision.TooShort(value)
-        } else {
-            EnrollPasswordDecision.Enroll(value)
-        }
+        return PasswordPolicy.check(value)?.let { EnrollPasswordDecision.Rejected(it) } ?: EnrollPasswordDecision.Enroll(value)
     }
 
     /** Same derivation for start/patch/read - one place turns the state into `next.step`/`stepData`. */
@@ -35,5 +34,4 @@ internal object EnrollPasswordFlow {
     /** The fixed demo password, so a tester never has to remember one - never part of the step. */
     fun demo(): Map<String, Any?> = mapOf("password" to DEMO_PASSWORD)
 
-    const val MIN_PASSWORD_LENGTH = 8
 }

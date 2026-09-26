@@ -18,16 +18,20 @@ internal class PasswordCredentialPortImpl(
     private val enrollmentRepository: AuthPasswordEnrollmentRepository
 ) : PasswordCredentialPort {
 
+    @Transactional
     override fun verify(enrollmentRef: EnrollmentRef?, candidate: String): Boolean {
         val enrollment = enrollmentRef?.id?.toLongOrNull()?.let { enrollmentRepository.findByIdOrNull(it) }
         // Unconditional, constant-cost check regardless of whether an enrollment was found - see
         // PasswordHasher.matches's KDoc on why a null-guarded short-circuit would reopen a
         // timing-based account-enumeration oracle.
-        return PasswordHasher.matches(candidate, enrollment?.passwordHash)
+        val matches = PasswordHasher.matches(candidate, enrollment?.passwordHash)
+        if (matches && enrollment != null) PasswordHasher.upgrade(enrollment, candidate)
+        return matches
     }
 
     @Transactional
     override fun setNew(password: String): EnrollmentRef {
+        PasswordPolicy.check(password)?.let { throw IllegalArgumentException(PasswordPolicy.message(it)) }
         val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(password)))
         return EnrollmentRef(type = PASSWORD_ENROLLMENT_TYPE, id = enrollment.id.toString())
     }
