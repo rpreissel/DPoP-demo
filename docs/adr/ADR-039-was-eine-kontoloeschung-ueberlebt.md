@@ -85,10 +85,23 @@ bestätigen** und deshalb einstellbar.
   Kontoänderung läuft über eine Journey (Personenverzeichnis, Passwortwechsel über Keycloak, Löschen
   durch den Betreiber).
 
-**Offen**: Anmeldungen selbst (wer sich wann mit welchem Niveau angemeldet hat) stehen nur 14 Tage im
-Journey-Trace. Entschieden (2026-09-26), noch nicht gebaut: ein eigenes Anmeldeprotokoll
-(`account.sign_in_log`) in derselben
-Form (feste Spalten, `details` mit `type` und `version`) für erfolgreiche und fehlgeschlagene
-Anmeldungen und Step-ups sowie Sperren durch das Versuchslimit, nur kontobezogen. Frist 6 Monate,
-einstellbar; es wird mit dem Konto gelöscht – den Nachweis über die Löschung hinaus leistet dieses
-Protokoll hier.
+**Nachtrag 2026-09-26: das Anmeldeprotokoll** (`account.sign_in_log`, früher hier als offen geführt).
+Wer sich wann womit und auf welchem Niveau angemeldet hat, stand nur 14 Tage im Journey-Trace. Jetzt
+gibt es dafür ein eigenes Protokoll, in derselben Form wie das Änderungsprotokoll (feste Spalten,
+`details` mit `type` und `version`, eine Schreibfunktion je Ereignis in `SignInLog`):
+
+- **`SIGNED_IN`**: Eine Einstiegs-Journey (`AuthIntent.isEntryIntent`) hat den Kanal angemeldet –
+  mit Niveau, Nachweisen (`amr`) und Intent. **`STEPPED_UP`**: ein Step-up, auch als Unter-Journey.
+- **`SIGN_IN_FAILED`**: ein falscher Nachweis für ein bekanntes Konto, mit Verfahren; aus der App wie
+  aus Keycloaks Passwortformular. **`LOCKED_OUT`**: der Fehlversuch, der die Sperre auslöste. Beides
+  schreibt `LoginThrottleService`, durch das jeder solche Fehlversuch läuft.
+- **`SIGNED_OUT`**: ein gewollter Logout – in der App über den Orchestrator, im Web-Kanal von Keycloak
+  gemeldet (Event-Listener `orchestrator-sign-in-log`, `POST …/kc/accounts/{accountId}/sign-outs`,
+  nach dem Commit und ohne den Logout aufzuhalten). Ein Ablauf der Sitzung ist kein Ereignis.
+- **Kein Nachweis über die Löschung hinaus**: Das Protokoll gehört dem Konto (Fremdschlüssel,
+  `ON DELETE CASCADE`) und lebt 6 Monate (`account.sign-in-log.retention-months`,
+  `SignInLogRetention`). Eine Anmeldehistorie ist Verhaltensdaten, kein Beleg.
+- **Anders als der Änderungsprotokoll-Schreiber öffentlich**: Anmeldungen geschehen im Orchestrator,
+  also schreibt er hier; das Änderungsprotokoll schreibt nur das Konto selbst.
+- **Grenze**: Eine Anmeldung, die Keycloak allein über seine SSO-Sitzung erledigt, ohne den
+  Orchestrator zu fragen, erscheint nicht als `SIGNED_IN` – nur ihr Logout.

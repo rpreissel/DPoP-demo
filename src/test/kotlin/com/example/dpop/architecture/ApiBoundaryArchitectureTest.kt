@@ -48,6 +48,7 @@ class ApiBoundaryArchitectureTest : BehaviorSpec({
         "com.example.dpop.orchestrator.api.v1.kc.KcChannelController",
         "com.example.dpop.orchestrator.api.v1.kc.MgmtPasswordController",
         "com.example.dpop.orchestrator.api.v1.kc.KcAccountLookupController",
+        "com.example.dpop.orchestrator.api.v1.kc.KcSignOutController",
     )
     val publicByDesign = mapOf(
         "com.example.dpop.orchestrator.api.v1.TextsController" to "the wordings every client renders, before any channel exists",

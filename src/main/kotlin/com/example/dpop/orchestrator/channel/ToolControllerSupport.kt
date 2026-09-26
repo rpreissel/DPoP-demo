@@ -219,7 +219,7 @@ class ToolControllerSupport(
         val live = resolveChannel(ctx, journey)
         val channel = live.session
         val descriptor = toolRegistry.descriptorOf(ToolId(ctx.toolId))
-        chargeThrottles(channel.accountId, descriptor, outcome)
+        chargeThrottles(channel.accountId, channel.channel?.name, descriptor, outcome)
         // A completed tool is done for good: its ToolSession must not be completable again, even
         // while the journey keeps running (an action's resumeState can still name it as active).
         if (outcome is ToolOutcome.Completed) sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.DONE)
@@ -270,7 +270,7 @@ class ToolControllerSupport(
      * from the OUTCOME: on the channel it is still null at this point (`bindAccount` runs later,
      * inside `journeyService.applyOutcome`).
      */
-    private fun chargeThrottles(channelAccountId: Long?, descriptor: ToolDescriptor, outcome: ToolOutcome) {
+    private fun chargeThrottles(channelAccountId: Long?, channelType: String?, descriptor: ToolDescriptor, outcome: ToolOutcome) {
         when (outcome) {
             is ToolOutcome.InProgress -> Unit
 
@@ -281,8 +281,8 @@ class ToolControllerSupport(
                     "${descriptor.toolId} (${descriptor.role}) answered with ${outcome::class.simpleName}"
                 }
                 when (outcome) {
-                    is ToolOutcome.Failed.IdentifiedAuth -> channelAccountId?.let { loginThrottleService.recordFailure(it) }
-                    is ToolOutcome.Failed.LookupAuth -> outcome.attemptedAccountId?.let { loginThrottleService.recordFailure(it) }
+                    is ToolOutcome.Failed.IdentifiedAuth -> channelAccountId?.let { loginThrottleService.recordFailure(it, channelType, descriptor.method) }
+                    is ToolOutcome.Failed.LookupAuth -> outcome.attemptedAccountId?.let { loginThrottleService.recordFailure(it, channelType, descriptor.method) }
                     // A guessed Freischaltcode/PIN is a credential guess like any other, and its
                     // payoff is higher than a login's: success adopts the person's account outright.
                     is ToolOutcome.Failed.Identification -> outcome.attemptedPersonId?.let { identThrottleService.recordFailure(it) }

@@ -1,11 +1,13 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
+import com.example.dpop.account.SignInLog
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.kernel.AmrSource
+import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.AcrLevel
@@ -25,6 +27,7 @@ import com.example.dpop.orchestrator.session.forLog
 class JourneyRecorder(
     private val authEvidenceService: AuthEvidenceService,
     private val accountService: AccountService,
+    private val signInLog: SignInLog,
     private val journeyTraceService: JourneyTraceService,
     private val journeyTraceDetails: JourneyTraceDetails,
     private val codec: JourneyStateCodec
@@ -133,5 +136,27 @@ class JourneyRecorder(
             role = tool.role.name,
             report = outcome.auditDetails.orEmpty(),
         )
+    }
+
+    /**
+     * The sign-in log's view of a journey that just finished (ADR-39, addendum): an entry journey
+     * that authenticated the channel is a sign-in, a step-up a step-up; everything else (managing
+     * methods, deleting, logging out) is no sign-in and records nothing here. [acr] is what the
+     * session holds now - the level the sign-in actually reached.
+     */
+    fun recordSignIn(journey: AuthJourney, channel: ChannelSession, acr: AcrLevel) {
+        val accountId = channel.accountId ?: return
+        val intent = journey.intent ?: return
+        val amr = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.currentAmr.orEmpty()
+        when {
+            intent == AuthIntent.STEP_UP -> signInLog.steppedUp(accountId, channel.channel?.name, acr.value, amr)
+            intent.isEntryIntent -> signInLog.signedIn(accountId, channel.channel?.name, acr.value, amr, intent.name)
+        }
+    }
+
+    /** A session the holder ended on purpose - never an expiry, which nobody asked for. */
+    fun recordSignOut(channel: ChannelSession, endedBy: String) {
+        val accountId = channel.accountId ?: return
+        signInLog.signedOut(accountId, channel.channel?.name, endedBy)
     }
 }

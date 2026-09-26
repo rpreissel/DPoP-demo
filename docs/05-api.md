@@ -796,6 +796,11 @@ gegen den Pfadparameter geprüft.
   `password`-Verfahren des Kontos, `204`. Hat das Konto noch kein Passwort, antwortet es `409` – ein
   erstes Passwort richtet nur `enroll-password` hinter der Prüfung der Methodenverwaltung ein, nicht
   Keycloaks Admin-Funktion „Passwort zurücksetzen“.
+- `POST /orchestrator/api/v1/kc/accounts/{accountId}/sign-outs?kcSessionId=…` – Keycloak meldet einen
+  Logout für das Anmeldeprotokoll (ADR-39, Nachtrag), `204`. Den Logout im Web-Kanal macht Keycloak
+  allein; sein Event-Listener `orchestrator-sign-in-log` ruft das nach dem Commit auf und wartet auf
+  nichts. Kanäle, die diese Keycloak-Sitzung trugen, enden damit; `channel_anchor` ist wie oben die
+  `accountId`.
 
 ## 4) Zusammenspiel von Prozess-API und Tool-Ressourcen
 

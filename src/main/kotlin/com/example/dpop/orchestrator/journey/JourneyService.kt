@@ -255,6 +255,8 @@ class JourneyService(
 
     private fun endSession(channel: ChannelSession, finalState: ChannelState) {
         check(finalState.isTerminal) { "endSession needs a terminal state, got $finalState" }
+        // Only a sign-out someone asked for is one - an expiry is not an event (ADR-39, addendum).
+        if (finalState == ChannelState.LOGGED_OUT) journeyRecorder.recordSignOut(channel, endedBy = "HOLDER")
         channel.authContextId?.let { authContextService.getAuthContext(it) }?.let { context ->
             if (channel.channel == ChannelType.APP) {
                 // Published, not called: this runs inside the caller's transaction, and the Admin
@@ -576,6 +578,8 @@ class JourneyService(
         journey.consume()
         // Flushed before a suspended parent resumes (ux_journey_running_per_channel).
         journeyRepository.saveAndFlush(journey)
+        // Before the parent handoff: a step-up that a parent journey waited on is a step-up too.
+        journeyRecorder.recordSignIn(journey, channel, contextFactory.currentAcrOf(channel))
 
         val parent = journey.parentJourneyId?.let { journeyRepository.findByIdOrNull(it) }
         if (parent != null && parent.lifecycle == JourneyLifecycle.SUSPENDED) {

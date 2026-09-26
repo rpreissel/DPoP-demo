@@ -347,6 +347,7 @@ erDiagram
   account.account ||--o{ account.auth_method : "hat eingerichtetes Verfahren"
   account.account ||--o{ account.claim : "bestätigt (nur anfügen)"
   account.account ||--o{ account.change_log : "Änderungen (nur anfügen, ohne FK)"
+  account.account ||--o{ account.sign_in_log : "Anmeldungen (geht mit dem Konto)"
   account.account ||--o{ account.retraction : "widerruft (nur anfügen)"
   account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
   account.auth_method }o..o| auth_device.enrollment : "enrollment_type/_id"
@@ -389,12 +390,19 @@ erDiagram
   }
   account.change_log {
     bigint account_id "kein FK - überlebt das Konto"
-    varchar event_type "IDENTIFIED, METHOD_ADDED, ..."
+    varchar change_type "IDENTIFIED, METHOD_ADDED, ..."
     varchar subject "Verfahren oder Attributtyp"
     varchar acr
     json details "type, version und je Ereignis eigene Schlüssel"
     varchar lookup_key "HMAC über Name, Vorname, Geburtsdatum"
     varchar person_id "Registernummer, falls vorhanden"
+  }
+  account.sign_in_log {
+    bigint account_id FK "geht mit dem Konto"
+    varchar sign_in_type "SIGNED_IN, SIGN_IN_FAILED, LOCKED_OUT, ..."
+    varchar channel
+    varchar acr
+    json details "type, version, amr, Verfahren, ..."
   }
   auth_sms.enrollment {
     bigint id PK

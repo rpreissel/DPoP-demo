@@ -79,6 +79,9 @@ account:
     # muss so lange aufbewahrt werden wie das Protokoll selbst, sonst sind aeltere Eintraege nicht
     # mehr zu finden.
     lookup-secret: ${CHANGE_LOG_LOOKUP_SECRET:}
+  # Anmeldeprotokoll (SignInLog, ADR-39 Nachtrag): kein Nachweis, geht mit dem Konto.
+  sign-in-log:
+    retention-months: 6
 
 demo:
   # Demomodus: true fuer diese Demo-Instanz. false fuer jeden Betrieb mit echten Personen - dann sind

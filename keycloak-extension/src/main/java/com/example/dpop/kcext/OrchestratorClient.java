@@ -229,6 +229,16 @@ final class OrchestratorClient {
         return response.path("valid").asBoolean(false);
     }
 
+    /**
+     * Reports that Keycloak ended session {@code kcSessionId} of {@code accountId}, for the
+     * account's sign-in log (ADR-39, addendum) - the Web channel's logout is Keycloak's own, the
+     * orchestrator would not learn of it otherwise. Same anchor convention as the password calls.
+     */
+    void reportSignOut(long accountId, String kcSessionId) throws IOException, InterruptedException {
+        String path = "/orchestrator/api/v1/kc/accounts/" + accountId + "/sign-outs?kcSessionId=" + urlEncode(kcSessionId);
+        send("POST", path, String.valueOf(accountId), null);
+    }
+
     /** See {@link #verifyPassword(long, String)} - same anchor convention. */
     void setPassword(long accountId, String newPassword) throws IOException, InterruptedException {
         String path = "/orchestrator/api/v1/tools/enroll-password/mgmt/" + accountId;

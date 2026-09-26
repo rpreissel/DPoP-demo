@@ -1,10 +1,13 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.account.SignInLog
+
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
+import java.time.Instant
 
 /**
  * Account-level throttle for AUTH-category tool attempts. Two entry points on purpose, because
@@ -23,7 +26,7 @@ import java.time.Duration
  */
 @Service
 @Transactional
-class LoginThrottleService(private val counter: AttemptCounter) {
+class LoginThrottleService(private val counter: AttemptCounter, private val signInLog: SignInLog) {
 
     fun isLocked(accountId: Long): Boolean = counter.isLocked(ThrottleScope.ACCOUNT, key(accountId))
 
@@ -35,8 +38,20 @@ class LoginThrottleService(private val counter: AttemptCounter) {
         }
     }
 
-    fun recordFailure(accountId: Long) =
+    /**
+     * One failed proof of [accountId] with [method] on [channel] - counted, and written to the
+     * account's sign-in log, together with the lockout if this very failure tripped it
+     * (ADR-39, addendum). The one place every such failure passes, whichever channel it came from.
+     */
+    fun recordFailure(accountId: Long, channel: String?, method: String) {
+        val lockedBefore = counter.lockedUntil(ThrottleScope.ACCOUNT, key(accountId))
         counter.recordFailure(ThrottleScope.ACCOUNT, key(accountId), MAX_FAILURES, LOCKOUT_DURATION)
+        signInLog.signInFailed(accountId, channel, method)
+        val lockedNow = counter.lockedUntil(ThrottleScope.ACCOUNT, key(accountId))
+        if (lockedNow != null && lockedNow != lockedBefore && Instant.now().isBefore(lockedNow)) {
+            signInLog.lockedOut(accountId, channel, lockedNow)
+        }
+    }
 
     /** Resets the throttle - called on every successful AUTH completion, not just after a prior lock. */
     fun recordSuccess(accountId: Long) = counter.reset(ThrottleScope.ACCOUNT, key(accountId))

@@ -1510,6 +1510,41 @@ paths:
       summary: The account as Keycloak shows it, by account id
       tags:
       - KC account lookup
+  /orchestrator/api/v1/kc/accounts/{accountId}/sign-outs:
+    post:
+      operationId: signedOut
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      - in: query
+        name: kcSessionId
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: ../openapi.yaml#/components/schemas/ErrorResponse
+          description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
+      security:
+      - kc-peer-auth: [
+          ]
+      summary: Keycloak ended one session of this account
+      tags:
+      - KC sign-out
   /orchestrator/api/v1/kc/channels/{channelSessionId}:
     patch:
       description: 'Upsert semantics (docs/05-api.md Abschnitt 3): creates the channel on first call under this Keycloak-chosen
@@ -1919,6 +1954,8 @@ tags:
   name: 'Admin: accounts'
 - description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: SMS'
+- description: Keycloak reports a logout for the sign-in log
+  name: KC sign-out
 - description: Read-only server status for the welcome page
   name: 'Demo: server info'
 - description: Stateless password verify/set for Keycloak's native credential

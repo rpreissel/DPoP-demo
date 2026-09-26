@@ -32,6 +32,9 @@ class AttemptCounter(
     private val rowInitializer: AttemptThrottleRowInitializer
 ) {
 
+    /** Until when [subject] is locked - `null` if never, possibly in the past. */
+    fun lockedUntil(scope: ThrottleScope, subject: String): Instant? = repository.findLockedUntil(scope, subject)
+
     fun isLocked(scope: ThrottleScope, subject: String): Boolean {
         val lockedUntil = repository.findLockedUntil(scope, subject) ?: return false
         return Instant.now().isBefore(lockedUntil)

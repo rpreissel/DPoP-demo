@@ -17,6 +17,10 @@ import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toMethodEvidence
 import com.example.dpop.tool_api.ChannelResponse
+import com.example.dpop.account.SignInLog
+import com.example.dpop.orchestrator.session.ChannelSessionRepository
+import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration
 import java.util.UUID
@@ -39,8 +43,32 @@ class KcChannelService(
     private val accountService: AccountService,
     private val authEvidenceService: AuthEvidenceService,
     private val restoreDataCodec: RestoreDataCodec,
-    private val nativeAuthenticatorRegistry: NativeAuthenticatorRegistry
+    private val nativeAuthenticatorRegistry: NativeAuthenticatorRegistry,
+    private val channelSessionRepository: ChannelSessionRepository,
+    private val signInLog: SignInLog,
 ) {
+
+    /**
+     * Keycloak ended session [kcSessionId] of [accountId] - its logout is Keycloak's own
+     * (docs/07-betrieb.md Abschnitt 3), so its event listener reports it here. The Keycloak channels
+     * that session carried end with it, which writes the sign-out (JourneyService.endSession); a
+     * session no live channel carries any more - an SSO login that never needed the orchestrator
+     * again - is still written, directly. An unknown account is nothing to log.
+     */
+    fun signedOutAtKeycloak(accountId: Long, kcSessionId: String) {
+        if (accountService.findAccount(accountId) == null) return
+        val live = channelSessionRepository.findByAccountId(accountId)
+            .filter { it.channel == ChannelType.KEYCLOAK && it.durableKcSessionId == kcSessionId }
+            .mapNotNull { LiveChannel.of(it) }
+        if (live.isEmpty()) {
+            signInLog.signedOut(accountId, ChannelType.KEYCLOAK.name, endedBy = "HOLDER")
+        } else {
+            live.forEach { channel ->
+                journeyService.findActive(channel.session.channelSessionId!!)?.let { journeyService.cancel(it, channel) }
+                journeyService.endSession(channel, ChannelState.LOGGED_OUT)
+            }
+        }
+    }
 
     fun upsertChannel(
         channelSessionId: UUID,

@@ -140,6 +140,10 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
   - *Richtwert:* 10 Jahre (`account.change-log.retention-years`, von der Datenschutzbeauftragten zu bestätigen)
   - *Grund:* Nachweis, dass und wie ein Konto identifiziert wurde und welche Methoden es hatte – ohne Werte, ohne Fremdschlüssel, überlebt die Löschung bewusst ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); `ChangeLogRetention` räumt ab
   - *Suche:* über Name, Vorname und Geburtsdatum (`ChangeLogSearch`, Suchschlüssel als HMAC). Das Geheimnis `CHANGE_LOG_LOOKUP_SECRET` ist außerhalb des Demomodus Pflicht und muss so lange aufbewahrt werden wie das Protokoll; ein neues Geheimnis macht alle älteren Einträge unauffindbar
+- **`account.sign_in_log`**
+  - *Frist beginnt mit:* dem Ereignis
+  - *Richtwert:* 6 Monate (`account.sign-in-log.retention-months`)
+  - *Grund:* wer sich wann womit angemeldet hat, Fehlversuche, Sperren und Logouts – für die Aufklärung einer Kontoübernahme; Verhaltensdaten, deshalb kurz und mit dem Konto gelöscht (ADR-39, Nachtrag); `SignInLogRetention` räumt ab
 - **`*Enrollment` (Credentials der Module)**
   - *Frist beginnt mit:* —
   - *Richtwert:* kein Aufräumen mit der Sitzung

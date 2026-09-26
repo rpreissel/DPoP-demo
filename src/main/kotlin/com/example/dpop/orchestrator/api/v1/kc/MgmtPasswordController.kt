@@ -11,6 +11,7 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.AccountDirectory
@@ -75,7 +76,7 @@ class MgmtPasswordController(
         val enrollmentRef = accountDirectory.activeEnrollment(accountId, PASSWORD_METHOD)
         val matches = passwordCredentialPort.verify(enrollmentRef, request?.password.orEmpty())
         if (!locked) {
-            if (matches) loginThrottleService.recordSuccess(accountId) else loginThrottleService.recordFailure(accountId)
+            if (matches) loginThrottleService.recordSuccess(accountId) else loginThrottleService.recordFailure(accountId, ChannelType.KEYCLOAK.name, PASSWORD_METHOD)
         }
         return ResponseEntity.ok(MgmtPasswordVerifyResponse(matches && !locked))
     }

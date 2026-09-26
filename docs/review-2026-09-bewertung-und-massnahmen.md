@@ -337,15 +337,18 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 **Phase F – Härtung und Hygiene (nach Bedarf)**
 
-28. Niedrige Befunde nach Aufwand: Versanddrossel bei Aktivierung, Rufnummern-Allowlist, geteilte
-    `DeviceEnrollment`-Zeile, `enrolledUnderAcr` je Instanz, Widerruf-`>=`, toter KVNR-Zweig,
-    Namensvetter-Entscheidung (ADR-18), PBKDF2-Iterationen, KOBIL-Geheimnisse kürzer, `DPoP-Nonce`
-    in docs/09, Fehlerantworten ohne Bibliotheksmeldungen, `jti` in der Konto-Assertion,
-    JWKS-Backoff.
+28. ~~Niedrige Befunde nach Aufwand~~ – erledigt 2026-09-26: Versanddrossel bei Aktivierung,
+    Rufnummern-Allowlist (EU/EWR), geteilte `DeviceEnrollment`-Zeile, `enrolledUnderAcr` je Instanz,
+    Widerruf-`>=`, toter KVNR-Zweig, Namensvetter-Entscheidung (ADR-18), Argon2id statt PBKDF2,
+    KOBIL-Geheimnisse kürzer, `DPoP-Nonce` in docs/09, Fehlerantworten ohne Bibliotheksmeldungen,
+    `jti` in der Konto-Assertion, JWKS-Backoff.
 29. ~~ADR „Audit“~~ – erledigt 2026-09-26 ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)):
-    append-only Audit-Protokoll ohne Werte, überlebt die Löschung 10 Jahre (von der DSB zu
-    bestätigen); die Wertetabellen bleiben kaskadiert (Datenminimierung). `session_event` entfällt,
-    das Journey-Log lebt 14 statt 30 Tage.
+    Änderungsprotokoll `account.change_log` ohne Werte, überlebt die Löschung 10 Jahre (von der DSB zu
+    bestätigen), JSON-`details` mit Typ und Version, auffindbar über Name, Vorname und Geburtsdatum
+    (HMAC); `account.identification` geht darin auf, keine Ausweisnummer. Die Wertetabellen bleiben
+    kaskadiert (Datenminimierung). Anmeldeprotokoll `account.sign_in_log` (6 Monate, geht mit dem
+    Konto, auch Keycloak-Logouts). `session_event` entfällt, das Journey-Log heißt `journey_trace` und
+    lebt 14 statt 30 Tage.
 30. Text-Schlüssel lesbar machen; Historie aus KDocs in ADRs verschieben.
 
 **Phase G – Frontends und Ausführungsumgebung (später, nach ADR-35)**
