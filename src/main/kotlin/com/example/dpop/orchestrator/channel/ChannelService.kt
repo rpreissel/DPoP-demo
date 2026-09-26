@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.session.SessionExpiredException
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.ChannelType
@@ -113,9 +114,9 @@ class ChannelService(
         // updated again, unlike the backend-wide kill-switch which is read live on every step.
         channel.availableClientTools = availableTools.toMutableSet()
         sessionManagementService.updateChannelSession(channel)
-        requestedAcrFloor?.let { sessionManagementService.raiseChannelAcrFloor(channel.channelSessionId!!, AcrLevel.requested(it).value) }
+        requestedAcrFloor?.let { sessionManagementService.raiseChannelAcrFloor(channel.id, AcrLevel.requested(it).value) }
 
-        return resumeChannel(sessionManagementService.findChannelSessionById(channel.channelSessionId!!)!!)
+        return resumeChannel(sessionManagementService.reloadChannelSession(channel.id))
     }
 
     /** The guaranteed resume entry point (docs/05-api.md #2): re-derives the currently due `next`. */
@@ -218,7 +219,7 @@ class ChannelService(
         // GET on an old channelSessionId would hand back a fresh login attempt on a dead channel.
         val live = LiveChannel.of(channel) ?: return responseAssembler.respond(channel)
 
-        val channelId = channel.channelSessionId!!
+        val channelId = channel.id
         journeyService.findActive(channelId)?.let {
             val step = journeyService.stepOf(it, channel)
             return responseAssembler.respond(channel, step.next, step.stepData)
@@ -230,7 +231,7 @@ class ChannelService(
 
     private fun startEntryJourney(channel: LiveChannel, seedAction: Action? = null): ChannelResponse {
         val step = journeyService.startEntryJourney(channel, seedAction)
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channel.session.channelSessionId!!)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channel.session.id), step.next, step.stepData)
     }
 
     fun raiseRequiredAcr(channelSessionId: UUID, bindingKeyRef: String, requiredAcr: String): ChannelResponse {
@@ -254,7 +255,7 @@ class ChannelService(
             targetAcr = floor,
             startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account)
         )
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     /** Abandons the running journey and offers a fresh start where applicable. */
@@ -287,7 +288,7 @@ class ChannelService(
             journeyService.cancel(activeJourney, channel)
         }
         val step = journeyService.start(channel, AuthIntent.LOGOUT)
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     /**
@@ -360,7 +361,7 @@ class ChannelService(
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(live, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     /**
@@ -382,7 +383,7 @@ class ChannelService(
             live, AuthIntent.CONFIRM_PEER_LOGIN,
             seed = ConfirmPeerLoginState.Requested(startedAuthenticated = true)
         )
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     /**
@@ -399,7 +400,7 @@ class ChannelService(
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(live, AuthIntent.DELETE_ACCOUNT)
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     /** The user's answer to whatever the current step is waiting on instead of a tool run. */
@@ -408,7 +409,7 @@ class ChannelService(
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val step = journeyService.answer(active, channel, answer)
-        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.reloadChannelSession(channelSessionId), step.next, step.stepData)
     }
 
     private fun currentEvidence(channel: ChannelSession): AuthEvidence =

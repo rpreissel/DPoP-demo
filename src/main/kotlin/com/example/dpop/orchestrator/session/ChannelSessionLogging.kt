@@ -9,7 +9,7 @@ import com.example.dpop.orchestrator.journeytrace.LoggedChannel
  * depend on the machine it traces (see [LoggedChannel]). Whoever owns the type owns the mapping.
  */
 fun ChannelSession.forLog(): LoggedChannel = LoggedChannel(
-    channelSessionId = checkNotNull(channelSessionId) { "Channel session without an id cannot be logged" },
+    channelSessionId = id,
     bindingKeyRef = bindingKeyRef,
     channelType = channel?.name,
     accountId = accountId

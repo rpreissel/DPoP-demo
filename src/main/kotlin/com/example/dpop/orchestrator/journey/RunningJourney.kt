@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.domain.journey.JourneyLifecycle
 import com.example.dpop.orchestrator.domain.AuthIntent
 import java.util.UUID
@@ -18,9 +19,9 @@ import java.util.UUID
  * may end the journey. Callers look it up once per request and do not keep it.
  */
 class RunningJourney private constructor(internal val entity: AuthJourney) {
-    val journeyId: UUID get() = checkNotNull(entity.journeyId)
+    val journeyId: UUID get() = entity.id
     val channelSessionId: UUID get() = checkNotNull(entity.channelSessionId)
-    val intent: AuthIntent get() = checkNotNull(entity.intent)
+    val intent: AuthIntent get() = entity.requireIntent()
 
     companion object {
         fun of(journey: AuthJourney): RunningJourney? =

@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.channelType
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.session.SessionExpiredException
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.ChannelType
@@ -75,7 +77,7 @@ class ChannelResponseAssembler(
         val resolved = if (channel.state?.isTerminal == true) {
             null
         } else {
-            next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it, channel) }
+            next ?: journeyService.findActive(channel.id)?.let { journeyService.nextOf(it, channel) }
                 ?: if (channel.state == ChannelState.AUTHENTICATED) Next.AUTHENTICATED else null
         }
         return ChannelResponse(
@@ -145,10 +147,10 @@ class ChannelResponseAssembler(
      * must not leak the account's active methods before anything was proven on THIS channel.
      */
     fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
-        val channelType = checkNotNull(channel.channel) { "Channel without a channel type" }.name
+        val channelType = channel.channelType.name
         if (!includeAccountFields || !channel.hasProvenFactor) {
             return ChannelBlock(
-                channelSessionId = channel.channelSessionId!!,
+                channelSessionId = channel.id,
                 channelType = channelType,
                 state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
                 hasProvenFactor = channel.hasProvenFactor
@@ -158,7 +160,7 @@ class ChannelResponseAssembler(
         val account = channel.accountId?.let { accountService.findAccount(it) }
         val currentAcr = evidence?.let { authPolicy.resolveAcr(it.toCoreEvidence(), account) }
         return ChannelBlock(
-            channelSessionId = channel.channelSessionId!!,
+            channelSessionId = channel.id,
             channelType = channelType,
             state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
             hasProvenFactor = channel.hasProvenFactor,
@@ -179,7 +181,7 @@ class ChannelResponseAssembler(
         methods.orEmpty().map { m ->
             val descriptor = toolRegistry.descriptors().firstOrNull { it.method == m.method }
             ActiveMethodView(
-                id = checkNotNull(m.id) { "Active method without an id" },
+                id = m.id,
                 method = m.method,
                 label = m.label,
                 factorTypes = descriptor?.factorTypes?.toList(),

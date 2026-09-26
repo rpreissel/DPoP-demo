@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.session.channelType
 import com.example.dpop.orchestrator.domain.journey.JourneyContext
 import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.account.AccountService
@@ -38,7 +39,7 @@ class JourneyContextFactory(
         val accountId = channel.accountId
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
         return JourneyContext(
-            channel = checkNotNull(channel.channel) { "ChannelSession without a channel type" },
+            channel = channel.channelType,
             account = accountId?.let { accountService.findAccount(it) },
             evidence = evidence?.toCoreEvidence() ?: AuthEvidence(emptyList()),
             acrFloor = acrFloorOf(channel),

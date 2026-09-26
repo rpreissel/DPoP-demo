@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.journey.proofLevel
 import com.example.dpop.orchestrator.domain.journey.linksDeviceImplicitly
@@ -355,7 +356,7 @@ class JourneyActionExecutor(
      * ([AuthIntent.bindsDeviceImplicitly]), never a per-Action flag a strategy filled in.
      */
     private fun linkDeviceIfIntentImplies(journey: AuthJourney, channel: ChannelSession, accountId: Long) {
-        val intent = checkNotNull(journey.intent) { "Journey without an intent" }
+        val intent = journey.requireIntent()
         val linkedTo = channel.bindingKeyRef?.let { sessionManagementService.findLinkedAccountId(it) }
         if (linksDeviceImplicitly(intent, linkedTo, accountId)) linkDeviceTo(channel, accountId)
     }
@@ -392,7 +393,7 @@ class JourneyActionExecutor(
         // additionally removes them outright.
         if (previousAccountId != null && previousAccountId != accountId) {
             credentialsLivingOn(accountService.findAccount(previousAccountId), bindingKeyRef, toolRegistry).forEach {
-                accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" })
+                accountDeletionService.revokeMethod(previousAccountId, it.id)
             }
         }
     }
@@ -444,7 +445,7 @@ class JourneyActionExecutor(
         //
         // Dependents first, then the method that carried them: the reverse order would leave a
         // window in which a dependent credential exists without what it depends on.
-        dependents.forEach { accountDeletionService.revokeMethod(accountId, checkNotNull(it.id)) }
+        dependents.forEach { accountDeletionService.revokeMethod(accountId, it.id) }
         accountDeletionService.revokeMethod(accountId, methodInstanceId)
     }
 
@@ -481,13 +482,13 @@ class JourneyActionExecutor(
             )
         }
 
-        falling.forEach { accountDeletionService.revokeMethod(accountId, checkNotNull(it.id)) }
+        falling.forEach { accountDeletionService.revokeMethod(accountId, it.id) }
         accountService.retractAttribute(accountId, attributeType, RetractionAnchor.ACCOUNT_HOLDER, reason = "attribute withdrawn")
     }
 
     /** What falls with a credential or an attribute - see [MethodDependencies]; the claim log answers what each instance asserted. */
     private fun methodDependencies(account: AccountProfile) =
-        MethodDependencies(account, toolRegistry) { accountService.claimedTypesOf(account.accountId, checkNotNull(it.id)) }
+        MethodDependencies(account, toolRegistry) { accountService.claimedTypesOf(account.accountId, it.id) }
 
     /**
      * Both channel types get an [com.example.dpop.orchestrator.session.EvidenceTrail] here - the

@@ -46,7 +46,7 @@ class ChangeLogDbTest(
             accountId, "sms", EnrollmentRef("auth_sms.enrollment", "1"), enrolledUnderAcr = "loa1", details = mapOf("phone" to "+491701234567"),
             enrolledUnderAmr = listOf("email", "password"), channel = "WEB"
         ).activeAuthenticationMethods.single()
-        accountService.deactivateAuthenticationMethod(accountId, checkNotNull(method.id))
+        accountService.deactivateAuthenticationMethod(accountId, method.id)
         accountService.deleteAccount(accountId)
     }
 

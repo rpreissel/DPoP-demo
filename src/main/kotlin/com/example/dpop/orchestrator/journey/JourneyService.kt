@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.journey.DemoStepReason
 import com.example.dpop.orchestrator.domain.journey.IntentStrategy
@@ -130,7 +131,7 @@ class JourneyService(
         // hand. A sub-journey (parentJourneyId set) is the one legitimate second journey: its parent
         // was suspended for it on purpose and is not STARTED.
         if (parentJourneyId == null) {
-            findActive(checkNotNull(channel.channelSessionId))?.let { cancelChain(it.entity, channel) }
+            findActive(channel.id)?.let { cancelChain(it.entity, channel) }
         }
         val journey = AuthJourney(channel.channelSessionId, intent, Instant.now().plus(JOURNEY_TTL))
         journey.accountId = channel.accountId
@@ -226,7 +227,7 @@ class JourneyService(
         return chain.reversed().map {
             JourneyDebugStep(
                 journeyId = it.journeyId.toString(),
-                intent = it.intent!!.name,
+                intent = it.requireIntent().name,
                 lifecycle = it.lifecycle.name,
                 stateType = it.stateType!!,
                 note = if (it == innermost) innermostNote else null,
@@ -463,7 +464,7 @@ class JourneyService(
     // Transitions ----------------------------------------------------------------
 
     private fun advance(journey: AuthJourney, channel: ChannelSession, event: JourneyEvent): Step {
-        val strategy = strategyFor(journey.intent!!)
+        val strategy = strategyFor(journey.requireIntent())
         val state = codec.read(journey)
         val ctx = contextFactory.contextFor(journey, channel)
         val transition = strategy.transitionErased(state, event, ctx)
@@ -560,7 +561,7 @@ class JourneyService(
                 markCancelled(journey, channel)
                 parent.lifecycle = JourneyLifecycle.STARTED
                 journeyRepository.save(parent)
-                advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.intent!!))
+                advance(parent, channel, JourneyEvent.SubJourneyCancelled(journey.requireIntent()))
             } else {
                 // Giving up on the last thing this TOP-LEVEL journey could offer is the same
                 // outcome as an explicit DELETE .../journey - unless fallBack
@@ -592,7 +593,7 @@ class JourneyService(
             // The parent picks up exactly where it was parked, so the original wish survives.
             parent.lifecycle = JourneyLifecycle.STARTED
             journeyRepository.save(parent)
-            return advance(parent, channel, JourneyEvent.SubJourneyFinished(journey.intent!!, contextFactory.currentAcrOf(channel)))
+            return advance(parent, channel, JourneyEvent.SubJourneyFinished(journey.requireIntent(), contextFactory.currentAcrOf(channel)))
         }
 
         channel.state = ChannelState.AUTHENTICATED

@@ -61,7 +61,7 @@ class JourneyStateCodec {
 
     fun read(journey: AuthJourney): JourneyState {
         val json = checkNotNull(journey.state) { "Journey ${journey.journeyId} has no state" }
-        val intent = checkNotNull(journey.intent) { "Journey ${journey.journeyId} has no intent" }
+        val intent = journey.requireIntent()
         if (intent == AuthIntent.REGISTER) {
             return try {
                 mapper.readValue(json, RegisterState::class.java)

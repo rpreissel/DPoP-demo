@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.orchestrator.session.ToolSessionStatus
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.journey.RunningJourney
@@ -105,12 +106,12 @@ class ToolControllerSupport(
         }
 
         val toolSession = sessionManagementService.createToolSession(journey.journeyId, TOOL_TTL)
-        journeyService.activate(journey, live, descriptor, toolSession.toolSessionId!!)
+        journeyService.activate(journey, live, descriptor, toolSession.id)
         return Context(
             toolId = toolId,
-            toolSessionId = checkNotNull(toolSession.toolSessionId),
+            toolSessionId = toolSession.id,
             journeyId = journey.journeyId,
-            channelSessionId = checkNotNull(channel.channelSessionId),
+            channelSessionId = channel.id,
             bindingKeyRef = bindingKeyRef,
             accountId = channel.accountId
         )
@@ -163,7 +164,7 @@ class ToolControllerSupport(
             toolId = toolId,
             toolSessionId = toolSessionId,
             journeyId = journey.journeyId,
-            channelSessionId = checkNotNull(channel.channelSessionId),
+            channelSessionId = channel.id,
             bindingKeyRef = bindingKeyRef,
             accountId = channel.accountId
         )

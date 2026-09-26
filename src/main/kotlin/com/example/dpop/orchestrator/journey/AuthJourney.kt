@@ -118,3 +118,7 @@ class AuthJourney(
         const val DEFAULT_ATTEMPT_BUDGET = 3
     }
 }
+
+/* Set on the first save / at creation, never null afterwards - see `ChannelSession.id`. */
+val AuthJourney.id: UUID get() = checkNotNull(journeyId) { "AuthJourney not saved yet" }
+fun AuthJourney.requireIntent(): AuthIntent = checkNotNull(intent) { "Journey $journeyId without an intent" }

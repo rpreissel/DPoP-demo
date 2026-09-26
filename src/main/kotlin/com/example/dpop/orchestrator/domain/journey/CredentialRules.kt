@@ -97,7 +97,7 @@ class MethodDependencies(
         val casualties = falling.toMutableList()
         var lostSoFar = lost
         while (true) {
-            val fallingIds = casualties.mapNotNull { it.id }.toSet()
+            val fallingIds = casualties.map { it.id }.toSet()
             val standing = account.activeAuthenticationMethods.filter { it.id !in fallingIds }
             val next = standing.filter { instance ->
                 catalog.descriptors()
@@ -108,14 +108,14 @@ class MethodDependencies(
             casualties += next
             // A casualty takes its own claims with it - unless something still standing asserts
             // the same type, which is why this is recomputed rather than unioned.
-            val stillStanding = account.activeAuthenticationMethods.filter { it.id !in casualties.mapNotNull { c -> c.id }.toSet() }
+            val stillStanding = account.activeAuthenticationMethods.filter { it.id !in casualties.map { c -> c.id }.toSet() }
             lostSoFar = lostSoFar + (claimedBy(casualties) - claimedBy(stillStanding))
         }
     }
 
     /** The account as it would be with [falling] deactivated - what the floor check runs against. */
     fun without(falling: Collection<AuthMethodView>): AccountProfile {
-        val ids = falling.mapNotNull { it.id }.toSet()
+        val ids = falling.map { it.id }.toSet()
         return account.copy(authenticationMethods = account.authenticationMethods.map { if (it.id in ids) it.copy(active = false) else it })
     }
 

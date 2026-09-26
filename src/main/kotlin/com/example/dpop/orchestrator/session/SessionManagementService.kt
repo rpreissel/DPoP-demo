@@ -77,6 +77,10 @@ class SessionManagementService(
         channelSessionRepository.findByIdOrNull(channelSessionId)
             ?.takeIf { !it.isExpired }
 
+    /** The channel this request is already working on, read again after a write - gone only if it expired mid-request. */
+    fun reloadChannelSession(channelSessionId: UUID): ChannelSession =
+        checkNotNull(findChannelSessionById(channelSessionId)) { "Channel $channelSessionId vanished mid-request" }
+
     fun updateChannelSession(session: ChannelSession): ChannelSession {
         session.touch()
         return channelSessionRepository.save(session)

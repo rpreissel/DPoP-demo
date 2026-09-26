@@ -6,7 +6,7 @@ import com.example.dpop.tool_spi.TrustLevel
 import java.time.Instant
 
 data class AuthMethodView(
-    val id: String?,
+    val id: String,
     val method: String,
     val active: Boolean,
     val createdAt: Instant?,

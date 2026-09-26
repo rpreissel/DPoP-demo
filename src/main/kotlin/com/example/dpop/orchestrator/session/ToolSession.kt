@@ -65,3 +65,6 @@ class ToolSession(
     val isUsable: Boolean
         get() = status == ToolSessionStatus.RUNNING && !isExpired
 }
+
+/** Set on the first save, never null afterwards - see `ChannelSession.id`. */
+val ToolSession.id: UUID get() = checkNotNull(toolSessionId) { "ToolSession not saved yet" }

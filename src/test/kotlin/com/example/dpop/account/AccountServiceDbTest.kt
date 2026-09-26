@@ -611,7 +611,7 @@ class AccountServiceDbTest(
                 account.accountId, "password", EnrollmentRef("auth_password", "e-2"),
                 enrolledUnderAcr = "loa1", details = emptyMap()
             )
-            accountService.deactivateAuthenticationMethod(account.accountId, profile.authenticationMethods.first().id!!)
+            accountService.deactivateAuthenticationMethod(account.accountId, profile.authenticationMethods.first().id)
 
             val reread = accountService.findAccount(account.accountId)!!
             reread.activeAuthenticationMethods.shouldBeEmpty()

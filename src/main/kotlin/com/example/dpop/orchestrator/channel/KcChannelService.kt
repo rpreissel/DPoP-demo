@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
+import com.example.dpop.orchestrator.session.id
 import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.domain.OrchestratorException
@@ -65,7 +66,7 @@ class KcChannelService(
             signInLog.signedOut(accountId, ChannelType.KEYCLOAK.name, endedBy = "HOLDER")
         } else {
             live.forEach { channel ->
-                journeyService.findActive(channel.session.channelSessionId!!)?.let { journeyService.cancel(it, channel) }
+                journeyService.findActive(channel.session.id)?.let { journeyService.cancel(it, channel) }
                 journeyService.endSession(channel, ChannelState.LOGGED_OUT)
             }
         }
@@ -194,11 +195,11 @@ class KcChannelService(
         // stale, evidence-blind snapshot immediately superseded a moment later.
         var response = if (isFreshChannel && restoredFactors.isNotEmpty()) {
             channelService.resumeChannel(
-                sessionManagementService.findChannelSessionById(channelSessionId)!!,
+                sessionManagementService.reloadChannelSession(channelSessionId),
                 Action.ApplyRestoredEvidence(AmrSource.KEYCLOAK, restoredFactors)
             )
         } else {
-            channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+            channelService.resumeChannel(sessionManagementService.reloadChannelSession(channelSessionId))
         }
 
         // What a native Keycloak authenticator already established THIS run (docs/05-api.md,
@@ -209,10 +210,10 @@ class KcChannelService(
         // too, which this call's earlier branch already applied before any journey existed.
         if (liveFactors.isNotEmpty()) {
             val journey = journeyService.findActive(channelSessionId)
-            val channel = LiveChannel.of(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+            val channel = LiveChannel.of(sessionManagementService.reloadChannelSession(channelSessionId))
             if (journey != null && channel != null) {
                 journeyService.applyEvidenceUpdate(journey, channel, AmrSource.KEYCLOAK, liveFactors)
-                response = channelService.resumeChannel(sessionManagementService.findChannelSessionById(channelSessionId)!!)
+                response = channelService.resumeChannel(sessionManagementService.reloadChannelSession(channelSessionId))
             }
         }
 

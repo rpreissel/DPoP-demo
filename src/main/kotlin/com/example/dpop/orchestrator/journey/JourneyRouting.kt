@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.session.channelType
 import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.domain.journey.state.AnswerableState
@@ -131,5 +132,5 @@ class JourneyRouting(
     private fun completesOnActivation(toolId: ToolId): Text? = toolRegistry.descriptorOf(toolId).completesOnActivation
 
     private fun channelTypeOf(channel: ChannelSession): ChannelType =
-        checkNotNull(channel.channel) { "Channel ${channel.channelSessionId} has no channel type" }
+        channel.channelType
 }

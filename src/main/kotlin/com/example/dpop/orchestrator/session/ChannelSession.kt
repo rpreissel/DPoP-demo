@@ -164,3 +164,10 @@ class ChannelSession(
     val isExpired: Boolean
         get() = expiresAt?.let { Instant.now().isAfter(it) } ?: false
 }
+
+/*
+ * Set on the first save, never null afterwards - read through here instead of `!!` or `checkNotNull`
+ * at every call site, so the assumption stands once, next to the column it is about.
+ */
+val ChannelSession.id: UUID get() = checkNotNull(channelSessionId) { "ChannelSession not saved yet" }
+val ChannelSession.channelType: ChannelType get() = checkNotNull(channel) { "ChannelSession $channelSessionId without a channel type" }
