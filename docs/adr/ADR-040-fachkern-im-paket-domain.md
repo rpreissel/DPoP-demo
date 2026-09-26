@@ -40,3 +40,14 @@ JPA, Jackson, Logging) und hängt von nichts anderem im eigenen Modul ab. Beides
   `application`/`infrastructure`: Nachdem der Kern in `domain` liegt, enthalten sie nur noch Technik.
   Das Konto-Modul ist klein genug für die Dreiteilung.
 - **Das Versuchsbudget** („minus eins, bei null scheitern“) ist keine eigene Regelklasse wert.
+- **Die Zustandsdiagramme bleiben handgeschrieben.** Ein Versuch, sie aus den Strategien zu
+  erzeugen, brachte unbrauchbare Bilder: Ob ein Übergang vorkommt, hängt von einem Kontext ab, den
+  jede ausgeführte Aktion verändert, und ein Generator kann statt der Bedingungen („Nachweis reicht
+  für das geforderte Niveau“) nur Beispielnamen an die Pfeile schreiben. Geprüft werden stattdessen
+  die Zustände in beide Richtungen (`JourneyDiagramsTest`): Jeder gezeichnete Knoten existiert im
+  Code oder ist im Diagramm ausdrücklich deklariert, und jeder Zustand eines Intents ist gezeichnet.
+  Der Test fand beim ersten Lauf zwei Abweichungen (`EnrollFirstStart` fehlte, ein Hilfsknoten statt
+  der Sub-Journey `RE_IDENTIFY`).
+- **`IntentStrategy.kt` ist in fünf Dateien geteilt** (`IntentStrategy`, `JourneyContext`,
+  `JourneyEvent`, `Transition`, `Action`): Wer nachschlägt, was eine `Transition` ist, liest nicht
+  die anderen vier mit.

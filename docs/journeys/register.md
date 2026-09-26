@@ -179,25 +179,27 @@ Person dagegen nur ein vorläufiges Konto (etwa aus einem früher abgebrochenen 
 
 ```mermaid
 stateDiagram-v2
-  [*] --> EnrollFirstAttestingEmail
+  [*] --> EnrollFirstStart
+  EnrollFirstStart --> EnrollFirstAttestingEmail: Start - die Adresse kommt zuerst
   EnrollFirstAttestingEmail --> EnrollFirstAttestingEmail: abgelehnt - derselbe Schritt wird erneut angeboten
   EnrollFirstAttestingEmail --> EnrollFirstEnrollingSms: E-Mail bestätigt, oder Bestätigungs-Tool nicht verfügbar
   EnrollFirstEnrollingSms --> EnrollFirstEnrollingSms: abgelehnt - derselbe Schritt wird erneut angeboten
   EnrollFirstEnrollingSms --> EnrollFirstEnrolling: SMS eingerichtet (oder Tool nicht verfügbar), aber Niveau reicht noch nicht
   EnrollFirstEnrollingSms --> EnrollFirstConfirmingEmail: SMS eingerichtet, Niveau erreicht, E-Mail-Pflicht noch offen
   EnrollFirstEnrollingSms --> EnrollFirstPasswordObligation: SMS eingerichtet, Niveau erreicht, E-Mail bereits bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
-  EnrollFirstEnrollingSms --> IdentifizierungAnbieten: SMS eingerichtet, Niveau erreicht, keine Pflicht offen
+  EnrollFirstEnrollingSms --> RE_IDENTIFY: SMS eingerichtet, Niveau erreicht, keine Pflicht offen - Identifizierung wird angeboten
   EnrollFirstEnrolling --> EnrollFirstEnrolling: Verfahren eingerichtet, Niveau reicht noch nicht
   EnrollFirstEnrolling --> EnrollFirstConfirmingEmail: Niveau erreicht, E-Mail-Pflicht noch offen
   EnrollFirstEnrolling --> EnrollFirstPasswordObligation: Niveau erreicht, E-Mail bereits bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
-  EnrollFirstEnrolling --> IdentifizierungAnbieten: Niveau erreicht, keine Pflicht offen
+  EnrollFirstEnrolling --> RE_IDENTIFY: Niveau erreicht, keine Pflicht offen - Identifizierung wird angeboten
   EnrollFirstConfirmingEmail --> EnrollFirstPasswordObligation: E-Mail bestätigt, loa2 sonst nicht erreichbar, kein Passwort aktiv
-  EnrollFirstConfirmingEmail --> IdentifizierungAnbieten: E-Mail bestätigt, keine weitere Pflicht offen
-  EnrollFirstPasswordObligation --> IdentifizierungAnbieten: Passwort eingerichtet
+  EnrollFirstConfirmingEmail --> RE_IDENTIFY: E-Mail bestätigt, keine weitere Pflicht offen
+  EnrollFirstPasswordObligation --> RE_IDENTIFY: Passwort eingerichtet
 
-  IdentifizierungAnbieten --> EnrollFirstConfirmDeviceRebind: fertig, aber dieses Gerät gehört einem ANDEREN Konto
-  IdentifizierungAnbieten --> Finished: zugestimmt und erfolgreich identifiziert, oder abgelehnt bzw. nichts anzubieten
-  IdentifizierungAnbieten --> [*]: Person gehört bereits zu einem anderen, echten Konto - 409
+  RE_IDENTIFY --> EnrollFirstStart: zugestimmt und identifiziert, oder abgelehnt (SubJourneyFinished/Cancelled)
+  RE_IDENTIFY --> [*]: Person gehört bereits zu einem anderen, echten Konto - 409
+  EnrollFirstStart --> EnrollFirstConfirmDeviceRebind: fertig, aber dieses Gerät gehört einem ANDEREN Konto
+  EnrollFirstStart --> Finished: fertig
   EnrollFirstConfirmDeviceRebind --> Finished: zugestimmt - Gerät neu verknüpft, altes Geräte-Credential widerrufen
   EnrollFirstConfirmDeviceRebind --> Finished: abgelehnt - angemeldet, aber ohne Geräteverknüpfung
   Finished --> [*]
@@ -212,9 +214,11 @@ stateDiagram-v2
     der man fragen könnte. Ohne
     Zustimmung wird nie neu verknüpft.
   end note
-  note right of IdentifizierungAnbieten
+  note right of RE_IDENTIFY
     Sub-Journey RE_IDENTIFY,
-    freiwillig. Lehnt der Nutzer
+    freiwillig; gibt es nichts
+    anzubieten, geht es direkt
+    zum Ende. Lehnt der Nutzer
     ab, bleibt das Konto dauerhaft
     ohne Identifizierung. Der Text
     kommt aus ReIdentifyState

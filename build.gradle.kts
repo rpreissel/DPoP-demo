@@ -259,6 +259,9 @@ tasks.withType<Test> {
     inputs.dir(layout.projectDirectory.dir("api")).withPropertyName("apiContract")
     // Dasselbe fuer das Invariantenregister: InvariantRegisterTest liest docs/invarianten.md direkt.
     inputs.file(layout.projectDirectory.file("docs/invarianten.md")).withPropertyName("invariantRegister")
+    // Und fuer die Journey-Diagramme: JourneyDiagramsTest liest docs/journeys/ direkt - ohne diese
+    // Zeile liefe er nach einer reinen Doku-Aenderung nicht.
+    inputs.dir(layout.projectDirectory.dir("docs/journeys")).withPropertyName("journeyDocs")
     // Die Test-JVMs haengen Agenten an den Bootclasspath (Kover, ByteBuddy). Class Data Sharing
     // bricht dann ab und meldet "Sharing is only supported for boot loader classes" bei jedem
     // Start - aus, statt jedes Mal zu warnen.

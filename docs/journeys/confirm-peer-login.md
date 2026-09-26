@@ -33,10 +33,11 @@ stateDiagram-v2
   ConfirmationRequired --> [*]: alle abgelehnt -> Cancel
   ConfirmationRequired --> Confirming: Nachweis erbracht
   Confirming --> Confirming: confirm-qr-login abgebrochen, kommt zurück
-  Confirming --> AUTHENTICATED: bestätigt oder abgelehnt, Kanal war schon vorher angemeldet
+  Confirming --> Finished: bestätigt oder abgelehnt, Kanal war schon vorher angemeldet
   Confirming --> OfferLogout: bestätigt oder abgelehnt, Kanal wurde nur für diese Bestätigung angemeldet
   OfferLogout --> [*]: zugestimmt -> Abmeldung
-  OfferLogout --> AUTHENTICATED: abgelehnt -> angemeldet bleiben
+  OfferLogout --> Finished: abgelehnt -> angemeldet bleiben
+  Finished --> [*]
 ```
 
 Je nach Zustand des Kanals beginnt die Journey an einer von drei Stellen. Danach laufen immer
