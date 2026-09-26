@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.journey.declineTool
@@ -15,7 +15,6 @@ import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * Raise the level of an already authenticated session (docs/04-orchestrierung.md #3).
@@ -27,7 +26,6 @@ import org.springframework.stereotype.Component
  * never a silent shortcut, and this way the confirmation/interpretation logic lives in exactly
  * one shared place instead of being duplicated per intent.
  */
-@Component
 class StepUpStrategy : IntentStrategy<StepUpState> {
 
     override val intent = AuthIntent.STEP_UP

@@ -41,7 +41,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                     "com.example.dpop.orchestrator.domain.journey",
                     "com.example.dpop.orchestrator.domain.journey.state"
                 )
-                .should().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.journey.strategy..")
+                .should().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.domain.journey.strategy..")
                 .because(
                     "the machine is generic over every AuthIntent via IntentStrategy/strategiesByIntent - " +
                         "depending on one concrete strategy class breaks that (and was exactly today's bug: " +
@@ -123,10 +123,11 @@ class OrchestratorArchitectureTest : BehaviorSpec({
     }
 
     given("AuthPolicy's single implementation (DefaultAuthPolicy)") {
-        then("nothing outside the policy package depends on it directly") {
+        then("nothing outside the policy package depends on it directly - only DomainBeans creates it") {
             noClasses()
-                .that().resideOutsideOfPackage("com.example.dpop.orchestrator.policy..")
-                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.policy.DefaultAuthPolicy")
+                .that().resideOutsideOfPackage("com.example.dpop.orchestrator.domain.policy..")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.orchestrator.DomainBeans")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.domain.policy.DefaultAuthPolicy")
                 .because("every caller is meant to go through the AuthPolicy interface (Spring-injected), never the concrete implementation - the same reasoning as the journey/strategy rule above")
                 .check(classes)
         }
@@ -155,7 +156,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
             noClasses()
                 .that().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.JourneyActionExecutor")
                 .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.orchestrator.journey.JourneyService")
-                .orShould().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.journey.strategy..")
+                .orShould().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.domain.journey.strategy..")
                 .because(
                     "the executor WRITES and returns - it never advances a journey, never routes and never starts a " +
                         "sub-journey; that one-way dependency is what keeps the recursion in JourneyService." +

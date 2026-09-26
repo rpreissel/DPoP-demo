@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.journey.declineTool
@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * "No active method reaches the target - re-identify instead?" Shared by FAST_ACCESS/
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component
  * rule - so a session that merely proved a lower level cannot smuggle in someone else's identity,
  * no matter which strategy asked for the sub-journey.
  */
-@Component
 class ReIdentifyStrategy : IntentStrategy<ReIdentifyState> {
 
     override val intent = AuthIntent.RE_IDENTIFY

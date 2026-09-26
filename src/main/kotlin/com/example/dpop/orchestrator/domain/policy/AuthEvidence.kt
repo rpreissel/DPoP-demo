@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.domain.policy
 
-import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
+import com.example.dpop.orchestrator.domain.policy.DefaultAuthPolicy
 import com.example.dpop.orchestrator.domain.AmrSource
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType

@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.domain.journey.CandidateTools
@@ -13,14 +13,12 @@ import com.example.dpop.orchestrator.domain.journey.state.Enrolling
 import com.example.dpop.orchestrator.domain.journey.state.FastAccessState
 import com.example.dpop.orchestrator.domain.journey.state.RegisterState
 import com.example.dpop.tool_spi.ToolId
-import org.springframework.stereotype.Component
 
 /**
  * Into a login on this device as fast as possible - and in a way that works again next time
  * (docs/04-orchestrierung.md #3). See [FastAccessState]'s own doc for the shape of this journey and
  * why [AuthChoice]/[Enrolling] are shared with [RegisterState] rather than owned here.
  */
-@Component
 class FastAccessStrategy : IntentStrategy<FastAccessState> {
 
     override val intent: AuthIntent = AuthIntent.FAST_ACCESS

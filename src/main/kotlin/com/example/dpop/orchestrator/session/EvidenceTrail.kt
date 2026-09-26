@@ -171,9 +171,9 @@ data class AmrRecord(
     val loa: String,
     val enrolledUnderAcr: String? = null,
     val factorTypes: Set<FactorType> = emptySet(),
-    /** Mirrors `orchestrator.policy.AuthEvidence.MethodEvidence.amrSourceId` - see its own doc for what this identifies and why it is never blank. */
+    /** Mirrors `orchestrator.domain.policy.AuthEvidence.MethodEvidence.amrSourceId` - see its own doc for what this identifies and why it is never blank. */
     val amrSourceId: String,
-    /** Mirrors `orchestrator.policy.AuthEvidence.MethodEvidence.axis` - see [EvidenceAxis]. Defaulted for old rows persisted before this field existed. */
+    /** Mirrors `orchestrator.domain.policy.AuthEvidence.MethodEvidence.axis` - see [EvidenceAxis]. Defaulted for old rows persisted before this field existed. */
     val axis: EvidenceAxis = EvidenceAxis.AUTHENTICATOR,
 )
 

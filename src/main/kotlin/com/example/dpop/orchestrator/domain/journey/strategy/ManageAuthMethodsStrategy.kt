@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.AuthIntent
@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.orchestrator.domain.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * Add or remove authentication methods on an already authenticated channel
@@ -32,7 +31,6 @@ import org.springframework.stereotype.Component
  * step-up sub-journey runs, and re-evaluating that same state afterwards both re-checks the gate
  * and carries out what was originally asked for.
  */
-@Component
 class ManageAuthMethodsStrategy : IntentStrategy<ManageAuthMethodsState> {
 
     override val intent = AuthIntent.MANAGE_AUTH_METHODS

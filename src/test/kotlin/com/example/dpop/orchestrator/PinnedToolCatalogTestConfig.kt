@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator
 
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean

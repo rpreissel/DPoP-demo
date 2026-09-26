@@ -1,5 +1,6 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
+import com.example.dpop.orchestrator.domain.journey.strategy.DeleteAccountStrategy
 import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.AuthIntent
@@ -8,10 +9,10 @@ import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.orchestrator.domain.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.domain.journey.state.StepUpState
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.account
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.ctx
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.method
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import com.example.dpop.tool_spi.ToolId

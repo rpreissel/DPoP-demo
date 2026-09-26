@@ -185,7 +185,7 @@ interface ToolDescriptor {
  * on - see [ToolDescriptor.keyBinding].
  *
  * Generic infrastructure that iterates key-bound credentials uniformly
- * (`orchestrator.journey.CandidateTools`, `orchestrator.policy.DefaultAuthPolicy`,
+ * (`orchestrator.domain.journey.CandidateTools`, `orchestrator.domain.policy.DefaultAuthPolicy`,
  * `orchestrator.journey.JourneyActionExecutor`) asks this to pick "the" instance on the key in
  * hand, without knowing HOW a concrete tool tells them apart - only the tool itself knows that
  * (`auth_device`'s own `"deviceBindingKeyRef"` detail key is private to that module, never

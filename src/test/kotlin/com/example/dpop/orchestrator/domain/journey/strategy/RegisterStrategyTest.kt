@@ -1,5 +1,8 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
+import com.example.dpop.orchestrator.domain.journey.strategy.AuthEnrollCore
+import com.example.dpop.orchestrator.domain.journey.strategy.FastAccessStrategy
+import com.example.dpop.orchestrator.domain.journey.strategy.RegisterStrategy
 import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.auth_sms.AuthSmsDescriptor
@@ -12,10 +15,10 @@ import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.orchestrator.domain.journey.state.AuthChoice
 import com.example.dpop.orchestrator.domain.journey.state.Enrolling
 import com.example.dpop.orchestrator.domain.journey.state.RegisterState
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.account
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.ctx
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.evidence
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
 import com.example.dpop.tool_spi.AcrLevel

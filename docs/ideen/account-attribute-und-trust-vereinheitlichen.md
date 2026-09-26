@@ -15,7 +15,7 @@ weil jeder viele Aufrufer, Tests oder übertragene Formate berührt.
   - *Vorschlag:* `createUnboundAccount()`
   - *Warum:* Eine fehlende PersonId heißt nur: keiner Person im Personenverzeichnis zugeordnet. Das Konto kann trotzdem schon eine bestätigte E-Mail-Adresse oder einen anderen Nachweis haben.
   - *Was dabei zu beachten ist:* Betrifft `AccountService`, `JourneyActionExecutor`, den Demo-Seed und Tests. Die Code-Dokumentation muss sagen: keiner Person zugeordnet, aber an Kanal oder Gerät gebunden. Ein neues Statusfeld gibt es dafür nicht. Eindeutiger, aber länger wäre `createAccountWithoutPersonBinding`.
-- **`orchestrator.policy.AuthEvidence.factors`**
+- **`orchestrator.domain.policy.AuthEvidence.factors`**
   - *Vorschlag:* `methodEvidence`
   - *Warum:* Ein Eintrag ist der Nachweis eines Verfahrens und kann mehrere `FactorType` enthalten; Verfahren und Faktor sind nicht dasselbe.
   - *Was dabei zu beachten ist:* Richtlinie, Factory, `RestoreData` und Tests gemeinsam umstellen. Vorher prüfen, wo JSON übertragen wird; das übertragene Format bleibt gleich.

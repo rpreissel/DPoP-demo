@@ -50,7 +50,7 @@ freiwillig einen stärkeren Nachweis erbracht hat.
 
 ## 3) Wo das technisch ansetzen würde
 
-`RE_IDENTIFY` ([`ReIdentifyStrategy.kt`](../../src/main/kotlin/com/example/dpop/orchestrator/journey/strategy/ReIdentifyStrategy.kt),
+`RE_IDENTIFY` ([`ReIdentifyStrategy.kt`](../../src/main/kotlin/com/example/dpop/orchestrator/domain/journey/strategy/ReIdentifyStrategy.kt),
 Zustände in `ReIdentifyState.kt`) ist nie der Einstieg einer Journey. Man erreicht sie nur über
 `Transition.RequireSubJourney`. Heute führt ein erfolgreiches `Completed(Identified)` im Zustand
 `Identifying` direkt zu `Action.RecordIdentification` und danach in jedem Fall zu

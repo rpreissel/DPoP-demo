@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.orchestrator.domain.AuthIntent
@@ -12,7 +12,6 @@ import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.orchestrator.domain.journey.state.KcSelectMethodState
 import com.example.dpop.tool_spi.ToolId
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * The Web-Kanal entry intent (docs/04-orchestrierung.md Abschnitt 3): a single `selectMethod`
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Component
  *   Abschnitt 3): only auth tools for that already-known account, like
  *   `FAST_ACCESS` treats a recognized-but-unproven device.
  */
-@Component
 class KcSelectMethodStrategy : IntentStrategy<KcSelectMethodState> {
 
     override val intent = AuthIntent.KC_SELECT_METHOD

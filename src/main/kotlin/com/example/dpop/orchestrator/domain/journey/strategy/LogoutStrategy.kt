@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.domain.journey.IntentStrategy
@@ -6,13 +6,11 @@ import com.example.dpop.orchestrator.domain.journey.JourneyContext
 import com.example.dpop.orchestrator.domain.journey.JourneyEvent
 import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.orchestrator.domain.journey.state.LogoutState
-import org.springframework.stereotype.Component
 
 /**
  * Logout as a journey: a single confirmation prompt, then an unconditional logout on accept.
  * No tools, no gates, no sub-journeys — the simplest possible intent.
  */
-@Component
 class LogoutStrategy : IntentStrategy<LogoutState> {
 
     override val intent = AuthIntent.LOGOUT

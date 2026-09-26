@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.journey.ANSWER_ACCEPT

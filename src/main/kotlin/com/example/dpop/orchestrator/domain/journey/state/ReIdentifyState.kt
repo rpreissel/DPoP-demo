@@ -24,7 +24,7 @@ sealed interface ReIdentifyState : JourneyState {
      * this is `null`) frames it as a genuine "no active method reaches the target, re-identify as
      * a last resort" recovery - correct for the primary use case (FAST_ACCESS/LOOKUP_LOGIN/STEP_UP,
      * same reasoning as [StepUpState.forSubJourney]'s own `reason`), but factually wrong for
-     * [com.example.dpop.orchestrator.journey.strategy.RegisterEnrollFirstStrategy]'s closing offer:
+     * [com.example.dpop.orchestrator.domain.journey.strategy.RegisterEnrollFirstStrategy]'s closing offer:
      * that account was never identified before, so "erneut" (again) is false, and nothing is
      * "nicht erreichbar" - every enrollment obligation is already discharged, identification there
      * is a plain optional extra, not a recovery path.

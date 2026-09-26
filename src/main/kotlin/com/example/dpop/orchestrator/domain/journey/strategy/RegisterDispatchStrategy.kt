@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.domain.FeatureFlags
@@ -9,7 +9,6 @@ import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.orchestrator.domain.journey.state.JourneyState
 import com.example.dpop.orchestrator.domain.journey.state.RegisterEnrollFirstState
 import com.example.dpop.orchestrator.domain.journey.state.RegisterState
-import org.springframework.stereotype.Component
 
 /**
  * The single [IntentStrategy] Spring actually registers for [AuthIntent.REGISTER] - Spring only
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Component
  * flags once, into [JourneyContext.featureFlags] (`FeatureFlags.REGISTER_ENROLL_FIRST`), the same
  * read-only channel every other decision here already goes through.
  */
-@Component
 class RegisterDispatchStrategy : IntentStrategy<JourneyState> {
 
     private val identFirst = RegisterStrategy()

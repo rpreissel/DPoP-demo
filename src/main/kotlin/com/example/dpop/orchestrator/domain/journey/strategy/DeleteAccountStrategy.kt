@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.journey.Action
@@ -14,7 +14,6 @@ import com.example.dpop.orchestrator.domain.journey.state.DeleteAccountState
 import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * Delete the account of an already authenticated channel (docs/05-api.md, Account löschen).
@@ -39,7 +38,6 @@ import org.springframework.stereotype.Component
  * immediate action, never a durable claim about what this account can prove again later - so it
  * goes straight to [Action.DeleteAccount] instead of first through [Action.AcceptProof].
  */
-@Component
 class DeleteAccountStrategy : IntentStrategy<DeleteAccountState> {
 
     override val intent = AuthIntent.DELETE_ACCOUNT

@@ -1,5 +1,6 @@
-package com.example.dpop.orchestrator.policy
+package com.example.dpop.orchestrator.domain.policy
 
+import com.example.dpop.orchestrator.domain.policy.DefaultAuthPolicy
 import com.example.dpop.orchestrator.domain.policy.requiresSatisfied
 import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.orchestrator.domain.policy.AuthPolicy

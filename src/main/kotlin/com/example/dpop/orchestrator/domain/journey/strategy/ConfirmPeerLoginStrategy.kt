@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.journey.ANSWER_ACCEPT
@@ -16,7 +16,6 @@ import com.example.dpop.orchestrator.domain.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * Approve or decline a WEB-channel `auth-qr`/`auth-qr-lookup` pairing (docs/journeys/
@@ -42,7 +41,6 @@ import org.springframework.stereotype.Component
  * is deliberately never recorded as `MethodEvidence` either (same reasoning as
  * [DeleteAccountStrategy]): it authorizes exactly this one confirmation, never a durable claim.
  */
-@Component
 class ConfirmPeerLoginStrategy : IntentStrategy<ConfirmPeerLoginState> {
 
     override val intent = AuthIntent.CONFIRM_PEER_LOGIN

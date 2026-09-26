@@ -1,5 +1,6 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
+import com.example.dpop.orchestrator.domain.journey.strategy.ReIdentifyStrategy
 import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.domain.journey.Action
@@ -7,9 +8,9 @@ import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.domain.journey.JourneyEvent
 import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
-import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.account
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.ctx
+import com.example.dpop.orchestrator.domain.journey.strategy.StrategyTestFixtures.method
 import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef

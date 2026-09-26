@@ -42,8 +42,8 @@ sealed interface StepUpState : JourneyState {
          * `RE_IDENTIFY` - false for [com.example.dpop.orchestrator.domain.AuthIntent.CONFIRM_PEER_LOGIN]'s
          * own gate (docs/04-orchestrierung.md, CONFIRM_PEER_LOGIN #1: a peer-approval must never let
          * someone acquire a fresh identity just to confirm someone else's login), true everywhere
-         * else this sub-journey is used ([com.example.dpop.orchestrator.journey.strategy.DeleteAccountStrategy],
-         * [com.example.dpop.orchestrator.journey.strategy.ManageAuthMethodsStrategy], a direct step-up trigger).
+         * else this sub-journey is used ([com.example.dpop.orchestrator.domain.journey.strategy.DeleteAccountStrategy],
+         * [com.example.dpop.orchestrator.domain.journey.strategy.ManageAuthMethodsStrategy], a direct step-up trigger).
          *
          * Defaulting to `true` is deliberate, not just permissive: a re-identification is an
          * EQUALLY VALID path to the loa2/NIST-AAL2 threshold, not a lesser fallback only reached
@@ -74,7 +74,7 @@ sealed interface StepUpState : JourneyState {
          * feedback: two back-to-back "Erhöhte Sicherheit erforderlich" screens with byte-identical
          * text, offering fewer methods the second time, read as the same request repeating/stuck -
          * not as "you gave one factor, now give a DIFFERENT one to complete the combination"). Set
-         * once, at the point [com.example.dpop.orchestrator.journey.strategy.StepUpStrategy.offerAuth]
+         * once, at the point [com.example.dpop.orchestrator.domain.journey.strategy.StepUpStrategy.offerAuth]
          * builds this state - never recomputed afterwards, so it stays accurate for exactly the
          * offer it was computed for.
          */

@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journey.strategy
+package com.example.dpop.orchestrator.domain.journey.strategy
 
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.domain.journey.ANSWER_ACCEPT
@@ -16,7 +16,6 @@ import com.example.dpop.orchestrator.domain.journey.state.LookupLoginState
 import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
 import com.example.dpop.orchestrator.domain.journey.toAuthAbortMessage
 import com.example.dpop.tool_spi.ToolOutcome
-import org.springframework.stereotype.Component
 
 /**
  * Log into an existing account without a paired device (docs/04-orchestrierung.md #3): the user
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Component
  * - The device link is never a side effect. It arises only from [LookupLoginState.OfferBinding], after
  *   the user agrees - this intent is chosen precisely by people who want no device binding.
  */
-@Component
 class LookupLoginStrategy : IntentStrategy<LookupLoginState> {
 
     override val intent = AuthIntent.LOOKUP_LOGIN

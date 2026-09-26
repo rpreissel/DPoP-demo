@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.policy
+package com.example.dpop.orchestrator.domain.policy
 
 import com.example.dpop.orchestrator.domain.policy.requiresSatisfied
 import com.example.dpop.orchestrator.domain.policy.AuthEvidence
@@ -12,7 +12,7 @@ import com.example.dpop.orchestrator.domain.policy.UnreachableReason
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.domain.AcrLevels
-import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
+import com.example.dpop.orchestrator.domain.ToolCatalog
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.TrustLevel
 import com.example.dpop.tool_spi.AttributeType
@@ -22,7 +22,6 @@ import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ToolId
-import org.springframework.stereotype.Component
 
 /**
  * Provisional default implementation (docs/08-projektrahmen.md, Phase B3): the amr->acr
@@ -54,8 +53,7 @@ import org.springframework.stereotype.Component
  * IDENTIFICATION combining with an unrelated AUTHENTICATOR factor to manufacture a false MFA
  * bump (see [applyMfaBump]'s doc).
  */
-@Component
-class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPolicy {
+class DefaultAuthPolicy(private val toolRegistry: ToolCatalog) : AuthPolicy {
 
     override fun resolveAcr(evidence: AuthEvidence, account: AccountProfile?): AcrLevel =
         AcrLevel.max(identityAssuranceLevel(evidence), authenticatorAssuranceLevel(evidence))
