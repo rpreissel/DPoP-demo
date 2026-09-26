@@ -249,6 +249,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
+            every { personDirectory.hasNamesake("P000000042") } returns false
             every { personDirectory.matchesMasterData("P000000042", any()) } returns true
 
             then("it passes, carrying exactly the attested attributes into the comparison") {
@@ -267,10 +268,59 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
+            every { personDirectory.hasNamesake("P000000099") } returns false
             every { personDirectory.matchesMasterData("P000000099", any()) } returns false
 
             then("it refuses") {
                 resolver.attestedIdentityMatches(1L, "P000000099") shouldBe false
+            }
+        }
+
+        val withAddress = attested + listOf(
+            claim(AttributeType.STREET_ADDRESS, "Musterstraße 1", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.POSTAL_CODE, "12345", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.LOCALITY, "Musterstadt", ClaimSource.of(ToolId("ident-eid")))
+        )
+
+        `when`("the register holds a namesake born the same day (ADR-18, addendum 2026-09-26)") {
+            then("name and date of birth are not enough - without an attested address it refuses without asking") {
+                val claimRepository = mockk<AccountClaimRepository>()
+                val personDirectory = mockk<PersonDirectory>()
+                every { claimRepository.findEstablished(1L) } returns attested
+                every { personDirectory.hasNamesake("P000000042") } returns true
+
+                service(mockk(), claimRepository, personDirectory).attestedIdentityMatches(1L, "P000000042") shouldBe false
+                verify(exactly = 0) { personDirectory.matchesMasterData(any(), any()) }
+            }
+
+            then("with an attested address, the address is compared too") {
+                val claimRepository = mockk<AccountClaimRepository>()
+                val personDirectory = mockk<PersonDirectory>()
+                every { claimRepository.findEstablished(1L) } returns withAddress
+                every { personDirectory.hasNamesake("P000000042") } returns true
+                every { personDirectory.matchesMasterData("P000000042", any()) } returns true
+
+                service(mockk(), claimRepository, personDirectory).attestedIdentityMatches(1L, "P000000042") shouldBe true
+                verify {
+                    personDirectory.matchesMasterData(
+                        "P000000042",
+                        ClaimedIdentity(
+                            familyName = "Muster", givenNames = "Max", birthDate = LocalDate.of(1985, 6, 15),
+                            streetAddress = "Musterstraße 1", postalCode = "12345", locality = "Musterstadt"
+                        )
+                    )
+                }
+            }
+        }
+
+        `when`("the attestation lacks the date of birth") {
+            then("it refuses - a missing attribute is never skipped into a name-only match") {
+                val claimRepository = mockk<AccountClaimRepository>()
+                val personDirectory = mockk<PersonDirectory>()
+                every { claimRepository.findEstablished(1L) } returns attested.filterNot { it.attributeType == AttributeType.BIRTH_DATE }
+
+                service(mockk(), claimRepository, personDirectory).attestedIdentityMatches(1L, "P000000042") shouldBe false
+                verify(exactly = 0) { personDirectory.matchesMasterData(any(), any()) }
             }
         }
 

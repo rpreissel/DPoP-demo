@@ -37,6 +37,14 @@ interface PersonDirectory {
     fun matchesPersonalDetails(personId: String, familyName: String, givenNames: String, birthDate: LocalDate): Boolean
 
     /**
+     * Whether the register holds another person with the same family name, given names and date of
+     * birth as [personId], names compared as in [matchesMasterData]. Then name and date of birth do
+     * not tell the two apart, and assigning an attested identity to [personId] needs the address
+     * too (ADR-18, addendum 2026-09-26). Answers yes or no - the namesake never crosses the port.
+     */
+    fun hasNamesake(personId: String): Boolean
+
+    /**
      * "Vorname Name" for [personId], or `null` if unknown - a deliberate, narrow exception to the
      * "answer crosses the port, master data never does" rule above: this exists only so the demo
      * UI can show who is logged in (`TokenService.idClaims`'s `name` claim, docs/05-api.md

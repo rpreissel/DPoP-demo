@@ -46,6 +46,14 @@ class IdentityMatchingService(
         /** What an attestation can establish and the register can be checked against. */
         private val ATTESTABLE_IDENTITY_ATTRIBUTES =
             setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
+
+        /**
+         * What tells two register persons apart whose name and date of birth are the same
+         * ([PersonDirectory.hasNamesake], ADR-18, addendum 2026-09-26): then the attested address has
+         * to match too. An attestation without one (a passport read) or with a moved address goes on
+         * to the Freischaltcode letter.
+         */
+        private val ADDRESS_ATTRIBUTES = setOf(AttributeType.STREET_ADDRESS, AttributeType.POSTAL_CODE, AttributeType.LOCALITY)
     }
 
     override fun resolve(claims: Set<Claim>): Resolution {
@@ -71,14 +79,22 @@ class IdentityMatchingService(
      * trust level ("Rangfolge schlägt Rezenz", docs/archiv/claims-modell-und-vertrauensanker.md).
      */
     override fun attestedIdentityMatches(accountId: Long, personId: String): Boolean {
-        val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)
-        if (attested.isEmpty()) return false
+        val attested = accountClaimRepository.findEstablished(accountId)
+            .strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES + ADDRESS_ATTRIBUTES)
+        // All of them, not "whatever was attested": ClaimedIdentity skips a null field by design, so
+        // a missing date of birth would quietly fall back to the name alone.
+        if (!attested.keys.containsAll(ATTESTABLE_IDENTITY_ATTRIBUTES)) return false
+        val withAddress = personDirectory.hasNamesake(personId)
+        if (withAddress && !attested.keys.containsAll(ADDRESS_ATTRIBUTES)) return false
         return personDirectory.matchesMasterData(
             personId,
             ClaimedIdentity(
-                familyName = attested[AttributeType.FAMILY_NAME],
-                givenNames = attested[AttributeType.GIVEN_NAMES],
-                birthDate = attested[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
+                familyName = attested.getValue(AttributeType.FAMILY_NAME),
+                givenNames = attested.getValue(AttributeType.GIVEN_NAMES),
+                birthDate = LocalDate.parse(attested.getValue(AttributeType.BIRTH_DATE)),
+                streetAddress = attested[AttributeType.STREET_ADDRESS].takeIf { withAddress },
+                postalCode = attested[AttributeType.POSTAL_CODE].takeIf { withAddress },
+                locality = attested[AttributeType.LOCALITY].takeIf { withAddress }
             )
         )
     }

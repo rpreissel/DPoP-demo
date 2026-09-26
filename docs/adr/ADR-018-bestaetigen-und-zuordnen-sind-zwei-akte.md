@@ -72,14 +72,25 @@ Interessent auf `loa1` statt auf `loa3`.
   Aufrufer muss deshalb den Fall ohne PersonId behandeln.
 - `id_eid` hängt an keinem Port zur Personensuche mehr.
 
-## Namensvetter: ohne Adresse (entschieden 2026-09-26)
+## Namensvetter: Adresse nur bei einem Namensvetter im Register (entschieden 2026-09-26, zweite Bewertung F-2)
 
-Die Zuordnung über die KVNR vergleicht Name, Vorname und Geburtsdatum mit den bezeugten Daten
-(`IdentityResolver.attestedIdentityMatches`), bewusst **nicht** die Adresse. Das trennende Merkmal ist
-die KVNR selbst: Wer eine fremde Nummer eintippt, muss zusätzlich Name, Vorname und Geburtsdatum
-dieser Person bezeugt haben. Ein Namensvetter mit gleichem Geburtsdatum hat eine andere KVNR. Die
-Adresse dazuzunehmen hätte vor allem echte Personen abgewiesen: Ausweisdaten und Register veralten
-unterschiedlich schnell (Umzug) und schreiben Straßen verschieden. Review 2026-09, Namensvetter-Risiko.
+Die Zuordnung über KVNR oder Partnernummer (`IdentityResolver.attestedIdentityMatches`) verlangt, dass
+Name, Vorname und Geburtsdatum **alle** bezeugt sind und zum Register passen; eine fehlende Angabe wird
+nicht übersprungen. Kennt das Register eine zweite Person mit gleichem Namen, Vornamen und
+Geburtsdatum (`PersonDirectory.hasNamesake`), müssen zusätzlich Straße, PLZ und Ort bezeugt sein und
+passen. Ohne bezeugte Adresse (Reisepass über Nect) oder bei veralteter Register-Adresse bleibt dann
+nur der Freischaltcode-Brief.
+
+Die KVNR trennt Namensvettern nicht: Sie ist kein Geheimnis (sie steht auf der Karte, Arztpraxen
+kennen sie). Die Adresse immer zu vergleichen, hätte vor allem echte Personen abgewiesen – Ausweis und
+Register veralten unterschiedlich schnell (Umzug) und schreiben Straßen verschieden.
+
+**Restrisiko, bewusst getragen:** Steht der Namensvetter selbst nicht im Register (nicht bei uns
+versichert), sieht das Register keinen Konflikt. Er kann sich dann mit seiner eigenen eID und der
+fremden KVNR der Person im Register zuordnen: bei bestehendem Konto dieses übernehmen, sonst die
+Person an ein neues Konto binden. Bei häufigen Namen gibt es in Deutschland Hunderte solcher Paare je
+Name, und ein Angreifer kann gezielt einen suchen. Wer das Restrisiko nicht tragen will, lässt die
+Adresse immer vergleichen (eine Zeile in `IdentityMatchingService`).
 
 ## Geschichte
 

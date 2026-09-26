@@ -57,6 +57,14 @@ class Personenverzeichnis(
         return namesMatch(person, familyName, givenNames) && person.geburtsdatum == birthDate
     }
 
+    override fun hasNamesake(personId: String): Boolean {
+        val person = personRepository.findByIdOrNull(personId) ?: return false
+        val born = person.geburtsdatum ?: return false
+        return personRepository.findByGeburtsdatum(born).any { other ->
+            other.id != person.id && MrzName.sameName(person.name.orEmpty(), person.vorname.orEmpty(), other.name.orEmpty(), other.vorname.orEmpty())
+        }
+    }
+
     /** Both names present: the whole MRZ name field, cut like a passport's; one alone: that one. */
     private fun namesMatch(person: Person, name: String?, vorname: String?): Boolean = when {
         name != null && vorname != null ->

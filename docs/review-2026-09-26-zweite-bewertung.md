@@ -212,8 +212,9 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 **Phase H – Was ein Sicherheitsexperte zuerst findet (vor jedem weiteren Anspruch)**
 
 1. ~~F-1 Grant auf den Orchestrator-Client beschränken; Test.~~ – erledigt 2026-09-26 (`AccountTokenGrantClients`, Keycloak-Migration V4).
-2. F-2 Namensvetter: Nachtrag zu ADR-18 entscheiden, dann Code (zweiter Akt bei Auflösung auf ein
-   bestehendes Konto).
+2. ~~F-2 Namensvetter~~ – entschieden und umgesetzt 2026-09-26: alle drei Grundangaben Pflicht; die
+   Adresse zusätzlich, wenn das Register einen Namensvetter kennt (`PersonDirectory.hasNamesake`).
+   Restrisiko (Namensvetter außerhalb des Registers) in ADR-18 benannt und getragen.
 3. F-3 `ProductionModeCheck`: Start mit Demo-Voreinstellungen bei `demo.mode=false` verweigern; darin
    auch B-2 (`FlywayResetConfig` nur im Demomodus) und F-7 (`demo-reset` hinter `@DemoSurface`).
 4. F-4 `PhoneNumber`-Wertobjekt, Drossel und Flow darüber.
@@ -224,8 +225,10 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 **Phase I – Datenbank und Betrieb (trägt „10 Millionen“)**
 
-7. B-1 Postgres-Treiber und -Profil, Testcontainers-Migrationstest, `demo_seed` nur im Demomodus,
-   H2-Spezifika aus den Migrationen.
+7. B-1 Postgres-Treiber und -Profil, Testcontainers-Migrationstest, H2-Spezifika aus den Migrationen –
+   **zurückgestellt (Entscheidung 2026-09-26): H2 bleibt vorerst die einzige Datenbank.** Bis dahin gilt
+   „10 Millionen Konten“ für Schema und Zugriffspfade, nicht für den Betrieb. Sofort umgesetzt wird nur,
+   was davon unabhängig ist: `demo_seed` nur im Demomodus, B-2.
 8. B-3 Keycloak-Probe ersetzen (Logout-Meldung beendet den Kanal), B-7 Bulk-Delete, Batches, 14 Tage.
 9. B-4 Fehler-Fallback; B-5 Actuator und Kennzahlen; B-8 Jobs zählen und dokumentieren.
 10. B-6 Backup/Restore in 07 mit geprobtem Restore; F-10 `kid` für den Protokoll-HMAC.

@@ -70,4 +70,25 @@ class PersonenverzeichnisMatchingTest : BehaviorSpec({
             register.matchesMasterData("P000000001", ClaimedIdentity(familyName = "SCHMIDT WOLKENSTEIN", givenNames = "MAXIMILIAN FRIEDRI", birthDate = geburtsdatum)) shouldBe true
         }
     }
+
+    given("a namesake born the same day (ADR-18, addendum 2026-09-26)") {
+        val max = Person(kvnr = "A123456789", name = "Müller", vorname = "Max", geburtsdatum = geburtsdatum).apply { id = "P000000001" }
+        fun registerAlso(vararg others: Person): Personenverzeichnis {
+            val repository = mockk<PersonRepository>()
+            every { repository.findById("P000000001") } returns Optional.of(max)
+            every { repository.findByGeburtsdatum(geburtsdatum) } returns listOf(max, *others)
+            return Personenverzeichnis(repository, mockk(relaxed = true))
+        }
+
+        then("another person with the same names - in any spelling a passport agrees with - is a namesake") {
+            registerAlso(Person(name = "MUELLER", vorname = "MAX", geburtsdatum = geburtsdatum).apply { id = "P000000002" })
+                .hasNamesake("P000000001") shouldBe true
+        }
+
+        then("the person alone, or someone else born that day, is none") {
+            registerAlso().hasNamesake("P000000001") shouldBe false
+            registerAlso(Person(name = "Schulz", vorname = "Max", geburtsdatum = geburtsdatum).apply { id = "P000000003" })
+                .hasNamesake("P000000001") shouldBe false
+        }
+    }
 })
