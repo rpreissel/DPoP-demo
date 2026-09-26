@@ -51,7 +51,7 @@ data class ConfirmStep(val prompt: Prompt) : StepData
  * A [Question] on the wire: the same content, discriminated by `kind` like every polymorphic type on
  * the wire (see `tool_spi.StepData` for why not `@t`, which the persisted journey states keep). Kept
  * apart from the domain [Question] so the states carry no serialization
- * (docs/ideen/fachkern-und-technik-trennen.md); the names `Prompt`/`Confirm` are the contract's.
+ * (docs/adr/ADR-040-fachkern-im-paket-domain.md); the names `Prompt`/`Confirm` are the contract's.
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind")
 @JsonSubTypes(

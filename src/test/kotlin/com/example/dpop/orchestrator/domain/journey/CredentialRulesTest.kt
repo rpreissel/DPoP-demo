@@ -10,7 +10,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
-/** The credential rules of the acting phase, as tables (docs/ideen/fachkern-und-technik-trennen.md). */
+/** The credential rules of the acting phase, as tables (docs/adr/ADR-040-fachkern-im-paket-domain.md). */
 class CredentialRulesTest : BehaviorSpec({
 
     fun instance(id: String, enrolledUnder: String?, key: String? = null) =

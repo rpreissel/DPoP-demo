@@ -7,7 +7,7 @@ import com.example.dpop.tool_spi.ToolId
  * What the domain may ask about the tools: their self-descriptions. The strategies and the policy
  * read the catalog through this, never through the Spring component that assembles it
  * (`ToolHandlerRegistry`) - so the domain stays free of the framework
- * (docs/ideen/fachkern-und-technik-trennen.md).
+ * (docs/adr/ADR-040-fachkern-im-paket-domain.md).
  */
 interface ToolCatalog {
     fun descriptors(): List<ToolDescriptor>

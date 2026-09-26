@@ -8,7 +8,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import io.kotest.core.spec.style.BehaviorSpec
 
 /**
- * The account module's layers (docs/ideen/fachkern-und-technik-trennen.md): `domain` holds the rules
+ * The account module's layers (docs/adr/ADR-040-fachkern-im-paket-domain.md): `domain` holds the rules
  * (anchor decision, claim normalization, spelling rule), `application` the services that apply them,
  * `infrastructure` the entities and repositories.
  */

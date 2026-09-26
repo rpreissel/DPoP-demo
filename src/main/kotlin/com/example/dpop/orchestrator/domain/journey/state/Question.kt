@@ -13,7 +13,7 @@ import com.example.dpop.texts.Text
  * decision at every call site, not a guessed string - [Confirm] is the only variant needed today.
  *
  * The domain form: no serialization here. On the wire it travels as `Prompt` (`ConfirmStep`,
- * discriminated by `kind`), mapped in `OrchestratorStepData.kt` (docs/ideen/fachkern-und-technik-trennen.md).
+ * discriminated by `kind`), mapped in `OrchestratorStepData.kt` (docs/adr/ADR-040-fachkern-im-paket-domain.md).
  */
 sealed interface Question {
     val title: Text

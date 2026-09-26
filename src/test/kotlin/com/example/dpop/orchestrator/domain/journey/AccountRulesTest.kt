@@ -17,7 +17,7 @@ import io.kotest.matchers.shouldBe
 
 /**
  * The account rules of the acting phase, as tables - no Spring, no database
- * (docs/ideen/fachkern-und-technik-trennen.md). The integration tests run the same rules end to end.
+ * (docs/adr/ADR-040-fachkern-im-paket-domain.md). The integration tests run the same rules end to end.
  */
 class AccountRulesTest : BehaviorSpec({
 

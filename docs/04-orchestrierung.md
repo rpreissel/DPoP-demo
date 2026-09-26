@@ -524,6 +524,14 @@ und Keycloak liest die neuen Werte beim nächsten Mal (ADR-34). Nur eine Löschu
 Nach dem Commit räumt der `KeycloakAccountRemovalListener` auf `AccountDeleted` hin die Daten ab, die
 Keycloak selbst zu dem Konto hält, über die Event-Publication-Registry (ADR-29).
 
+Die Regeln, nach denen die handelnde Phase entscheidet, stehen nicht im `JourneyActionExecutor`,
+sondern als reine Funktionen im Fachkern ([ADR-40](adr/ADR-040-fachkern-im-paket-domain.md)):
+`domain/journey/AccountRules.kt` (welches Konto eine Aktion beschreibt, wann zwei Konten
+zusammengehen, wann eine Korrelation oder ein bestätigtes Attribut die Sitzung bewegen darf) und
+`domain/journey/CredentialRules.kt` (unter welcher Stufe geschrieben wird, wie viel ein Nachweis
+zählt, wann ein Gerät verknüpft wird, was mit einem Verfahren fällt). Der Executor liest, fragt die
+Regel und schreibt.
+
 ### RestoreData als erster Übergang
 
 Ein als Voraussetzung mitgelieferter Nachweis ([05-api.md](05-api.md) Abschnitt 3, RestoreData im

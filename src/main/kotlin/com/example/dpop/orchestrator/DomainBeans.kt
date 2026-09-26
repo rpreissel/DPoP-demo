@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration
 
 /**
  * Wires the domain's rule objects into Spring, so the domain itself carries no framework
- * annotation (docs/ideen/fachkern-und-technik-trennen.md). Also the one place that lists which
+ * annotation (docs/adr/ADR-040-fachkern-im-paket-domain.md). Also the one place that lists which
  * intent strategies exist - `JourneyService` checks at startup that every `AuthIntent` has one.
  *
  * `RegisterStrategy` and `RegisterEnrollFirstStrategy` are deliberately not listed: REGISTER is

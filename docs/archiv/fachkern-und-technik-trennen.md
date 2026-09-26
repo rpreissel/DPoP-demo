@@ -1,7 +1,7 @@
 # Idee: Fachkern und Technik im Orchestrator und im Konto-Modul trennen
 
-> **Status: offen, nicht entschieden.** Ein Vorschlag zur Diskussion (2026-09-26), keine Freigabe zur
-> Umsetzung. Ziel: Wer die Fachlichkeit lesen will (Was passiert bei einer Registrierung? Wann darf
+> **Status: umgesetzt 2026-09-26** – die Entscheidung und die bewussten Abweichungen vom Plan stehen
+> in [ADR-40](../adr/ADR-040-fachkern-im-paket-domain.md). Ursprünglich ein Vorschlag zur Diskussion. Ziel: Wer die Fachlichkeit lesen will (Was passiert bei einer Registrierung? Wann darf
 > ein Gerät umgebunden werden? Wann ersetzt ein Anker den anderen?), soll sie finden, ohne durch
 > Transaktionen, Repositories und Serialisierung zu lesen. Betrifft die Module `orchestrator` und
 > `account` ([08-projektrahmen.md](../08-projektrahmen.md) Abschnitt 3).

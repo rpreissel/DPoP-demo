@@ -37,7 +37,7 @@ import com.example.dpop.orchestrator.domain.AuthIntent
  * disjoint (`EnrollFirst*` vs. the ident-first names) - never ambiguous which one a given payload
  * actually is.
  *
- * The states themselves carry no serialization (docs/ideen/fachkern-und-technik-trennen.md): the type
+ * The states themselves carry no serialization (docs/adr/ADR-040-fachkern-im-paket-domain.md): the type
  * name is the state's simple class name, written as `@t`, and the subtypes are derived here from
  * the sealed hierarchies. `JourneyStateCodecTest` pins every name, so a renamed state - whose
  * persisted journeys would no longer read - fails a test instead of a running journey.

@@ -14,7 +14,7 @@ import com.example.dpop.tool_spi.ToolCategory
 /*
  * At which level a credential counts, which device link follows from succeeding, and what else falls
  * when a credential or an attribute goes. Pure, like AccountRules.kt: `JourneyActionExecutor` reads,
- * asks here, and writes (docs/ideen/fachkern-und-technik-trennen.md).
+ * asks here, and writes (docs/adr/ADR-040-fachkern-im-paket-domain.md).
  */
 
 /**

@@ -12,7 +12,7 @@ import com.example.dpop.tool_spi.ToolId
  * Which account an executed action writes to - the rules that keep a session from ending up bound to
  * an account it never proved it owns. Pure: every fact comes in as a value (or, where it costs a
  * lookup and is only needed in one branch, as a function). `JourneyActionExecutor` reads, asks here,
- * and writes (docs/ideen/fachkern-und-technik-trennen.md).
+ * and writes (docs/adr/ADR-040-fachkern-im-paket-domain.md).
  *
  * A refusal is an [IdentityConflictException] (409): each of them is a request that would merge two
  * people or two accounts, never a broken assumption.

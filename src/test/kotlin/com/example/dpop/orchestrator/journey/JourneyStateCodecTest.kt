@@ -18,7 +18,7 @@ import java.util.UUID
 
 /**
  * The persisted type names of the journey states (`@t`). The states carry no serialization
- * (docs/ideen/fachkern-und-technik-trennen.md); the codec derives the names from the sealed
+ * (docs/adr/ADR-040-fachkern-im-paket-domain.md); the codec derives the names from the sealed
  * hierarchies. This pins them: a renamed state would leave its persisted journeys unreadable, so
  * the rename has to show up here first. The list is the one the `@JsonSubTypes` annotations carried
  * until 2026-09-26.

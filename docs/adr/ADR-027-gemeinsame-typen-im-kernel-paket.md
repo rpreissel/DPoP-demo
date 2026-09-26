@@ -7,7 +7,7 @@ ArchUnit-Test prüft, dass die Pakete des Orchestrators zyklenfrei bleiben.
 > **Nachtrag 2026-09-26:** Das Paket heißt jetzt `orchestrator.domain` und ist zum fachlichen Kern
 > gewachsen: Journey-Zustände, `IntentStrategy`, `AuthPolicy` und `AuthEvidence` liegen dort mit.
 > Zur Regel „keine Abhängigkeit innerhalb des Orchestrators“ kommt „kein Framework“
-> ([Idee: Fachkern und Technik trennen](../ideen/fachkern-und-technik-trennen.md)).
+> ([ADR-40](ADR-040-fachkern-im-paket-domain.md)).
 
 ## Vorher
 

@@ -9,7 +9,7 @@ import com.example.dpop.tool_spi.AttributeType
 /**
  * What writing an anchor value means for one account - the anchor is the lookup authority every
  * lookup-login resolves through, so this is where a takeover would happen. Pure: `AnchorRegistry`
- * reads the current rows, asks here, and writes (docs/ideen/fachkern-und-technik-trennen.md).
+ * reads the current rows, asks here, and writes (docs/adr/ADR-040-fachkern-im-paket-domain.md).
  */
 sealed interface AnchorDecision {
     /** This account already holds exactly this value - nothing to write. */

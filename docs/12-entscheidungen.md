@@ -53,6 +53,7 @@ als Diff mitten im Fließtext.
 | [ADR-37](adr/ADR-037-postfach-traegt-unidentifizierte-konten.md) | Bei einem nie identifizierten Konto genügt das Postfach auch für destruktive Aktionen |
 | [ADR-38](adr/ADR-038-keycloak-liest-konten.md) | Keycloak liest die Konten, statt sie zu spiegeln |
 | [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md) | Was eine Kontolöschung überlebt – das Änderungsprotokoll ohne Werte |
+| [ADR-40](adr/ADR-040-fachkern-im-paket-domain.md) | Der fachliche Kern liegt im Paket `domain`, ohne Framework, per ArchUnit geprüft |
 
 ## Erkannte, bewusst zurückgestellte Verbesserungen
 

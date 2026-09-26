@@ -52,7 +52,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         }
     }
 
-    given("the orchestrator's domain (docs/ideen/fachkern-und-technik-trennen.md)") {
+    given("the orchestrator's domain (docs/adr/ADR-040-fachkern-im-paket-domain.md)") {
         then("it uses no framework - what it says can be read without knowing Spring, JPA or Jackson") {
             noClasses()
                 .that().resideInAPackage("com.example.dpop.orchestrator.domain..")
