@@ -105,6 +105,12 @@ class EnrollKobilToolHandler(
                             label = label,
                         )
                     )
+                // The activation secrets have done their job: the PIN now lives in the credential,
+                // the unlock secret only as its hash. Nothing keeps them in the tool session until
+                // the retention sweep (review 2026-09, Phase F - they used to sit there for 24 h).
+                session.activationCode = ""
+                session.pin = ""
+                session.unlockSecret = ""
 
                 ToolOutcome.Completed.Enrolled(
                     enrollmentRef = EnrollmentRef(type = KOBIL_ENROLLMENT_TYPE, id = enrollment.id.toString()),

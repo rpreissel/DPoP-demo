@@ -131,6 +131,12 @@ class KobilBindingIntegrationTest : IntegrationTestSupport() {
                 channel["currentAcr"] shouldBe "loa2"
                 (channel["currentAmr"] as List<*>).shouldContainAll("kobil", "biometric")
                 (channel["activeMethods"] as List<*>).methodNames() shouldContain "kobil"
+
+                // The activation secrets do not outlive the setup (review 2026-09, Phase F).
+                jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM auth_kobil.enroll_tool_session WHERE activation_code <> '' OR pin <> '' OR unlock_secret <> ''",
+                    Int::class.java
+                ) shouldBe 0
             }
 
             then("a confirmation before the device has activated changes nothing - it is not a failed attempt") {
