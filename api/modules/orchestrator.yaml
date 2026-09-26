@@ -184,6 +184,16 @@ components:
       - channel
       - toolId
       type: object
+    HealthComponentView:
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+      required:
+      - name
+      - status
+      type: object
     JourneyTraceEntryView:
       properties:
         accountId:
@@ -329,6 +339,25 @@ components:
       required:
       - methods
       type: object
+    MetricView:
+      properties:
+        meanMillis:
+          format: double
+          type: number
+        name:
+          type: string
+        tags:
+          additionalProperties:
+            type: string
+          type: object
+        value:
+          format: double
+          type: number
+      required:
+      - name
+      - tags
+      - value
+      type: object
     MgmtPasswordSetRequest:
       properties:
         newPassword:
@@ -345,6 +374,23 @@ components:
           type: boolean
       required:
       - valid
+      type: object
+    OperationsInfo:
+      properties:
+        components:
+          items:
+            $ref: '#/components/schemas/HealthComponentView'
+          type: array
+        metrics:
+          items:
+            $ref: '#/components/schemas/MetricView'
+          type: array
+        status:
+          type: string
+      required:
+      - components
+      - metrics
+      - status
       type: object
     RegistrationOrderState:
       properties:
@@ -369,11 +415,14 @@ components:
           type: array
         keycloak:
           $ref: '#/components/schemas/KeycloakInfo'
+        operations:
+          $ref: '#/components/schemas/OperationsInfo'
         registrationEnrollFirst:
           type: boolean
       required:
       - demoDisclosure
       - disabledTools
+      - operations
       - registrationEnrollFirst
       type: object
     TokenResponse:

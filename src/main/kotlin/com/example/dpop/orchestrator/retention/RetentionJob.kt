@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.retention
 
+import io.micrometer.core.instrument.MeterRegistry
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
@@ -42,7 +43,8 @@ class RetentionJob(
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceRepository: AuthEvidenceRepository,
     private val journeyTraceRepository: JourneyTraceRepository,
-    private val attemptThrottleRepository: AttemptThrottleRepository
+    private val attemptThrottleRepository: AttemptThrottleRepository,
+    private val meterRegistry: MeterRegistry,
 ) {
     private val log = LoggerFactory.getLogger(RetentionJob::class.java)
 
@@ -56,6 +58,8 @@ class RetentionJob(
 
         val journeyTraceEntries = journeyTraceRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_TRACE_RETENTION))
         val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
+        countDeleted("journey_trace", journeyTraceEntries)
+        countDeleted("attempt_throttle", staleCounters)
         if (journeyTraceEntries > 0 || staleCounters > 0) {
             log.info(
                 "Retention: deleted {} journey trace entry/entries and {} attempt throttle counter(s)",
@@ -109,10 +113,18 @@ class RetentionJob(
         if (orphanedAuthEvidenceIds.isNotEmpty()) {
             authEvidenceRepository.deleteAllByIdInBatch(orphanedAuthEvidenceIds)
         }
+        countDeleted("channel_session", channels.size)
         log.info("Retention: deleted {} channel session(s)", channels.size)
     }
 
+    /** `dpop.retention.deleted` by table (docs/07-betrieb.md Abschnitt 7): a sweep that stops deleting shows as a flat line. */
+    private fun countDeleted(table: String, rows: Int) {
+        meterRegistry.counter(RETENTION_METRIC, "table", table).increment(rows.toDouble())
+    }
+
     companion object {
+        const val RETENTION_METRIC = "dpop.retention.deleted"
+
         /** Fixed page size for [deleteExpiredJourneys]/[deleteExpiredChannels] (B4). */
         private const val RETENTION_BATCH_SIZE = 500
 

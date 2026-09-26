@@ -456,3 +456,31 @@ Tabellen zeigt [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
   Migrationsfehler darf nie Konten und Änderungsprotokoll löschen. Die Demo-Personen
   (`demo_seed`) werden außerhalb des Demomodus nicht migriert. Ab dem ersten produktiven Einsatz sind Migrationen nur noch additiv, und Tabellen
   mit 10 Millionen Zeilen oder mehr werden in wiederholbaren Portionen umgestellt.
+
+## 7) Zustand und Kennzahlen (Actuator)
+
+Health und Kennzahlen liegen auf einem **eigenen Management-Port** (`MANAGEMENT_PORT`, Standard
+`9080`), den kein Service und keine Route nach außen führt; auf dem öffentlichen Port `8080` gibt es
+`/actuator` nicht. Freigegeben sind nur zwei Endpunkte:
+
+- **`/actuator/health`** mit den Probes `/actuator/health/liveness` und `/actuator/health/readiness`.
+  Die OpenShift-Probes nutzen sie. `readiness` wird erst nach allen Startschritten bereit, also nach
+  den Keycloak-Migrationen (dasselbe Fenster, in dem `ReadinessGateFilter` die API mit `503`
+  beantwortet), und hängt an der Datenbank.
+  - **Keycloak** steht als eigene Komponente `keycloak` in `/actuator/health`, aber nicht in
+    `readiness`: Der App-Kanal braucht Keycloak nicht. Fiele jede Instanz bei einem
+    Keycloak-Ausfall aus dem Lastverteiler, würde aus einem Teilausfall ein Totalausfall. Die
+    Komponente ist für den Alarm da, nicht für die Verteilung.
+- **`/actuator/prometheus`** mit den Kennzahlen:
+  - **`dpop.throttle.blocked`** (je `scope`): wie oft Sperre oder Mengenbegrenzung eine Anfrage
+    abgewiesen hat (Abschnitt 4). Ein Anstieg ist ein Angriff oder ein Fehler.
+  - **`dpop.retention.deleted`** (je `table`): gelöschte Zeilen der Aufräumläufe (Abschnitt 3). Eine
+    flache Linie über Tage heißt: Ein Lauf löscht nicht mehr.
+  - **`dpop.events.incomplete`**: noch nicht abgeschlossene Event-Publikationen
+    (`orchestrator.event_publication`). Einige sind normal; eine Zahl, die nur wächst, heißt: Ein
+    Listener scheitert an jedem Ereignis, z. B. das Aufräumen in Keycloak nach einer Kontolöschung.
+  - **`http.client.requests`** (je `client.name`): Dauer und Ergebnis jedes Aufrufs an Keycloak.
+
+Im Demomodus zeigt die Willkommensseite unter „Server-Status“ denselben Zustand und dieselben
+Kennzahlen (`GET /orchestrator/demo/server-info`, Block `operations`); der Browser erreicht den
+Management-Port nicht, deshalb liest das Backend sie aus.

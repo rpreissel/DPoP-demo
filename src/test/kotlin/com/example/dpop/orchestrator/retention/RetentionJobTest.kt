@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.retention
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.AuthContextRepository
 import com.example.dpop.orchestrator.session.AuthEvidenceRepository
@@ -41,7 +42,8 @@ class RetentionJobTest : BehaviorSpec({
         authContextRepository = authContextRepository,
         authEvidenceRepository = authEvidenceRepository,
         journeyTraceRepository = journeyTraceRepository,
-        attemptThrottleRepository = attemptThrottleRepository
+        attemptThrottleRepository = attemptThrottleRepository,
+        meterRegistry = SimpleMeterRegistry(),
     )
 
     given("expired channels that each carry an AuthContext") {

@@ -93,6 +93,10 @@ dependencies {
     // Guards only the operator endpoints (/orchestrator/admin/**, AdminSecurityConfig) - DPoP and
     // the Keycloak facade authenticate themselves and stay outside Spring Security.
     implementation(libs.spring.boot.starter.security)
+    // Health (Probes) und Kennzahlen auf einem eigenen Management-Port, nie ueber die oeffentliche
+    // Route (docs/07-betrieb.md Abschnitt 7, zweite Bewertung B-5).
+    implementation(libs.spring.boot.starter.actuator)
+    runtimeOnly(libs.micrometer.registry.prometheus)
     implementation(libs.spring.modulith.starter.core)
     // Event Publication Registry: Spring Modulith' eigener transaktionaler Outbox
     // (docs/07-betrieb.md Abschnitt 3a). Bringt events-api/-core/-jpa/-jackson mit.

@@ -132,6 +132,8 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - {name: orchestrator, containerPort: 8080}
+            # Health und Kennzahlen; der Service fuehrt diesen Port nicht nach aussen.
+            - {name: management, containerPort: 9080}
           env:
             - {name: SPRING_PROFILES_ACTIVE, value: keycloak}
             - {name: SPRING_DATASOURCE_URL, value: 'jdbc:h2:file:/data/dpopdb'}
@@ -142,17 +144,19 @@ spec:
               valueFrom: {configMapKeyRef: {name: dpop-demo-env, key: PUBLIC_KEYCLOAK_URL}}
           volumeMounts:
             - {name: orchestrator-data, mountPath: /data}
-          # GET / antwortet erst nach den Keycloak-Migrationen mit 200 (ReadinessGateFilter), davor
-          # 503 - der startupProbe laesst dafuer Zeit, inklusive des Wartens auf Keycloak.
+          # Actuator auf dem Management-Port (docs/07-betrieb.md Abschnitt 7). readiness wird erst
+          # nach allen ApplicationRunnern bereit, also nach den Keycloak-Migrationen - dasselbe
+          # Fenster, in dem ReadinessGateFilter die API mit 503 beantwortet. readiness prueft die
+          # Datenbank, nicht Keycloak.
           startupProbe:
-            httpGet: {path: /, port: 8080}
+            httpGet: {path: /actuator/health/liveness, port: 9080}
             periodSeconds: 5
             failureThreshold: 90
           readinessProbe:
-            httpGet: {path: /, port: 8080}
+            httpGet: {path: /actuator/health/readiness, port: 9080}
             periodSeconds: 10
           livenessProbe:
-            httpGet: {path: /, port: 8080}
+            httpGet: {path: /actuator/health/liveness, port: 9080}
             periodSeconds: 20
           resources:
             requests: {cpu: 250m, memory: 512Mi}

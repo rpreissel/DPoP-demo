@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.kc
 
+import io.micrometer.observation.ObservationRegistry
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
@@ -18,7 +19,7 @@ class KeycloakHttpTest : BehaviorSpec({
         val defaultVerifier = HttpsURLConnection.getDefaultHostnameVerifier()
         val defaultSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory()
 
-        val http = KeycloakHttp(trustSelfSigned = true)
+        val http = KeycloakHttp(trustSelfSigned = true, observationRegistry = ObservationRegistry.NOOP)
         http.restClient("https://localhost:8543")
 
         then("the JVM defaults are untouched") {

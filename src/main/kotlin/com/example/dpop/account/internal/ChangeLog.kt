@@ -1,5 +1,6 @@
 package com.example.dpop.account.internal
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Scheduled
@@ -117,11 +118,13 @@ class ChangeLog(private val repository: ChangeLogRepository) {
 class ChangeLogRetention(
     private val repository: ChangeLogRepository,
     private val transactions: TransactionTemplate,
+    private val meterRegistry: MeterRegistry,
     @Value("\${account.change-log.retention-years:10}") private val retentionYears: Long,
 ) {
     @Scheduled(fixedDelay = 86_400_000, initialDelay = 300_000)
     fun sweep() {
-        purge(Instant.now())
+        val deleted = purge(Instant.now())
+        meterRegistry.counter("dpop.retention.deleted", "table", "change_log").increment(deleted.toDouble())
     }
 
     fun purge(now: Instant): Int {

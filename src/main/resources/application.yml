@@ -122,6 +122,27 @@ tool-session:
 server:
   port: 8080
 
+# Health und Kennzahlen (docs/07-betrieb.md Abschnitt 7): auf einem eigenen Port, den keine Route
+# nach aussen fuehrt - /actuator gibt es auf 8080 nicht. Freigegeben sind nur health (mit den
+# Probes liveness/readiness) und prometheus. Readiness haengt an der Datenbank, nicht an Keycloak:
+# faellt Keycloak aus, soll der Orchestrator nicht aus dem Lastverteiler fallen, der App-Kanal
+# braucht Keycloak nicht. Keycloak steht als eigene Komponente in /actuator/health.
+management:
+  server:
+    port: ${MANAGEMENT_PORT:9080}
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-components: always
+      group:
+        readiness:
+          include: readinessState, db
+
 springdoc:
   swagger-ui:
     # "Try it out" can't work here: DPoP needs a fresh proof signed per request, bound to that

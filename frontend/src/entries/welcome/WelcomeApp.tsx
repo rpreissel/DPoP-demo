@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../../App.css'
-import { describeError, fetchServerInfo, type ServerInfo } from '../../api'
+import { describeError, fetchServerInfo, type OperationsInfo, type ServerInfo } from '../../api'
 import { markAsStartWindow } from '../../startWindow'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
@@ -401,8 +401,71 @@ function ServerStatus() {
           <span className="value">{info.demoDisclosure ? t('an (TANs, Testpersonen, Vorbelegung)') : t('aus')}</span>
         </li>
       </ul>
+      <OperationsStatus operations={info.operations} />
     </div>
   )
+}
+
+/**
+ * What the actuator reports (docs/07-betrieb.md Abschnitt 7). In operation it is read on the
+ * management port; the demo shows it here too, read once when the tab opens.
+ */
+function OperationsStatus({ operations }: { operations: OperationsInfo }) {
+  return (
+    <>
+      <h3>{t('Betrieb')}</h3>
+      <p>
+        <Tx
+          text="Zustand und Kennzahlen, wie sie der Orchestrator für die Überwachung meldet (im Betrieb unter {path} auf einem eigenen Port)."
+          path={<code>/actuator</code>}
+        />
+      </p>
+      <ul className="status-list">
+        <li>
+          <span className="label">{t('Gesamtzustand')}</span>
+          <span className="value">{operations.status}</span>
+        </li>
+        {operations.components.map((c) => (
+          <li key={c.name}>
+            <span className="label">{healthComponentLabel(c.name)}</span>
+            <span className="value">{c.status}</span>
+          </li>
+        ))}
+        {operations.metrics.map((m) => (
+          <li key={`${m.name}|${JSON.stringify(m.tags)}`}>
+            <span className="label">{metricLabel(m.name, m.tags)}</span>
+            <span className="value">
+              {m.meanMillis != null
+                ? t('{count} Aufrufe, im Mittel {millis} ms', { count: String(m.value), millis: m.meanMillis.toFixed(0) })
+                : String(m.value)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function healthComponentLabel(name: string): string {
+  switch (name) {
+    case 'db': return t('Datenbank')
+    case 'keycloak': return t('Keycloak erreichbar')
+    case 'livenessState': return t('Prozess lebt')
+    case 'readinessState': return t('Nimmt Anfragen an')
+    case 'diskSpace': return t('Speicherplatz')
+    case 'ping': return t('Antwortet')
+    default: return name
+  }
+}
+
+function metricLabel(name: string, tags: Record<string, string>): string {
+  switch (name) {
+    case 'dpop.throttle.blocked': return t('Drossel hat abgewiesen ({scope})', { scope: tags.scope ?? '' })
+    case 'dpop.retention.deleted': return t('Aufgeräumte Zeilen ({table})', { table: tags.table ?? '' })
+    case 'dpop.events.incomplete': return t('Offene Ereignisse')
+    case 'http.client.requests': return t('Aufrufe an {host}', { host: tags['client.name'] ?? '' })
+    default: return name
+  }
 }
 
 function disabledGroups(tools: { toolId: string; channel: string; reason?: string | null }[]) {

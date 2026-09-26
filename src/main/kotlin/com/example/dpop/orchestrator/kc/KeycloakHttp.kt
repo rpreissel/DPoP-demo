@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.kc
 
+import io.micrometer.observation.ObservationRegistry
 import java.net.HttpURLConnection
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -32,6 +33,9 @@ import org.springframework.web.client.body
 @Profile("keycloak")
 class KeycloakHttp(
     @Value("\${keycloak-tls.trust-self-signed}") val trustSelfSigned: Boolean,
+    // Every call to Keycloak is timed as http.client.requests (client.name = Keycloak's host) -
+    // the Keycloak latency of docs/07-betrieb.md Abschnitt 7.
+    private val observationRegistry: ObservationRegistry,
 ) {
     init {
         if (trustSelfSigned) {
@@ -46,11 +50,11 @@ class KeycloakHttp(
 
     /** A [RestClient] against [baseUrl], with this setup's certificate policy. */
     fun restClient(baseUrl: String): RestClient =
-        RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).build()
+        RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).observationRegistry(observationRegistry).build()
 
     /** GETs [url] as text, with this setup's certificate policy - for the JWKS fetch. */
     fun getText(url: String): String =
-        RestClient.builder().requestFactory(requestFactory).build()
+        RestClient.builder().requestFactory(requestFactory).observationRegistry(observationRegistry).build()
             .get().uri(url).retrieve().body<String>()
             ?: error("Empty response from $url")
 

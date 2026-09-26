@@ -1,5 +1,6 @@
 package com.example.dpop.account
 
+import io.micrometer.core.instrument.MeterRegistry
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.SignInType
 import com.example.dpop.account.internal.SignInLogEntry
@@ -98,11 +99,13 @@ class SignInLog(
 class SignInLogRetention(
     private val repository: SignInLogRepository,
     private val transactions: TransactionTemplate,
+    private val meterRegistry: MeterRegistry,
     @Value("\${account.sign-in-log.retention-months:6}") private val retentionMonths: Long,
 ) {
     @Scheduled(fixedDelay = 86_400_000, initialDelay = 300_000)
     fun sweep() {
-        purge(Instant.now())
+        val deleted = purge(Instant.now())
+        meterRegistry.counter("dpop.retention.deleted", "table", "sign_in_log").increment(deleted.toDouble())
     }
 
     fun purge(now: Instant): Int {

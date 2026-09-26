@@ -406,6 +406,15 @@ export interface ServerInfo {
   registrationEnrollFirst: boolean
   disabledTools: { toolId: string; channel: ChannelType; reason?: string | null }[]
   demoDisclosure: boolean
+  /** Health and metrics of the actuator (management port), read by the backend. */
+  operations: OperationsInfo
+}
+
+export interface OperationsInfo {
+  status: string
+  components: { name: string; status: string }[]
+  /** `dpop.*` meters per tag set; `http.client.requests` per host with `meanMillis`. */
+  metrics: { name: string; tags: Record<string, string>; value: number; meanMillis?: number | null }[]
 }
 
 /** Public, read-only (no login) - the welcome page's "Server-Status" tab. */

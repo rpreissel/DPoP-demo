@@ -4,14 +4,20 @@ import com.example.dpop.orchestrator.kc.LoginTheme
 import com.example.dpop.orchestrator.kernel.FeatureFlags
 import com.example.dpop.orchestrator.session.FeatureFlagService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.boot.health.actuate.endpoint.CompositeHealthDescriptor
+import org.springframework.boot.health.actuate.endpoint.HealthEndpoint
 import org.springframework.core.env.Environment
 import org.springframework.core.env.Profiles
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.util.concurrent.TimeUnit
 
 /** [channel]: APP or KEYCLOAK - a lock applies to one channel type. */
 data class DisabledToolView(val toolId: String, val channel: String, val reason: String?)
@@ -42,8 +48,27 @@ data class ServerInfo(
     val registrationEnrollFirst: Boolean,
     val disabledTools: List<DisabledToolView>,
     /** `demo.disclosure` - whether responses carry the demo block (TANs, personas, ...). */
-    val demoDisclosure: Boolean
+    val demoDisclosure: Boolean,
+    /** What the actuator reports on the management port, readable here without it. */
+    val operations: OperationsInfo,
 )
+
+/** Health and metrics as `/actuator/health` and `/actuator/prometheus` report them (docs/07-betrieb.md Abschnitt 7). */
+data class OperationsInfo(
+    /** Overall status, UP/DOWN/OUT_OF_SERVICE/UNKNOWN. */
+    val status: String,
+    /** One entry per health component (db, keycloak, livenessState, ...), by name. */
+    val components: List<HealthComponentView>,
+    val metrics: List<MetricView>,
+)
+
+data class HealthComponentView(val name: String, val status: String)
+
+/**
+ * One of this project's own meters (`dpop.*`) per tag combination, or the outgoing HTTP calls
+ * summed per target host (`http.client.requests`, [meanMillis] set).
+ */
+data class MetricView(val name: String, val tags: Map<String, String>, val value: Double, val meanMillis: Double? = null)
 
 /**
  * What the welcome page shows under "Server-Status": the conditions this demo runs under, read-only
@@ -57,6 +82,8 @@ class ServerInfoController(
     private val featureFlagService: FeatureFlagService,
     private val toolAvailabilityService: ToolAvailabilityService,
     private val loginThemeSwitch: ObjectProvider<LoginThemeSwitch>,
+    private val healthEndpoint: HealthEndpoint,
+    private val meterRegistry: MeterRegistry,
 ) {
 
     @GetMapping
@@ -66,9 +93,38 @@ class ServerInfoController(
             keycloak = if (environment.acceptsProfiles(Profiles.of("keycloak"))) keycloakInfo() else null,
             registrationEnrollFirst = featureFlagService.isEnabled(FeatureFlags.REGISTER_ENROLL_FIRST),
             disabledTools = toolAvailabilityService.disabledEntries().map { DisabledToolView(it.toolId!!, it.channel!!.name, it.reason) },
-            demoDisclosure = environment.getProperty("demo.disclosure", Boolean::class.java, true)
+            demoDisclosure = environment.getProperty("demo.disclosure", Boolean::class.java, true),
+            operations = operations(),
         )
     }
+
+    private fun operations(): OperationsInfo {
+        val health = healthEndpoint.health()
+        val components = (health as? CompositeHealthDescriptor)?.components.orEmpty()
+            .map { (name, component) -> HealthComponentView(name, component.status.code) }
+            .sortedBy { it.name }
+        return OperationsInfo(health.status.code, components, ownMeters() + outgoingCalls())
+    }
+
+    private fun ownMeters(): List<MetricView> =
+        meterRegistry.meters.filter { it.id.name.startsWith("dpop.") }.mapNotNull { meter ->
+            val value = when (meter) {
+                is Counter -> meter.count()
+                is Gauge -> meter.value()
+                else -> return@mapNotNull null
+            }
+            MetricView(meter.id.name, meter.id.tags.associate { it.key to it.value }, value)
+        }.sortedWith(compareBy({ it.name }, { it.tags.toString() }))
+
+    private fun outgoingCalls(): List<MetricView> =
+        meterRegistry.find("http.client.requests").timers()
+            .groupBy { it.id.getTag("client.name") ?: "?" }
+            .map { (host, timers) ->
+                val count = timers.sumOf { it.count() }
+                val totalMillis = timers.sumOf { it.totalTime(TimeUnit.MILLISECONDS) }
+                MetricView("http.client.requests", mapOf("client.name" to host), count.toDouble(), if (count > 0) totalMillis / count else null)
+            }
+            .sortedBy { it.tags["client.name"] }
 
     private fun keycloakInfo() = KeycloakInfo(
         baseUrl = environment.getRequiredProperty("keycloak-sync.public-base-url"),

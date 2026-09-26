@@ -33,7 +33,7 @@ export default defineConfig({
     // Hence reuseExistingServer: false and a port of our own. Reusing whatever already listens
     // would silently ignore the SPRING_DATASOURCE_URL below - the failure mode this replaces,
     // where the suite ran green in CI but hit the dev file DB locally and failed on the second run.
-    command: `./gradlew bootRun --args='--server.port=${E2E_PORT}'`,
+    command: `./gradlew bootRun --args='--server.port=${E2E_PORT} --management.server.port=0'`,
     cwd: dirname(__dirname),
     url: `http://localhost:${E2E_PORT}`,
     reuseExistingServer: false,

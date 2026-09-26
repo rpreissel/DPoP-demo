@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
@@ -29,7 +30,8 @@ import java.time.Instant
 @Transactional
 class AttemptCounter(
     private val repository: AttemptThrottleRepository,
-    private val rowInitializer: AttemptThrottleRowInitializer
+    private val rowInitializer: AttemptThrottleRowInitializer,
+    private val meterRegistry: MeterRegistry,
 ) {
 
     /** Until when [subject] is locked - `null` if never, possibly in the past. */
@@ -37,7 +39,7 @@ class AttemptCounter(
 
     fun isLocked(scope: ThrottleScope, subject: String): Boolean {
         val lockedUntil = repository.findLockedUntil(scope, subject) ?: return false
-        return Instant.now().isBefore(lockedUntil)
+        return Instant.now().isBefore(lockedUntil).also { if (it) countBlocked(scope) }
     }
 
     fun recordFailure(scope: ThrottleScope, subject: String, maxFailures: Int, lockout: Duration) {
@@ -78,6 +80,15 @@ class AttemptCounter(
         }
         // Fails closed: a counter that cannot be read cannot be shown to be within budget.
         val count = repository.findFailedCount(scope, subject) ?: return false
-        return count <= maxPerWindow
+        return (count <= maxPerWindow).also { if (!it) countBlocked(scope) }
+    }
+
+    /** `dpop.throttle.blocked` by scope (docs/07-betrieb.md Abschnitt 7) - a rise is an attack or a bug. */
+    private fun countBlocked(scope: ThrottleScope) {
+        meterRegistry.counter(BLOCKED_METRIC, "scope", scope.name).increment()
+    }
+
+    private companion object {
+        const val BLOCKED_METRIC = "dpop.throttle.blocked"
     }
 }
