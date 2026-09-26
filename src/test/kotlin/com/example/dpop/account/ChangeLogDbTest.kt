@@ -123,6 +123,9 @@ class ChangeLogDbTest(
             // The key is a keyed hash - no name or date is readable in the row itself.
             jdbcTemplate.queryForObject("SELECT lookup_key FROM account.change_log WHERE account_id = ? AND change_type = 'IDENTIFIED'",
                 String::class.java, accountId)!!.length shouldBe 64
+            // ...and names the secret it was computed with, the rotation path (F-10).
+            jdbcTemplate.queryForObject("SELECT lookup_key_id FROM account.change_log WHERE account_id = ? AND change_type = 'IDENTIFIED'",
+                String::class.java, accountId) shouldBe "1"
         }
 
         then("the register's person id finds it too, when there was one") {

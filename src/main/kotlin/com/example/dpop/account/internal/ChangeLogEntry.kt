@@ -70,6 +70,10 @@ class ChangeLogEntry(
     @Column(name = "lookup_key", updatable = false, length = 64)
     val lookupKey: String? = null,
 
+    /** Which secret computed [lookupKey] (`account.change-log.lookup-key-id`) - the rotation path. */
+    @Column(name = "lookup_key_id", updatable = false, length = 16)
+    val lookupKeyId: String? = null,
+
     /** The register's person id, when the account had one - set on `IDENTIFIED` only. */
     @Column(name = "person_id", updatable = false, length = 64)
     val personId: String? = null,
@@ -88,8 +92,12 @@ interface ChangeLogRepository : JpaRepository<ChangeLogEntry, Long> {
 
     fun findByAccountIdAndChangeTypeOrderByOccurredAt(accountId: Long, changeType: ChangeType): List<ChangeLogEntry>
 
-    @Query("select distinct e.accountId from ChangeLogEntry e where e.lookupKey = :lookupKey")
-    fun accountsWithLookupKey(lookupKey: String): List<Long>
+    @Query("select distinct e.accountId from ChangeLogEntry e where e.lookupKey in :lookupKeys")
+    fun accountsWithLookupKeyIn(lookupKeys: Collection<String>): List<Long>
+
+    /** Every key id some entry was written with - which secrets are still needed. */
+    @Query("select distinct e.lookupKeyId from ChangeLogEntry e where e.lookupKeyId is not null")
+    fun lookupKeyIds(): Set<String>
 
     @Query("select distinct e.accountId from ChangeLogEntry e where e.personId = :personId")
     fun accountsWithPersonId(personId: String): List<Long>

@@ -33,8 +33,9 @@ class ChangeLogSearch(
 ) {
     @Transactional(readOnly = true)
     fun byPerson(name: String, vorname: String, geburtsdatum: LocalDate): List<ChangeLogRecord> =
-        personLookupKey.of(name, vorname, geburtsdatum)
-            ?.let { trailOf(repository.accountsWithLookupKey(it)) }
+        personLookupKey.candidates(name, vorname, geburtsdatum)
+            .takeIf { it.isNotEmpty() }
+            ?.let { trailOf(repository.accountsWithLookupKeyIn(it)) }
             .orEmpty()
 
     /** The same for a register person id, when the person is known to the register. */

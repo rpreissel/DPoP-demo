@@ -79,6 +79,12 @@ account:
     # muss so lange aufbewahrt werden wie das Protokoll selbst, sonst sind aeltere Eintraege nicht
     # mehr zu finden.
     lookup-secret: ${CHANGE_LOG_LOOKUP_SECRET:}
+    # Id des aktuellen Geheimnisses; jeder Eintrag merkt sie sich (lookup_key_id). Zum Wechseln: das
+    # alte Geheimnis unter previous-lookup-secrets.<alte Id> eintragen, neues Geheimnis und neue Id
+    # setzen. Das alte bleibt, bis kein Eintrag mehr seine Id traegt (LookupKeyCoverageCheck).
+    lookup-key-id: ${CHANGE_LOG_LOOKUP_KEY_ID:1}
+    # previous-lookup-secrets:
+    #   "1": <altes Geheimnis>
   # Anmeldeprotokoll (SignInLog, ADR-39 Nachtrag): kein Nachweis, geht mit dem Konto.
   sign-in-log:
     retention-months: 6

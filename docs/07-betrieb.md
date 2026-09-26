@@ -143,7 +143,7 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
   - *Frist beginnt mit:* Löschung des Kontos (`ACCOUNT_DELETED`)
   - *Richtwert:* 10 Jahre (`account.change-log.retention-years`, von der Datenschutzbeauftragten zu bestätigen)
   - *Grund:* Nachweis, dass und wie ein Konto identifiziert wurde und welche Methoden es hatte – ohne Werte, ohne Fremdschlüssel, überlebt die Löschung bewusst ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); `ChangeLogRetention` räumt ab
-  - *Suche:* über Name, Vorname und Geburtsdatum (`ChangeLogSearch`, Suchschlüssel als HMAC). Das Geheimnis `CHANGE_LOG_LOOKUP_SECRET` ist außerhalb des Demomodus Pflicht und muss so lange aufbewahrt werden wie das Protokoll; ein neues Geheimnis macht alle älteren Einträge unauffindbar
+  - *Suche:* über Name, Vorname und Geburtsdatum (`ChangeLogSearch`, Suchschlüssel als HMAC). Das Geheimnis `CHANGE_LOG_LOOKUP_SECRET` ist außerhalb des Demomodus Pflicht und muss so lange aufbewahrt werden wie das Protokoll. *Wechsel:* Jeder Eintrag merkt sich die Id des Geheimnisses (`lookup_key_id`). Zum Wechseln das alte Geheimnis unter `account.change-log.previous-lookup-secrets.<alte Id>` eintragen und das neue mit neuer Id setzen (`CHANGE_LOG_LOOKUP_KEY_ID`); gesucht wird mit allen. Das alte darf erst weg, wenn kein Eintrag mehr seine Id trägt – sonst verweigert `LookupKeyCoverageCheck` außerhalb des Demomodus den Start
 - **`account.sign_in_log`**
   - *Frist beginnt mit:* dem Ereignis
   - *Richtwert:* 6 Monate (`account.sign-in-log.retention-months`)
