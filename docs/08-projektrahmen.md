@@ -189,7 +189,7 @@ freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugrif
 |----|--------------|------------|
 | A1 | Build-Tool: Gradle mit Kotlin-DSL | Einheitliche, typsichere Build-Konfiguration |
 | A2 | Gradle Wrapper muss enthalten sein | Reproduzierbarkeit ohne lokale Gradle-Installation |
-| A3 | JVM-Version 21 (Ziel des Bytecodes), Kotlin 2.2.21 | Voraussetzung für Spring Boot 4.x; Kotlin als Implementierungssprache |
+| A3 | JVM-Version 21 (Ziel des Bytecodes), Kotlin 2.4.0 | Voraussetzung für Spring Boot 4.x; Kotlin als Implementierungssprache |
 | A4 | Aktuelle Spring Boot-Version verwenden | Sicherheit und Aktualität |
 | A5 | Versionen zentral in `gradle/libs.versions.toml` pflegen | Zentrale Versionsverwaltung, konsistente Abhängigkeiten |
 | A6 | Frontend-Build ist in den Gradle-Build integriert | Einheitlicher Build-Prozess für Backend und Frontend |
@@ -219,7 +219,7 @@ freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugrif
 | Spring Modulith | `2.1.1` |
 | Dependency Management Plugin | `1.1.7` |
 | Gradle (Wrapper) | `9.7.0` |
-| Kotlin | `2.2.21` |
+| Kotlin | `2.4.0` |
 | JVM Target | `21` |
 | React | `19.3.0` |
 | React DOM | `19.3.0` |

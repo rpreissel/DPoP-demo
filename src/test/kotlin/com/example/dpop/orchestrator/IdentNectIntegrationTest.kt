@@ -66,7 +66,7 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
             """,
             String::class.java,
             channelSessionId
-        )
+        ).requireNoNulls()
 
         given("a registration identifying with the eID via Nect") {
             then("the return reports the case, the backend redeems it, and ident-kvnr follows") {

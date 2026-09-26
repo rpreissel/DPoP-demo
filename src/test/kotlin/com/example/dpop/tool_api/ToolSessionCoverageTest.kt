@@ -68,7 +68,7 @@ class ToolSessionCoverageTest : BehaviorSpec() {
             where table_name like '%TOOL_SESSION' and table_schema <> 'ORCHESTRATOR'
             """.trimIndent(),
             String::class.java
-        ).sorted()
+        ).requireNoNulls().sorted()
 
     /**
      * Only `created_at` is set; every other column is left to its own default or NULL. If a table
@@ -83,7 +83,7 @@ class ToolSessionCoverageTest : BehaviorSpec() {
               and column_name <> 'CREATED_AT'
             """.trimIndent(),
             String::class.java, table
-        )
+        ).requireNoNulls()
         val columns = (listOf("created_at") + idColumn).joinToString(", ")
         val values = (listOf(java.sql.Timestamp.from(createdAt)) + idColumn.map { placeholderFor(table, it) }).toTypedArray()
         jdbcTemplate.update(

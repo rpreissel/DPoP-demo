@@ -151,7 +151,7 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
                         AND r.attribute_type = c.attribute_type AND r.normalized_value = c.normalized_value)
                     """.trimIndent(),
                     String::class.java, accountId
-                ).map { it.uppercase() } shouldBe listOf(newKvnr)
+                ).map { it!!.uppercase() } shouldBe listOf(newKvnr)
 
                 val replaced = randomVersnr()
                 registerCall(HttpMethod.PUT, "/personen/$personId", """{"kvnr":"$newKvnr","versnr":"$replaced","name":"Register","vorname":"Rita","geburtsdatum":"1970-01-01"}""")

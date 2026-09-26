@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm") version "2.2.21"
+    kotlin("jvm") version "2.4.0"
     `java-library`
 }
 
@@ -31,7 +31,7 @@ repositories {
 // verfügbare Version. Das REST-API ist innerhalb von Keycloak 26.x stabil, der Client spricht
 // also problemlos mit dem 26.6.4-Server.
 val keycloakAdminClientVersion = "26.0.12"
-val kotlinVersion = "2.2.21"
+val kotlinVersion = "2.4.0"
 
 dependencies {
     // api statt implementation: org.keycloak.admin.client.Keycloak taucht in der öffentlichen
