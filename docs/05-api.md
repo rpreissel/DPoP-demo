@@ -560,8 +560,10 @@ Bruch von v1; `api/published/v1.yaml` wurde dafür neu festgeschrieben.
 
 Liest nur: ob dieses Gerät (per DPoP-Proof, ohne `channelSessionId`) schon mit einem Konto verknüpft ist
 (`DeviceAccountLink`, [Domänenmodell](02-domaenenmodell.md) Abschnitt 1). Es legt **weder** Kanal
-noch Journey an. Antwort: `{"linked": true, "accountId": 42, "personName": "Max Muster"}` bzw.
-`{"linked": false}`.
+noch Journey an. Antwort: `{"linked": true, "accountId": 42}` bzw. `{"linked": false}`. Einen Namen
+nennt die Antwort bewusst nicht: Den Geräteschlüssel zu haben, beweist noch keinen Faktor, und ein
+gestohlenes Gerät soll nicht verraten, wem es gehört. Den Namen liefern nach der Anmeldung die
+ID-Token-Claims.
 
 Dazu kommt ein Demo-Feld `boundCredentials`: je ein Eintrag `{method, reference}` für jedes an einen
 Schlüssel gebundene Credential des verknüpften Kontos, das auf **diesem** Schlüssel liegt. Die

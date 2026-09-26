@@ -50,8 +50,6 @@ data class DeviceLinkResponse(
     val linked: Boolean,
     @field:Schema(example = "42")
     val accountId: Long? = null,
-    @field:Schema(example = "Max Muster", description = "Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.")
-    val personName: String? = null,
     @field:Schema(
         description = "Demo-only: what else this device is known by - one entry per key-bound " +
             "credential of the linked account living on THIS key, with the reference its own " +

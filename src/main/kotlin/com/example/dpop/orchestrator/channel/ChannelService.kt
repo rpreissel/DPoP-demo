@@ -127,17 +127,18 @@ class ChannelService(
     /**
      * Whether this device is already linked to an account (docs/02-domaenenmodell.md #1) - a pure
      * read against [SessionManagementService.findLinkedAccountId], no channel/journey created.
-     * Lets the entry screen show "this device belongs to X" before the user picks how to start,
+     * Lets the entry screen offer "sign in with this device" before the user picks how to start,
      * the same `bindingKeyRef` proof every other App-facade call already requires.
+     *
+     * No name: holding the device key is no proof of a factor yet, and a stolen device should not
+     * say whose it is (review 2026-09-26, F-10). The name comes with the ID-token claims after the
+     * sign-in.
      */
     fun findDeviceLink(bindingKeyRef: String): DeviceLinkResponse {
         val accountId = sessionManagementService.findLinkedAccountId(bindingKeyRef) ?: return DeviceLinkResponse(linked = false)
-        val personId = accountService.findAccount(accountId)?.personId
-        val personName = personId?.let { personDirectory.displayName(it) }
         return DeviceLinkResponse(
             linked = true,
             accountId = accountId,
-            personName = personName,
             boundCredentials = boundCredentials(accountId, bindingKeyRef)
         )
     }

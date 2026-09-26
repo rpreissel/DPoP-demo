@@ -589,12 +589,6 @@ export interface DeviceLinkResponse {
      * @memberof DeviceLinkResponse
      */
     linked: boolean;
-    /**
-     * Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.
-     * @type {string}
-     * @memberof DeviceLinkResponse
-     */
-    personName?: string;
 }
 /**
  * 

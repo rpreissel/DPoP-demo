@@ -377,10 +377,6 @@ components:
           type: array
         linked:
           type: boolean
-        personName:
-          description: Demo-only, like ID-Token-Claims' name (docs/05-api.md) - who this device is linked to.
-          example: Max Muster
-          type: string
       required:
       - linked
       type: object

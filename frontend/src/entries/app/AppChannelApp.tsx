@@ -887,16 +887,14 @@ export function AppChannelApp() {
                       <>
                         <h2>{t('Willkommen zurück')}</h2>
                         <p>
-                          {deviceLink.personName
-                            ? t('Dieses Gerät ist mit dem Konto von {name} verbunden.', { name: deviceLink.personName })
-                            : t('Dieses Gerät ist mit Ihrem Konto verbunden.')}
+                          {t('Dieses Gerät ist mit Ihrem Konto verbunden.')}
                         </p>
                         {/* The device's own way in first; the two without it (a lookup login, a
                             fresh registration) stay reachable - same wording as on an unlinked device.
                             Each label says what it does: whose account, by which means, or a new one. */}
                         <div className="form-actions app-home__actions">
                           <button onClick={() => handleStart('auto')}>
-                            {deviceLink.personName ? t('Als {name} anmelden', { name: deviceLink.personName }) : t('Mit diesem Gerät anmelden')}
+                            {t('Mit diesem Gerät anmelden')}
                           </button>
                           <button className="secondary" onClick={() => handleStart('login')}>
                             {t('Mit E-Mail-Adresse anmelden')}
@@ -908,7 +906,7 @@ export function AppChannelApp() {
                         <ButtonDiagrams
                           entries={[
                             {
-                              label: deviceLink.personName ? t('Als {name} anmelden', { name: deviceLink.personName }) : t('Mit diesem Gerät anmelden'),
+                              label: t('Mit diesem Gerät anmelden'),
                               diagram: 'auto',
                             },
                             { label: t('Mit E-Mail-Adresse anmelden'), diagram: 'login' },

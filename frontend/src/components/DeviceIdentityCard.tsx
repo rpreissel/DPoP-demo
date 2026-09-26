@@ -67,7 +67,7 @@ export function DeviceIdentityCard({ jwkThumbprint, onRecreateKey, deviceLink, c
             {deviceLink == null
               ? '…'
               : deviceLink.linked
-                ? (deviceLink.personName ?? t('Konto {id}', { id: String(deviceLink.accountId) }))
+                ? t('Konto {id}', { id: String(deviceLink.accountId) })
                 : t('noch keinem Konto zugeordnet')}
           </span>
         </li>
