@@ -407,7 +407,7 @@ components:
       type: object
     ServerInfo:
       properties:
-        demoDisclosure:
+        demoMode:
           type: boolean
         disabledTools:
           items:
@@ -420,7 +420,7 @@ components:
         registrationEnrollFirst:
           type: boolean
       required:
-      - demoDisclosure
+      - demoMode
       - disabledTools
       - operations
       - registrationEnrollFirst

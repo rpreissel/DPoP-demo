@@ -47,8 +47,8 @@ data class ServerInfo(
     val keycloak: KeycloakInfo?,
     val registrationEnrollFirst: Boolean,
     val disabledTools: List<DisabledToolView>,
-    /** `demo.disclosure` - whether responses carry the demo block (TANs, personas, ...). */
-    val demoDisclosure: Boolean,
+    /** `demo.mode` - among other things, whether responses carry the demo block (TANs, personas, ...). */
+    val demoMode: Boolean,
     /** What the actuator reports on the management port, readable here without it. */
     val operations: OperationsInfo,
 )
@@ -93,7 +93,7 @@ class ServerInfoController(
             keycloak = if (environment.acceptsProfiles(Profiles.of("keycloak"))) keycloakInfo() else null,
             registrationEnrollFirst = featureFlagService.isEnabled(FeatureFlags.REGISTER_ENROLL_FIRST),
             disabledTools = toolAvailabilityService.disabledEntries().map { DisabledToolView(it.toolId!!, it.channel!!.name, it.reason) },
-            demoDisclosure = environment.getProperty("demo.disclosure", Boolean::class.java, true),
+            demoMode = environment.getProperty("demo.mode", Boolean::class.java, true),
             operations = operations(),
         )
     }

@@ -328,7 +328,6 @@ ein fest gesetzter Pepper), ist diese Prüfung die Stelle, an der man sie locker
 `ProductionModeCheck` bricht dann den Start ab, solange eine Demo-Voreinstellung übrig ist, und nennt
 alle auf einmal:
 
-- `demo.disclosure=false` – keine Demo-Werte (Klartext-TANs, Codes) in Antworten.
 - `demo.admin.password` gesetzt, nicht `admin`, und als Hash (`{bcrypt}…`, `{argon2}…`), nicht im Klartext.
 - `spring.h2.console.enabled=false`.
 - `dpop.secrets.otp-pepper` und `account.change-log.lookup-secret` mit mindestens 32 Zeichen.

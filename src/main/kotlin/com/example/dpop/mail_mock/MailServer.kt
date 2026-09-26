@@ -14,7 +14,7 @@ data class SentMail(val sequence: Long, val address: String, val code: String, v
  * [outbox] (the newest [OUTBOX_SIZE]), like the Personenverzeichnis' letter box.
  *
  * It never writes the code to a log (review 2026-09, M-11). The `println`s this replaces put code
- * and address on STDOUT regardless of `demo.disclosure`; what the demo shows the tester goes
+ * and address on STDOUT regardless of demo mode; what the demo shows the tester goes
  * through the tool's own `demo` block, which that switch controls. The log line names only the
  * domain of the address.
  */

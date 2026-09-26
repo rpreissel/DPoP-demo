@@ -50,3 +50,16 @@ Reihenfolge und Sperren, übernommen aus einer auf der Admin-Seite eingestellten
 `ToolDefaultsInitializer` wendet sie beim Start an, wenn es noch keine Einstellungen für die Tools
 gibt. Bei einer dauerhaft gespeicherten Datenbank überstehen eigene Änderungen also einen Neustart. „Demo zurücksetzen“
 stellt genau diese Voreinstellung wieder her.
+
+**Wer was entscheidet** (zweite Bewertung A-4, entschieden 2026-09-26):
+
+- **Die Tabelle `orchestrator.tool_availability` ist die Wahrheit.** Die yml-Voreinstellung wird nie
+  gelesen, um eine Anfrage zu entscheiden; sie ist nur der Stand beim ersten Start und nach „Demo
+  zurücksetzen“.
+- **Welche Tools ein Kanal überhaupt anbietet, sagt der Client** (`availableTools`); die Tabelle
+  sperrt oder ordnet nur innerhalb dessen.
+- **`demoOnly`-Tools** gibt es nur im Demomodus; das ist eine Eigenschaft des Tools, kein
+  Admin-Schalter.
+- **`orchestrator.feature_flag` bleibt ein eigener Speicher.** Dort stehen benannte Schalter, die keine
+  Tools betreffen („Enrollment zuerst“, Login-Theme). Beides in eine Tabelle zu legen, würde zwei
+  verschiedene Dinge unter einen Schlüssel zwingen.

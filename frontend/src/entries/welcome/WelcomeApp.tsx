@@ -398,7 +398,7 @@ function ServerStatus() {
         </li>
         <li>
           <span className="label">{t('Demo-Werte in Antworten')}</span>
-          <span className="value">{info.demoDisclosure ? t('an (TANs, Testpersonen, Vorbelegung)') : t('aus')}</span>
+          <span className="value">{info.demoMode ? t('an (TANs, Testpersonen, Vorbelegung)') : t('aus')}</span>
         </li>
       </ul>
       <OperationsStatus operations={info.operations} />

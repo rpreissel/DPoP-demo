@@ -37,8 +37,8 @@ Ausnahmen – nicht mit unerklärten.
 Nur im Demomodus existieren außerdem die unangemeldeten Oberflächen der simulierten Fremdsysteme
 (Personenverzeichnis, KOBIL, Nect) und der Login-Theme-Schalter (`@DemoSurface`, Modul `demo_mode`,
 per ArchUnit verlangt), und nur dort darf eine geänderte Migration das Realm neu aufbauen. Ferner
-schaltet er zwei Dinge: die `demoOnly`-Verfahren und, solange nicht eigens gesetzt, die Demo-Werte in
-Antworten (`demo.disclosure`, [ADR-28](ADR-028-demo-werte-abschaltbar.md)). Jede Instanz mit echten
+schaltet er zwei Dinge: die `demoOnly`-Verfahren und die Demo-Werte in Antworten
+([ADR-28](ADR-028-demo-werte-abschaltbar.md)). Jede Instanz mit echten
 Personen läuft mit `demo.mode=false`.
 
 **Niveaus und was sie tragen** (Stand dieser Entscheidung):

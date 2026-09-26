@@ -405,7 +405,8 @@ export interface ServerInfo {
   keycloak?: KeycloakInfo | null
   registrationEnrollFirst: boolean
   disabledTools: { toolId: string; channel: ChannelType; reason?: string | null }[]
-  demoDisclosure: boolean
+  /** Demo mode - among other things, responses carry the demo values (TANs, personas). */
+  demoMode: boolean
   /** Health and metrics of the actuator (management port), read by the backend. */
   operations: OperationsInfo
 }

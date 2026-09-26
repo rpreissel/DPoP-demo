@@ -13,7 +13,6 @@ class ProductionModeCheckTest : BehaviorSpec({
 
     fun check(
         demoMode: Boolean = false,
-        disclosure: Boolean = false,
         adminPassword: String = "{bcrypt}\$2a\$10\$abcdefghijklmnopqrstuv",
         h2Console: Boolean = false,
         otpPepper: String = secret,
@@ -21,11 +20,11 @@ class ProductionModeCheckTest : BehaviorSpec({
         trustSelfSigned: Boolean = false,
         keycloakBaseUrl: String = "https://keycloak.example",
         orchestratorBaseUrlForKeycloak: String = "https://orchestrator.example",
-    ) = ProductionModeCheck(demoMode, disclosure, adminPassword, h2Console, otpPepper, lookupSecret, trustSelfSigned, keycloakBaseUrl, orchestratorBaseUrlForKeycloak)
+    ) = ProductionModeCheck(demoMode, adminPassword, h2Console, otpPepper, lookupSecret, trustSelfSigned, keycloakBaseUrl, orchestratorBaseUrlForKeycloak)
 
     given("demo mode") {
         then("the demo defaults are allowed - nothing is checked") {
-            check(demoMode = true, disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak", orchestratorBaseUrlForKeycloak = "http://orchestrator")
+            check(demoMode = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak", orchestratorBaseUrlForKeycloak = "http://orchestrator")
         }
     }
 
@@ -38,9 +37,9 @@ class ProductionModeCheckTest : BehaviorSpec({
     given("demo mode off with every demo default still in place") {
         then("it refuses to start and names each of them at once") {
             val failure = shouldThrow<IllegalStateException> {
-                check(disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "short", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak:8080", orchestratorBaseUrlForKeycloak = "http://orchestrator:8080")
+                check(adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "short", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak:8080", orchestratorBaseUrlForKeycloak = "http://orchestrator:8080")
             }
-            listOf("demo.disclosure", "demo.admin.password", "spring.h2.console", "otp-pepper", "lookup-secret", "trustSelfSignedCertificate", "http://keycloak", "http://orchestrator").forEach {
+            listOf("demo.admin.password", "spring.h2.console", "otp-pepper", "lookup-secret", "trustSelfSignedCertificate", "http://keycloak", "http://orchestrator").forEach {
                 failure.message!! shouldContain it
             }
         }

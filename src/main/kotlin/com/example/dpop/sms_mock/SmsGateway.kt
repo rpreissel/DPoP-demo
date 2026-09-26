@@ -14,7 +14,7 @@ data class SentSms(val sequence: Long, val phoneNumber: String, val tan: String,
  * [outbox] (the newest [OUTBOX_SIZE]), like the Personenverzeichnis' letter box.
  *
  * It never writes the TAN to a log (review 2026-09, M-11). The six `println`s this replaces put
- * code and recipient on STDOUT regardless of `demo.disclosure`; what the demo shows the tester goes
+ * code and recipient on STDOUT regardless of demo mode; what the demo shows the tester goes
  * through the tool's own `demo` block, which that switch controls. The log line names only the
  * last digits of the number.
  */

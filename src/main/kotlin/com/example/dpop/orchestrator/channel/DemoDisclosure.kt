@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component
  * saying "never part of the production contract" is a convention, not a safeguard.
  *
  * So there is exactly one implementation able to produce a [DemoInfo], and whether it exists at
- * all is decided at startup by `demo.disclosure`. With it off, the bean in this file's place
+ * all is decided at startup by `demo.mode` (review 2026-09-26, A-4: no switch of its own any more -
+ * a demo shows its values, anything else never does). With it off, the bean in this file's place
  * returns `null` for every request and the plaintext values physically cannot reach a client -
  * the tools still attach them to their own outcome, but nothing carries them any further.
  *
- * Default ON: this project IS the demo, and the values are the point of it (docs/05-api.md #2).
- * The default is stated here rather than assumed, so turning it off is one setting rather than a
- * code change.
+ * Default ON, like demo mode: this project IS the demo, and the values are the point of it
+ * (docs/05-api.md #2).
  *
  * `OrchestratorArchitectureTest` ("the demo block of a response") keeps this the only construction
  * site - otherwise a third assembly point could quietly reintroduce the unconditional path.
@@ -45,14 +45,14 @@ interface DemoDisclosure {
 }
 
 /**
- * The disclosing implementation - active unless `demo.disclosure=false`.
+ * The disclosing implementation - active in demo mode.
  *
  * `persons` (every person in the register, see [DemoPersonas]) is attached here, once, for every
  * caller rather than by each tool's own `demo` values, so a frontend persona picker works
  * everywhere without touching auth_sms/auth_email/auth_password/id_fsc/id_eid individually.
  */
 @Component
-@ConditionalOnProperty(name = ["demo.disclosure"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["demo.mode"], havingValue = "true", matchIfMissing = true)
 class DisclosingDemoDisclosure(private val personas: DemoPersonas) : DemoDisclosure {
 
     override fun assemble(
@@ -75,11 +75,11 @@ class DisclosingDemoDisclosure(private val personas: DemoPersonas) : DemoDisclos
 }
 
 /**
- * `demo.disclosure=false`: nothing is disclosed, for any caller, ever. Not a filter over an
+ * `demo.mode=false`: nothing is disclosed, for any caller, ever. Not a filter over an
  * assembled block but the absence of one - there is no code path left that could build it.
  */
 @Component
-@ConditionalOnProperty(name = ["demo.disclosure"], havingValue = "false")
+@ConditionalOnProperty(name = ["demo.mode"], havingValue = "false")
 class WithheldDemoDisclosure : DemoDisclosure {
 
     override fun assemble(

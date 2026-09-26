@@ -276,8 +276,9 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
     `IdentEidToolController`, Naming~~ – erledigt 2026-09-26: `enrollment_ref_type` aus den vier
     Anmelde-Sessions entfernt, Kommentar weg, `authsmsuse`/`authpassworduse`/`authemailuse` → `authsms`/`authpassword`/`authemail`
     (Tool-Ids `auth-sms`/`auth-password`/`auth-email`), Tool-Sessions der Identifizierungsmodule heißen nach dem Tool
-    (`IdentFsc…`), Retention-Jobs nach dem Modul (`IdFsc…`). A-4 Verfügbarkeit und Flags auf einen
-    Mechanismus.
+    (`IdentFsc…`), Retention-Jobs nach dem Modul (`IdFsc…`). ~~A-4 Verfügbarkeit und Flags~~ –
+    entschieden und erledigt 2026-09-26: `demo.disclosure` gestrichen (= `demo.mode`); yml-Voreinstellung
+    der Tools und `feature_flag` bleiben, ihre Rollen stehen in ADR-32.
 16. A-6 Zuschnitt (`ChannelResponseAssembler`, `ClaimLedger`/`AnchorRegistry`, `EvidenceTrail`), Totes weg.
 17. A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a.
 
