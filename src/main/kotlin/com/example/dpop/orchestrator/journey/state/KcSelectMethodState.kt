@@ -2,18 +2,12 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * The single state of `KC_SELECT_METHOD` (docs/04-orchestrierung.md Abschnitt 3) - always offers
  * every kc-usable tool as one `selectMethod` step, re-offered (narrowed by [declined]) until
  * either a proof closes the gap or nothing is left.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = KcSelectMethodState.SelectMethod::class, name = "SelectMethod")
-)
 sealed interface KcSelectMethodState : JourneyState {
 
     /**

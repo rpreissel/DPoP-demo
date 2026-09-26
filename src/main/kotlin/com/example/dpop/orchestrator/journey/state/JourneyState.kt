@@ -106,12 +106,12 @@ sealed interface OfferingState : JourneyState {
 
     /**
      * Backend-authored heading for the selection screen shown when more than one candidate is
-     * offered - same reasoning as [AnswerableState.prompt]: the app channel is a mobile app with
+     * offered - same reasoning as [AnswerableState.question]: the app channel is a mobile app with
      * week-long release cycles, so this text must be able to change without an app release.
      * `selectionContext` names only the ADDRESS of that screen (shared across every intent
      * offering the same KIND of candidate, e.g. "auth") - it says nothing about what the user is
      * actually being asked here (log in vs. confirm an account deletion), which is exactly why
-     * this can't be a shared default the way [AnswerableState.prompt] fully is.
+     * this can't be a shared default the way [AnswerableState.question] fully is.
      */
     val selectionTitle: Text
     val selectionDescription: Text? get() = null
@@ -142,8 +142,8 @@ sealed interface OfferingState : JourneyState {
  * JourneyService to change, only a new state implementing this and a new [Decision] case.
  */
 interface AnswerableState : JourneyState {
-    /** What the client renders while waiting - see [Prompt] for why this carries real content. */
-    val prompt: Prompt
+    /** What the client renders while waiting - see [Question] for why this carries real content. */
+    val question: Question
 
     /**
      * Every [AnswerableState], of any intent, renders through the exact same generic screen

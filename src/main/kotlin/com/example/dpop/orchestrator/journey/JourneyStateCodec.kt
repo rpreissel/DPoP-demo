@@ -14,7 +14,10 @@ import com.example.dpop.orchestrator.journey.state.RegisterState
 import com.example.dpop.orchestrator.journey.state.StepUpState
 import org.springframework.stereotype.Component
 import tools.jackson.databind.exc.InvalidTypeIdException
-import tools.jackson.module.kotlin.jacksonObjectMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
+import tools.jackson.databind.jsontype.NamedType
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import kotlin.reflect.KClass
 import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
@@ -30,14 +33,26 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
  * one deliberate exception (`RegisterDispatchStrategy`'s two fully independent state hierarchies,
  * [RegisterState]/[RegisterEnrollFirstState] - see the latter's own doc) - [read] tries both roots
  * rather than picking one, since which of the two a given journey actually is isn't known here at
- * all, only inside the states' own `@JsonTypeInfo` payload. Safe because their discriminator names
- * are already disjoint (`EnrollFirst*` vs. the ident-first names) - never ambiguous which one a
- * given payload actually is.
+ * all, only inside the payload's type name. Safe because their discriminator names are already
+ * disjoint (`EnrollFirst*` vs. the ident-first names) - never ambiguous which one a given payload
+ * actually is.
+ *
+ * The states themselves carry no serialization (docs/ideen/fachkern-und-technik-trennen.md): the type
+ * name is the state's simple class name, written as `@t`, and the subtypes are derived here from
+ * the sealed hierarchies. `JourneyStateCodecTest` pins every name, so a renamed state - whose
+ * persisted journeys would no longer read - fails a test instead of a running journey.
  */
 @Component
 class JourneyStateCodec {
 
-    private val mapper = jacksonObjectMapper()
+    private val mapper = jacksonMapperBuilder()
+        .addMixIn(JourneyState::class.java, PersistedTypeName::class.java)
+        .registerSubtypes(*STATE_ROOTS.flatMap(::concreteStates).distinct().map { NamedType(it.java, it.simpleName) }.toTypedArray())
+        .build()
+
+    /** `@t` = the simple class name - for every state, from one place instead of on each root. */
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
+    private interface PersistedTypeName
 
     fun write(journey: AuthJourney, state: JourneyState) {
         journey.stateType = state.javaClass.simpleName
@@ -55,6 +70,19 @@ class JourneyStateCodec {
             }
         }
         return mapper.readValue(json, rootOf(intent))
+    }
+
+    companion object {
+        /** Every sealed root a journey's state is read back as - one per intent, two for REGISTER. */
+        val STATE_ROOTS: List<KClass<out JourneyState>> = listOf(
+            FastAccessState::class, RegisterState::class, RegisterEnrollFirstState::class, LookupLoginState::class,
+            KcSelectMethodState::class, StepUpState::class, ManageAuthMethodsState::class,
+            ConfirmPeerLoginState::class, DeleteAccountState::class, LogoutState::class, ReIdentifyState::class,
+        )
+
+        /** The instantiable states under [root], through nested sealed levels. */
+        fun concreteStates(root: KClass<out JourneyState>): List<KClass<out JourneyState>> =
+            if (root.isSealed) root.sealedSubclasses.flatMap(::concreteStates) else listOf(root)
     }
 
     private fun rootOf(intent: AuthIntent): Class<out JourneyState> = when (intent) {

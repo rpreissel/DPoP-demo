@@ -101,7 +101,7 @@ class JourneyRouting(
             // step is required (e.g. "E-Mail-Bestätigung ausstehend" during fast-access).
             state is OfferingState && options.size == 1 ->
                 state.selectionDescription?.let { MessageStep(it) }
-            state is AnswerableState -> ConfirmStep(state.prompt)
+            state is AnswerableState -> ConfirmStep(state.question.toPrompt())
             else -> null
         }
         return Step(nextFor(state, availableTools), stepData)

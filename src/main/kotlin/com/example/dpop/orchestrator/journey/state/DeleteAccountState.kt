@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * [ConfirmPending] always comes first, unconditionally - see `DeleteAccountStrategy`'s class doc
@@ -15,11 +13,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * freshly proven via the gate's own step-up, in which case `DeleteAccountStrategy` deletes right
  * after that instead of demanding a second, redundant proof).
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = DeleteAccountState.ConfirmPending::class, name = "ConfirmPending"),
-    JsonSubTypes.Type(value = DeleteAccountState.ConfirmationRequired::class, name = "ConfirmationRequired")
-)
 sealed interface DeleteAccountState : JourneyState {
 
     /** "Do you really want to delete your account?" - a plain yes/no, before anything else is checked. */
@@ -27,7 +20,7 @@ sealed interface DeleteAccountState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt get() = Prompt.Confirm(
+        override val question: Question get() = Question.Confirm(
             title = Text("Konto wirklich löschen?"),
             description = Text("Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Anmeldemethoden und Kontodaten werden endgültig gelöscht."),
             confirmLabel = Text("Konto löschen"),

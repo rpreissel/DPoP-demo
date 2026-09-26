@@ -1,8 +1,6 @@
 package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Into a login on this device as fast as possible, and in a way that works again next time
@@ -22,13 +20,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * their own doc for why sharing the VALUE, not the STRATEGY, is what avoids the
  * arbitrary-looking coupling a subclass relationship would create here.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = FastAccessState.Start::class, name = "Start"),
-    JsonSubTypes.Type(value = FastAccessState.PreferredAuth::class, name = "PreferredAuth"),
-    JsonSubTypes.Type(value = AuthChoice::class, name = "AuthChoice"),
-    JsonSubTypes.Type(value = Enrolling::class, name = "Enrolling")
-)
 sealed interface FastAccessState : JourneyState {
 
     data object Start : FastAccessState {

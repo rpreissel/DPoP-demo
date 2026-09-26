@@ -1,10 +1,12 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.journey.state.Prompt
+import com.example.dpop.orchestrator.journey.state.Question
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.StepDataTypes
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.context.annotation.Bean
@@ -44,6 +46,35 @@ data class MessageStep(
 @JsonTypeName("confirm")
 @Schema(description = "The step waits for a yes/no answer; the prompt is authored by the backend.")
 data class ConfirmStep(val prompt: Prompt) : StepData
+
+/**
+ * A [Question] on the wire: the same content, discriminated by `kind` like every polymorphic type on
+ * the wire (see `tool_spi.StepData` for why not `@t`, which the persisted journey states keep). Kept
+ * apart from the domain [Question] so the states carry no serialization
+ * (docs/ideen/fachkern-und-technik-trennen.md); the names `Prompt`/`Confirm` are the contract's.
+ */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "kind")
+@JsonSubTypes(
+    JsonSubTypes.Type(value = Prompt.Confirm::class, name = "Confirm")
+)
+sealed interface Prompt {
+    val title: Text
+    val description: Text?
+
+    /** Answered via the existing generic `answer` endpoint with `"accept"` or `"decline"`. */
+    data class Confirm(
+        override val title: Text,
+        override val description: Text?,
+        val confirmLabel: Text,
+        val cancelLabel: Text,
+        /** Signals the client to render the confirming action as a destructive/dangerous one. */
+        val destructive: Boolean = false
+    ) : Prompt
+}
+
+fun Question.toPrompt(): Prompt = when (this) {
+    is Question.Confirm -> Prompt.Confirm(title, description, confirmLabel, cancelLabel, destructive)
+}
 
 /**
  * An attempt failed and the journey stays where it is. Carries only the reason - what the step

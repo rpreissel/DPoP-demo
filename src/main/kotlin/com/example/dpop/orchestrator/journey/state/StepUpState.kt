@@ -3,14 +3,7 @@ package com.example.dpop.orchestrator.journey.state
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = StepUpState.Start::class, name = "Start"),
-    JsonSubTypes.Type(value = StepUpState.AuthChoice::class, name = "AuthChoice")
-)
 sealed interface StepUpState : JourneyState {
     /** The goal of THIS run - distinct from the channel's durable `acrFloor`. */
     val targetAcr: AcrLevel

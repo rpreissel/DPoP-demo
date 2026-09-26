@@ -3,21 +3,12 @@ package com.example.dpop.orchestrator.journey.state
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * The only intent without a policy goal: ONE successful enrollment ends it, regardless of the
  * level reached - the channel was already AUTHENTICATED. Adding a second method means a new
  * journey.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = ManageAuthMethodsState.AddRequested::class, name = "AddRequested"),
-    JsonSubTypes.Type(value = ManageAuthMethodsState.RemoveRequested::class, name = "RemoveRequested"),
-    JsonSubTypes.Type(value = ManageAuthMethodsState.Enrolling::class, name = "Enrolling"),
-    JsonSubTypes.Type(value = ManageAuthMethodsState.RetractAttributeRequested::class, name = "RetractAttributeRequested")
-)
 sealed interface ManageAuthMethodsState : JourneyState {
 
     /**

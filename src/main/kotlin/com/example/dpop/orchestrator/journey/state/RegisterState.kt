@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * REGISTER's own journey: deliberately fresh identification, even on an already linked device
@@ -23,17 +21,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * doc) - only [Identifying], [Assigning], [ConfirmingEmail] and [PasswordObligation] are
  * REGISTER-exclusive.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = RegisterState.Start::class, name = "Start"),
-    JsonSubTypes.Type(value = RegisterState.Identifying::class, name = "Identifying"),
-    JsonSubTypes.Type(value = RegisterState.ConfirmDeviceRebind::class, name = "ConfirmDeviceRebind"),
-    JsonSubTypes.Type(value = RegisterState.Assigning::class, name = "Assigning"),
-    JsonSubTypes.Type(value = RegisterState.ConfirmingEmail::class, name = "ConfirmingEmail"),
-    JsonSubTypes.Type(value = RegisterState.PasswordObligation::class, name = "PasswordObligation"),
-    JsonSubTypes.Type(value = AuthChoice::class, name = "AuthChoice"),
-    JsonSubTypes.Type(value = Enrolling::class, name = "Enrolling")
-)
 sealed interface RegisterState : JourneyState {
 
     data object Start : RegisterState {
@@ -83,7 +70,7 @@ sealed interface RegisterState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt get() = Prompt.Confirm(
+        override val question: Question get() = Question.Confirm(
             title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
             description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
             confirmLabel = Text("Gerät neu zuordnen"),

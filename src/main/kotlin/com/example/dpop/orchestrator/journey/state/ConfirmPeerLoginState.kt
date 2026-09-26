@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
@@ -19,13 +17,6 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
  * back out again ([OfferLogout]): a channel that was only ever authenticated FOR this one
  * confirmation has no reason to stay logged in afterwards, unlike one that already was.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = ConfirmPeerLoginState.Requested::class, name = "Requested"),
-    JsonSubTypes.Type(value = ConfirmPeerLoginState.ConfirmationRequired::class, name = "ConfirmationRequired"),
-    JsonSubTypes.Type(value = ConfirmPeerLoginState.Confirming::class, name = "Confirming"),
-    JsonSubTypes.Type(value = ConfirmPeerLoginState.OfferLogout::class, name = "OfferLogout")
-)
 sealed interface ConfirmPeerLoginState : JourneyState {
 
     /**
@@ -98,8 +89,8 @@ sealed interface ConfirmPeerLoginState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt
-            get() = Prompt.Confirm(
+        override val question: Question
+            get() = Question.Confirm(
                 title = Text("Jetzt abmelden?"),
                 description = Text("Dieses Gerät war vor der Bestätigung nicht angemeldet - nur für diese eine Bestätigung wurde es kurz angemeldet. Jetzt wieder abmelden, oder angemeldet bleiben?"),
                 confirmLabel = Text("Abmelden"),

@@ -3,8 +3,6 @@ package com.example.dpop.orchestrator.journey.state
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Shared by FAST_ACCESS/LOOKUP_LOGIN/STEP_UP: the one place a fresh identification (`ident-fsc`/
@@ -14,11 +12,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * factor, so it's never a silent fallback (`ReIdentifyStrategy.interpret` always confirms the
  * account already known to the caller, never adopts a different one).
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = ReIdentifyState.OfferReIdent::class, name = "OfferReIdent"),
-    JsonSubTypes.Type(value = ReIdentifyState.Identifying::class, name = "Identifying")
-)
 sealed interface ReIdentifyState : JourneyState {
     /** The goal this sub-journey was started for - not the channel's durable floor. */
     val targetAcr: AcrLevel
@@ -70,15 +63,15 @@ sealed interface ReIdentifyState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt
+        override val question: Question
             get() = when (wording) {
-                Wording.OPTIONAL_IDENTIFICATION -> Prompt.Confirm(
+                Wording.OPTIONAL_IDENTIFICATION -> Question.Confirm(
                     title = Text("Identifizieren?"),
                     description = Text("Sie sind bereits angemeldet. Optional können Sie sich jetzt zusätzlich identifizieren."),
                     confirmLabel = Text("Identifizieren"),
                     cancelLabel = Text("Abbrechen")
                 )
-                null -> Prompt.Confirm(
+                null -> Question.Confirm(
                     title = Text("Erneut identifizieren?"),
                     description = Text(
                         "Mit den vorhandenen Anmeldeverfahren ist das geforderte Sicherheitsniveau " +

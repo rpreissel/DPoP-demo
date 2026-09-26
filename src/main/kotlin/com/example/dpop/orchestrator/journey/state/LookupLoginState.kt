@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * There is deliberately no `Identifying` here: without a known account, an identification is not
@@ -13,14 +11,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * runs as the shared `RE_IDENTIFY` sub-journey instead (docs/04-orchestrierung.md) - it only ever
  * CONFIRMS this already-resolved account, never adopts a different one.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = LookupLoginState.Start::class, name = "Start"),
-    JsonSubTypes.Type(value = LookupLoginState.Credential::class, name = "Credential"),
-    JsonSubTypes.Type(value = LookupLoginState.AdditionalFactor::class, name = "AdditionalFactor"),
-    JsonSubTypes.Type(value = LookupLoginState.OfferBinding::class, name = "OfferBinding"),
-    JsonSubTypes.Type(value = LookupLoginState.ConfirmDeviceRebind::class, name = "ConfirmDeviceRebind")
-)
 sealed interface LookupLoginState : JourneyState {
 
     data object Start : LookupLoginState {
@@ -71,7 +61,7 @@ sealed interface LookupLoginState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt get() = Prompt.Confirm(
+        override val question: Question get() = Question.Confirm(
             title = Text("Dieses Gerät merken?"),
             description = Text("Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch ohne Verknüpfung fortfahren – dann melden Sie sich künftig wieder über E-Mail und Passwort an."),
             confirmLabel = Text("Gerät merken"),
@@ -92,7 +82,7 @@ sealed interface LookupLoginState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt get() = Prompt.Confirm(
+        override val question: Question get() = Question.Confirm(
             title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
             description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
             confirmLabel = Text("Gerät neu zuordnen"),

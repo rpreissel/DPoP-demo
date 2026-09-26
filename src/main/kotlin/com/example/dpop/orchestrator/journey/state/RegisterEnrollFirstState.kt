@@ -2,8 +2,6 @@ package com.example.dpop.orchestrator.journey.state
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.ToolId
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * The "Enrollment zuerst" experiment (docs/04-orchestrierung.md, REGISTER): an alternative
@@ -13,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * beyond `RE_IDENTIFY`): the two journeys answer genuinely different questions ("who is this, then what can they use to log in?" vs. "what
  * can they use to log in, and do we even know who they are?") and must stay independently readable.
  *
- * Every state name is prefixed `EnrollFirst*`, even though [JourneyStateCodec]'s own `@JsonTypeInfo`
+ * Every state name is prefixed `EnrollFirst*`, even though [JourneyStateCodec]'s type name
  * discriminator ("@t") would already disambiguate it from [RegisterState] without that - `AuthJourney
  * .stateType` (`javaClass.simpleName`, a SEPARATE plain-text column used for observability queries
  * like "how many journeys are stuck in Enrolling?") is not namespaced by sealed root, so a bare
@@ -30,16 +28,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * `OfferReIdent` prompt ("Erneut identifizieren?") already asks the accept/decline question, so
  * this journey adds no confirmation state of its own for it.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@t")
-@JsonSubTypes(
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstStart::class, name = "EnrollFirstStart"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstAttestingEmail::class, name = "EnrollFirstAttestingEmail"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrollingSms::class, name = "EnrollFirstEnrollingSms"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstEnrolling::class, name = "EnrollFirstEnrolling"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmingEmail::class, name = "EnrollFirstConfirmingEmail"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstPasswordObligation::class, name = "EnrollFirstPasswordObligation"),
-    JsonSubTypes.Type(value = RegisterEnrollFirstState.EnrollFirstConfirmDeviceRebind::class, name = "EnrollFirstConfirmDeviceRebind")
-)
 sealed interface RegisterEnrollFirstState : JourneyState {
 
     /**
@@ -74,7 +62,7 @@ sealed interface RegisterEnrollFirstState : JourneyState {
         override fun withActive(active: ToolRef?): JourneyState = this
         override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
         override val active: ToolRef? get() = null
-        override val prompt: Prompt get() = Prompt.Confirm(
+        override val question: Question get() = Question.Confirm(
             title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
             description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch Ihrem neuen Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren. Ohne Zuordnung bleibt Ihr neues Konto nutzbar - Sie melden sich dann künftig über E-Mail und Passwort an."),
             confirmLabel = Text("Gerät neu zuordnen"),
