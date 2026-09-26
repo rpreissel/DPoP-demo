@@ -42,6 +42,7 @@ fachlich brauchen.
 | [invarianten.md](invarianten.md) | Die Regeln, auf die sich der Kern verlässt, und womit jede gesichert ist (Typ, Constraint, Test) – Lücken sichtbar | Bevor man eine Invariante anfasst oder eine neue einführt |
 | [port-vertraege.md](port-vertraege.md) | Was ein echtes Fremdsystem (Personenverzeichnis, KOBIL, Nect, eID-Server, Zustellung) zusagen muss, damit der Kern ihm vertrauen darf | Bevor ein simuliertes System durch ein echtes ersetzt wird |
 | [review-2026-09-bewertung-und-massnahmen.md](review-2026-09-bewertung-und-massnahmen.md) | Einschätzung des Ganzen, strukturelle Ursachen, Gegenmaßnahmen und globale Reihenfolge | Entscheiden, was zuerst passiert |
+| [review-2026-09-26-zweite-bewertung.md](review-2026-09-26-zweite-bewertung.md) | Stand nach Phase A–F: Urteil, neue Befunde (Sicherheit, Betrieb, Architektur, Doku), Reihenfolge Phasen H–L | Entscheiden, was als Nächstes passiert |
 | [archiv/](archiv/) | Abgeschlossene Reviews – historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Überlegungen samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [glossar/](glossar/) | Externes Begriffsglossar und sein Abgleich mit diesem Projekt | Prüfen, ob das Domänenmodell fremde Begriffe abbilden kann |
