@@ -190,7 +190,7 @@ step("orchestrator-auth-flow subflow anlegen") {
 }
 
 // ── LoA 1: natives Keycloak-Passwort - accountId lebt im Keycloak-User-Attribut
-// OrchestratorNotes.USER_ATTR_ACCOUNT_ID (KeycloakAccountSyncListener hält es synchron), sofort
+// OrchestratorNotes.USER_ATTR_ACCOUNT_ID (die Nutzer-Federation liefert es, ADR-38), sofort
 // nach erfolgreicher Anmeldung an den Orchestrator gemeldet, damit LoA-2-Kandidaten "password"
 // schon ausschließen.
 
@@ -339,10 +339,8 @@ step("orchestrator-acr-amr mapper anlegen") {
     }
 }
 
-// Lässt den Orchestrator accountId direkt aus den Claims eines echten AccessTokens auflösen
-// (KeycloakOidcTokenValidator, demo-only Web-Kanal Journey-Trace-Lesepfad) statt es über die
-// Keycloak-Session-Id zurückzuentwickeln - liest dasselbe orchestratorAccountId-Attribut, das
-// account-sync schon schreibt.
+// Traegt die accountId als Claim orchestrator_account_id in die Tokens - aus dem Attribut
+// orchestratorAccountId, das die Nutzer-Federation liefert (ADR-38).
 step("orchestrator-account-id mapper anlegen") {
     up {
         clientScopes().get(scopeDbId("orchestrator-claims")).protocolMappers.createMapper(ProtocolMapperRepresentation().apply {
@@ -421,14 +419,13 @@ step("browser default scopes setzen") {
 // ===================== V5__orchestrator_admin_client =====================
 
 // Äquivalent zu infra/tofu/keycloak/main.tf: keycloak_openid_client.orchestrator_admin,
-// keycloak_openid_client_service_account_role.orchestrator_admin_manage_users/view_realm,
+// keycloak_openid_client_service_account_role.orchestrator_admin_manage_users,
 // keycloak_openid_client_default_scopes.orchestrator_admin_default_scopes. Braucht den Scope aus
 // V3, läuft aber unabhängig von V2/V4.
 //
-// Keine handdeklarierten Demo-User mehr: KeycloakAdminClient/KeycloakAccountSyncListener
-// (Orchestrator, `keycloak`-Profil) spiegeln jede AccountService create/change/delete in einen
-// Keycloak-User über die Admin-REST-API - authentifiziert als dieser Client-eigene Service Account,
-// das übliche Muster für ein Backend, das User ohne menschliche Admin-Session verwaltet.
+// Der Service Account dieses Clients (KeycloakAdminClient) braucht nur manage-users: eine Sitzung
+// beenden und nach einer Kontoloeschung aufraeumen (KeycloakAccountRemovalListener). Konten liest
+// Keycloak selbst ueber die Nutzer-Federation (ADR-38), angelegt wird hier niemand.
 
 fun StepContext.serviceAccountUserId(): String = clients().get(clientDbId(setup.adminApiClientId)).serviceAccountUser.id
 
@@ -478,21 +475,6 @@ step("service-account manage-users Rolle zuweisen") {
     down {
         val realmMgmtId = clientDbId("realm-management")
         val role = clients().get(realmMgmtId).roles().get("manage-users").toRepresentation()
-        users().get(serviceAccountUserId()).roles().clientLevel(realmMgmtId).remove(listOf(role))
-    }
-}
-
-// Für KeycloakAdminClient.passwordStorageComponentId() (DPoP-demo-25q) - GET .../components ist
-// durch die realmweite "view realm"-Berechtigung geschützt, nicht durch manage-users.
-step("service-account view-realm Rolle zuweisen") {
-    up {
-        val realmMgmtId = clientDbId("realm-management")
-        val role = clients().get(realmMgmtId).roles().get("view-realm").toRepresentation()
-        users().get(serviceAccountUserId()).roles().clientLevel(realmMgmtId).add(listOf(role))
-    }
-    down {
-        val realmMgmtId = clientDbId("realm-management")
-        val role = clients().get(realmMgmtId).roles().get("view-realm").toRepresentation()
         users().get(serviceAccountUserId()).roles().clientLevel(realmMgmtId).remove(listOf(role))
     }
 }
@@ -663,8 +645,7 @@ step("registrierung freischalten und an orchestrator-registration binden") {
 
 // Dediziertes Gegenstueck zu V5 fuer den APP-Kanal: KcTokenProvider (DPoP-demo-xso.3) ruft den
 // Custom-Grant urn:dpop-demo:account-token bislang ueber orchestrator-admin auf - denselben Client,
-// den KeycloakAdminClient fuer die Admin-REST-API (User-Sync) mit realm-management manage-users/
-// view-realm nutzt. AccountTokenGrantType selbst prueft keine Client-Rolle (siehe dessen eigene
+// den KeycloakAdminClient fuer die Admin-REST-API mit realm-management manage-users nutzt. AccountTokenGrantType selbst prueft keine Client-Rolle (siehe dessen eigene
 // Doku) - der Grant braucht also keinerlei Admin-Rechte, bekommt sie nur zufaellig mit, weil er
 // bislang denselben Client-Secret wie die Admin-REST-Aufrufe verwendet. Dieser Client trennt beide
 // Verantwortlichkeiten: orchestrator-app-token darf NUR Access-/Refresh-Tokens fuer App-Kanal-
@@ -984,20 +965,15 @@ step("browser-qr-test default scopes setzen") {
 
 // ===================== V12__stammdaten_claim_mappers =====================
 
-// Die Stammdaten-Attribute, die masterDataAttributes() seit jeher in
-// den Keycloak-User schreibt, als Token-Claims sichtbar machen.
-//
-// Bis hierher wurden sie gepflegt und nie gelesen: der orchestrator-claims-Scope (V3) trug nur
-// orchestrator-acr-amr und orchestrator-account-id, fuer personId/kvnr/geburtsdatum und die vier
-// Adressfelder gab es im ganzen Realm keinen Protocol-Mapper. Name und E-Mail fielen nicht auf,
-// weil der profile-Scope sie aus Keycloaks eigenen firstName/lastName/email-Feldern zieht, die
-// derselbe Sync fuellt.
+// Die Stammdaten-Attribute, die die Nutzer-Federation aus masterDataAttributes() liefert (ADR-38),
+// als Token-Claims sichtbar machen. Name und E-Mail zieht der profile-Scope aus Keycloaks eigenen
+// firstName/lastName/email-Feldern, die dieselbe Federation fuellt.
 //
 // Im orchestrator-claims-Scope und nicht am Client, aus demselben Grund wie V3: jeder spaetere
 // Client bekommt dasselbe Verhalten, indem er den Scope aufnimmt (V4, V5, V8, V11 tun das bereits).
 //
 // Die Attributnamen sind woertlich die Schluessel aus masterDataAttributes() - die eine Quelle
-// dafuer, was ein Account nach Keycloak spiegelt. Weicht einer ab, bleibt der Claim leer, ohne
+// dafuer, was Keycloak von einem Konto zeigt. Weicht einer ab, bleibt der Claim leer, ohne
 // dass etwas fehlschlaegt; deshalb steht hier dieselbe Liste und nicht eine "aehnliche".
 //
 // personId/kvnr sind register-gebunden und existieren nur fuer ein Konto mit PERSON_ID-Anker; die
@@ -1020,14 +996,13 @@ val masterDataClaims = listOf(
 // Ohne diesen Schritt waeren die Mapper unten wirkungslos: Keycloaks deklaratives User Profile
 // (seit 24.x Default) verwirft JEDES nicht deklarierte User-Attribut - die Admin-API nimmt den
 // Schreibvorgang an, persistiert ihn aber nicht. Genau daran scheiterten die Stammdaten bisher
-// unbemerkt: KeycloakAccountSyncListener schrieb sie auf jedem AccountChanged mit, und Keycloak
-// warf sie jedes Mal weg. V1 dokumentiert die Falle bereits fuer orchestratorAccountId.
+// unbemerkt: Keycloak warf nicht deklarierte Attribute jedes Mal weg. Das gilt ebenso fuer die
+// Attribute, die heute die Nutzer-Federation liefert (ADR-38).
 //
 // upConfig() ist NICHT additiv, sondern beschreibt das gesamte Profil - orchestratorAccountId aus
-// V1 muss deshalb hier mit aufgezaehlt werden, sonst verschwindet es und der Account-Sync findet
-// seine eigenen User nicht mehr wieder (findUserId sucht ueber genau dieses Attribut).
+// V1 muss deshalb hier mit aufgezaehlt werden, sonst verschwindet es aus den Tokens.
 //
-// Nur "admin": geschrieben wird ausschliesslich vom Account-Sync ueber den Service-Account,
+// Nur "admin": die Werte kommen ausschliesslich aus der Nutzer-Federation (schreibgeschuetzt),
 // gelesen wird ueber die Mapper unten - der Nutzer selbst soll seine Stammdaten im Konto-Formular
 // weder sehen noch aendern koennen, sie gehoeren dem Register.
 step("stammdaten im user profile deklarieren") {
