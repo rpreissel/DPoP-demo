@@ -98,5 +98,5 @@ Markierung, das Werkzeug zum Einsammeln und der Ort des Wortlauts:
 - **Gleiche Vorlage, gleicher Hash, gleicher Wortlaut:** Ein Tool heißt in App und Login-Seite wortgleich
   (`KcTextCatalogTest.toolNamesAreTheAppsOwn`), und `TextTranslationsTest` prüft, dass eine ID in allen
   Bundles einer Sprache gleich formuliert ist.
-- Nicht markiert sind Oberflächen für Entwickler (Debug-Seitenleiste, Journey-Log, `logEvent`), Code,
+- Nicht markiert sind Oberflächen für Entwickler (Debug-Seitenleiste, Journey-Trace, `logEvent`), Code,
   Befehle, Pfade und Demo-Daten. Sie stehen als Werte von Platzhaltern im Satz.

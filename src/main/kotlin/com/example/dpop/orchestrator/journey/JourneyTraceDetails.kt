@@ -13,7 +13,7 @@ import com.example.dpop.tool_spi.ToolOutcome
 import org.springframework.stereotype.Component
 
 /**
- * Everything the JourneyLog's `detail` column is filled with - pure shaping of what a
+ * Everything the JourneyTrace's `detail` column is filled with - pure shaping of what a
  * [JourneyEvent], [Transition] or [Action] already determined. Deliberately split off
  * [JourneyService] so the service itself stays the state machine and nothing else; this
  * class never decides anything.
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  * one function, so the two can never disagree).
  */
 @Component
-class JourneyLogDetails(
+class JourneyTraceDetails(
     private val toolRegistry: ToolHandlerRegistry,
     private val accountService: AccountService
 ) {
@@ -34,7 +34,7 @@ class JourneyLogDetails(
     fun methodEvidenceDetail(methods: List<MethodEvidence>): List<Map<String, Any?>> =
         methods.map { mapOf("method" to it.method.value, "loa" to it.loa.value, "factorTypes" to it.factorTypes.map { t -> t.name }, "amrSourceId" to it.amrSourceId) }
 
-    /** The extra, event-specific detail worth keeping in the JourneyLog - which tool was involved, and how the outcome/answer read. */
+    /** The extra, event-specific detail worth keeping in the JourneyTrace - which tool was involved, and how the outcome/answer read. */
     fun eventDetail(event: JourneyEvent): Map<String, Any?> = when (event) {
         is JourneyEvent.Completed -> mapOf("toolId" to event.tool.toolId, "method" to event.tool.method) + outcomeDetail(event.outcome)
         is JourneyEvent.Abandoned -> mapOf("toolId" to event.tool.toolId)

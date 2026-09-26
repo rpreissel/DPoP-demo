@@ -5,7 +5,7 @@ import {
   deleteAdminAccount,
   describeError,
   fetchAdminAccounts,
-  fetchAdminJourneyLog,
+  fetchAdminJourneyTrace,
   resetDemo,
   type AdminAccount,
 } from '../../api'
@@ -15,23 +15,23 @@ import { AdminRegistrationOrderView } from '../../components/AdminRegistrationOr
 import { AdminToolAvailabilityView } from '../../components/AdminToolAvailabilityView'
 import { ChannelNav, type NavTab } from '../../components/ChannelNav'
 import { DeveloperToolsCard } from '../../components/DeveloperToolsCard'
-import { JourneyLogView } from '../../components/JourneyLogView'
+import { JourneyTraceView } from '../../components/JourneyTraceView'
 import { useHashTab } from '../../useHashTab'
 import { t } from '../../texts'
 import { Tx } from '../../Tx'
 
-type Tab = 'einstellungen' | 'journeylog' | 'konten'
-const TAB_KEYS = ['einstellungen', 'journeylog', 'konten'] as const
+type Tab = 'einstellungen' | 'journeytrace' | 'konten'
+const TAB_KEYS = ['einstellungen', 'journeytrace', 'konten'] as const
 const TABS: NavTab<Tab>[] = [
   { key: 'einstellungen', label: t('Einstellungen') },
-  { key: 'journeylog', label: t('Journey-Log') },
+  { key: 'journeytrace', label: t('Journey-Trace') },
   { key: 'konten', label: t('Konten') },
 ]
 
 /**
  * The operator's page (docs/10-frontend.md #0): everything that switches the whole deployment,
  * plus the views across all accounts - behind the admin login (AdminSecurityConfig). The two
- * channels only show what a user of that channel would see; the journey log lives only here.
+ * channels only show what a user of that channel would see; the journey trace lives only here.
  */
 export function AdminApp() {
   const [loggedIn, setLoggedIn] = useState(() => adminAuthHeader() !== null)
@@ -63,7 +63,7 @@ export function AdminApp() {
           </button>
         }
       />
-      <div className={tab === 'journeylog' ? 'web-page web-page-wide' : 'web-page'}>
+      <div className={tab === 'journeytrace' ? 'web-page web-page-wide' : 'web-page'}>
         {tab === 'einstellungen' && (
           <>
             <AdminToolAvailabilityView />
@@ -72,8 +72,8 @@ export function AdminApp() {
             <DeveloperToolsCard />
           </>
         )}
-        {tab === 'journeylog' && (
-          <JourneyLogView fetchLog={fetchAdminJourneyLog} />
+        {tab === 'journeytrace' && (
+          <JourneyTraceView fetchLog={fetchAdminJourneyTrace} />
         )}
         {tab === 'konten' && <AccountsTab />}
       </div>
@@ -101,7 +101,7 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
   return (
     <form className="card" onSubmit={submit}>
       <h2>{t('Admin-Anmeldung')}</h2>
-      <p>{t('Betreiber-Zugang für Einstellungen, das Journey-Log aller Konten und die Kontenverwaltung.')}</p>
+      <p>{t('Betreiber-Zugang für Einstellungen, den Journey-Trace aller Konten und die Kontenverwaltung.')}</p>
       <p className="hint">
         <Tx
           text="Demo-Zugang aus {datei} ({schluessel}): {benutzer} / {passwort}"
@@ -170,8 +170,8 @@ function AccountsTab() {
         ) : accounts.length === 0 ? (
           <p>{t('Keine Konten.')}</p>
         ) : (
-          <div className="journey-log-table-scroll">
-            <table className="journey-log-table">
+          <div className="journey-trace-table-scroll">
+            <table className="journey-trace-table">
               <thead>
                 <tr>
                   <th>{t('Konto')}</th>
@@ -223,7 +223,7 @@ function AccountsTab() {
         <p>
           <Tx
             text={
-              'Löscht alle Konten (samt Geräten, Verfahren und Journey-Log), setzt die Verfahren je Kanal auf die Voreinstellung ' +
+              'Löscht alle Konten (samt Geräten, Verfahren und Journey-Trace), setzt die Verfahren je Kanal auf die Voreinstellung ' +
               'zurück (Reihenfolge und Sperren aus {konfig}) und stellt die ' +
               'Registrierungsreihenfolge auf „Identifikation zuerst“. Das Personenverzeichnis (/personenverzeichnis/) ist ein Fremdsystem und ' +
               'bleibt unverändert. Im Keycloak-Profil werden die Demo-Konten danach gleich wieder angelegt.'

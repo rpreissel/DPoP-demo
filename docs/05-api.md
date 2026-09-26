@@ -46,7 +46,7 @@ Endpunkte unter `API_V1`; das ergibt sich aus der Konstante, nicht aus einer Aus
 Arten von Endpunkten liegen bewusst woanders:
 
 - Betriebsendpunkte unter `/orchestrator/admin` (Tool-Sperre, Reihenfolge der Registrierung,
-  Abgleich mit Keycloak, Journey-Log aller Konten, Konten löschen, Demo zurücksetzen). Nur sie
+  Abgleich mit Keycloak, Journey-Trace aller Konten, Konten löschen, Demo zurücksetzen). Nur sie
   liegen hinter einer Anmeldung (HTTP Basic mit `demo.admin.*`).
 - Der öffentliche, nur lesende Server-Status unter `/orchestrator/demo/server-info`.
 - Die Stellvertreter externer Systeme unter `/mock-*` (`/mock-kobil`,
@@ -544,13 +544,13 @@ auch bei abgeschlossener Journey
 (`{"type":"orchestrator","context":"authentication","step":"authenticated"}`); ein eigenes Feld
 `stepUpRequired` gibt es nicht. Nur bei `LOGGED_OUT` (Endzustand) fehlt `next` ganz.
 
-### Journey-Log
+### Journey-Trace
 
 Eine Ansicht zur Fehlersuche und für die Demo, kein Revisionsprotokoll (das ist `account.change_log`,
-[Betrieb](07-betrieb.md) Abschnitt 2; Frist 14 Tage). Es gehört nicht zum App-Vertrag: Es gibt das Journey-Log nur
-als Betriebsendpunkt `GET /orchestrator/admin/journey-log` (hinter der Admin-Anmeldung, über alle
-Konten und Kanäle). Die früheren Varianten je Kanal, `GET /journey-log` (je Gerät) und
-`GET /channels/{channelSessionId}/journey-log` (je Konto), sind entfernt. Das war ein bewusster
+[Betrieb](07-betrieb.md) Abschnitt 2; Frist 14 Tage). Es gehört nicht zum App-Vertrag: Es gibt den Journey-Trace nur
+als Betriebsendpunkt `GET /orchestrator/admin/journey-trace` (hinter der Admin-Anmeldung, über alle
+Konten und Kanäle). Die früheren Varianten je Kanal, `GET /journey-trace` (je Gerät) und
+`GET /channels/{channelSessionId}/journey-trace` (je Konto), sind entfernt. Das war ein bewusster
 Bruch von v1; `api/published/v1.yaml` wurde dafür neu festgeschrieben.
 
 ### `GET /app/channels/device-link`

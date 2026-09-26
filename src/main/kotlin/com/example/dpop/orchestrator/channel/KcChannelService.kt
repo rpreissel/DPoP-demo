@@ -100,7 +100,7 @@ class KcChannelService(
                 descriptor.factorTypes,
                 source = AmrSource.KEYCLOAK,
                 // nativeToolId prefixed on, colon-separated: amrSourceId alone (Keycloak's execution
-                // id) is opaque to a human reading the journey log - this way the log itself names
+                // id) is opaque to a human reading the journey trace - this way the log itself names
                 // WHICH native authenticator proved it, without a separate field every consumer of
                 // MethodEvidence would need to carry along. Stable across re-reports of the same
                 // proof (entry.nativeToolId never changes for a given execution), so the "refresh,

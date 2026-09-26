@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journeylog
+package com.example.dpop.orchestrator.journeytrace
 
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.data.domain.PageRequest
@@ -7,13 +7,13 @@ import java.time.Instant
 import java.util.UUID
 import io.swagger.v3.oas.annotations.media.Schema
 
-data class JourneyLogEntryView(
+data class JourneyTraceEntryView(
     val channelSessionId: UUID,
     /** APP or KEYCLOAK - makes the originating facade visible in the log UI. */
     val channelType: String?,
-    /** Null until the channel resolves an account - see [JourneyLogEntry.accountId]. */
+    /** Null until the channel resolves an account - see [JourneyTraceEntry.accountId]. */
     val accountId: Long?,
-    /** Null for a channel-level event with no journey of its own (see [JourneyLogService.recordForChannel]). */
+    /** Null for a channel-level event with no journey of its own (see [JourneyTraceService.recordForChannel]). */
     val journeyId: UUID?,
     /** Set when [journeyId] ran as another journey's precondition - lets the UI nest it under that parent instead of showing it as an unrelated journey. */
     val parentJourneyId: UUID?,
@@ -34,13 +34,13 @@ data class JourneyLogEntryView(
     val createdAt: Instant
 )
 
-data class JourneyLogResponse(val entries: List<JourneyLogEntryView>)
+data class JourneyTraceResponse(val entries: List<JourneyTraceEntryView>)
 
 /**
  * Exactly what the log records about the channel an entry belongs to.
  *
  * A value, not the `ChannelSession` entity: the log is a trace, and a trace must not reach back
- * into the machine it traces. Taking the entity made `journeylog` import `session`, which
+ * into the machine it traces. Taking the entity made `journeytrace` import `session`, which
  * `session` in turn imports for its own retention - a cycle created purely by convenience at the
  * call site. Each caller now says which four values it is logging, which is also the honest list
  * of what ends up in the table.
@@ -60,8 +60,8 @@ data class LoggedJourney(
 )
 
 @Service
-class JourneyLogService(
-    private val journeyLogRepository: JourneyLogRepository
+class JourneyTraceService(
+    private val journeyTraceRepository: JourneyTraceRepository
 ) {
 
     /** [journeyState] is a first-class field, like [eventType] - not just another entry in [detail]. */
@@ -72,8 +72,8 @@ class JourneyLogService(
         journeyState: String? = null,
         detail: Map<String, Any?> = emptyMap()
     ) {
-        journeyLogRepository.save(
-            JourneyLogEntry(
+        journeyTraceRepository.save(
+            JourneyTraceEntry(
                 bindingKeyRef = channel.bindingKeyRef,
                 channelType = channel.channelType,
                 accountId = channel.accountId,
@@ -90,8 +90,8 @@ class JourneyLogService(
 
     /** For an event that isn't part of any journey - e.g. logging out of an AUTHENTICATED channel with nothing currently running, which would otherwise leave no trace at all. */
     fun recordForChannel(channel: LoggedChannel, eventType: String, detail: Map<String, Any?> = emptyMap()) {
-        journeyLogRepository.save(
-            JourneyLogEntry(
+        journeyTraceRepository.save(
+            JourneyTraceEntry(
                 bindingKeyRef = channel.bindingKeyRef,
                 channelType = channel.channelType,
                 accountId = channel.accountId,
@@ -114,17 +114,17 @@ class JourneyLogService(
      * bound partway through, e.g. once ident-fsc completes); here it inherits the one a later entry of the SAME channel carries, so
      * a journey is attributed to its person as a whole rather than only from binding onward.
      */
-    fun getRecent(limit: Int): JourneyLogResponse {
-        val entries = journeyLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit))
+    fun getRecent(limit: Int): JourneyTraceResponse {
+        val entries = journeyTraceRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit))
         val accountByChannel = entries
             .filter { it.accountId != null }
             .associate { checkNotNull(it.channelSessionId) to checkNotNull(it.accountId) }
-        return JourneyLogResponse(entries.map { entry ->
+        return JourneyTraceResponse(entries.map { entry ->
             entry.toView().let { view -> view.copy(accountId = view.accountId ?: accountByChannel[view.channelSessionId]) }
         })
     }
 
-    private fun JourneyLogEntry.toView() = JourneyLogEntryView(
+    private fun JourneyTraceEntry.toView() = JourneyTraceEntryView(
         channelSessionId = checkNotNull(channelSessionId),
         channelType = channelType,
         accountId = accountId,

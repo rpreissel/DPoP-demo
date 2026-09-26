@@ -29,7 +29,7 @@ components:
       - accountId
       - methods
       type: object
-    AdminJourneyLogResponse:
+    AdminJourneyTraceResponse:
       properties:
         accounts:
           items:
@@ -37,7 +37,7 @@ components:
           type: array
         entries:
           items:
-            $ref: '#/components/schemas/JourneyLogEntryView'
+            $ref: '#/components/schemas/JourneyTraceEntryView'
           type: array
       required:
       - accounts
@@ -188,7 +188,7 @@ components:
       - channel
       - toolId
       type: object
-    JourneyLogEntryView:
+    JourneyTraceEntryView:
       properties:
         accountId:
           format: int64
@@ -566,7 +566,7 @@ paths:
       summary: Put the demo back to its start
       tags:
       - 'Admin: accounts'
-  /orchestrator/admin/journey-log:
+  /orchestrator/admin/journey-trace:
     get:
       description: At most `limit` entries (1-2000), newest first.
       operationId: recent
@@ -583,7 +583,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: '#/components/schemas/AdminJourneyLogResponse'
+                $ref: '#/components/schemas/AdminJourneyTraceResponse'
           description: OK
         default:
           content:
@@ -591,9 +591,9 @@ paths:
               schema:
                 $ref: ../openapi.yaml#/components/schemas/ErrorResponse
           description: Error. `error` names the case; its HTTP status is fixed per code (see ErrorResponse).
-      summary: Newest journey-log entries across all accounts
+      summary: Newest journey-trace entries across all accounts
       tags:
-      - 'Admin: journey log'
+      - 'Admin: journey trace'
   /orchestrator/admin/registration-order:
     get:
       operationId: get
@@ -1905,8 +1905,6 @@ tags:
   name: Channels
 - description: Gerätebindung über den externen Dienstleister KOBIL
   name: 'Tool: KOBIL'
-- description: Journey log across all accounts and channels
-  name: 'Admin: journey log'
 - description: Wordings for the text references in every response, per language, with ETag
   name: Texts
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
@@ -1925,6 +1923,8 @@ tags:
   name: 'Demo: server info'
 - description: Stateless password verify/set for Keycloak's native credential
   name: KC password management
+- description: Journey trace across all accounts and channels
+  name: 'Admin: journey trace'
 - description: Read-through account lookup for Keycloak's user federation
   name: KC account lookup
 - description: 'Passwort: Einrichtung als Wissensfaktor, Anmeldung und Login ohne DPoP'

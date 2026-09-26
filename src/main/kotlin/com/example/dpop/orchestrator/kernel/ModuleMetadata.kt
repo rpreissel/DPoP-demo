@@ -7,7 +7,7 @@ package com.example.dpop.orchestrator.kernel
  * Spring Modulith verifies the boundaries BETWEEN top-level modules (orchestrator, account,
  * auth_sms, ...), and `OrchestratorArchitectureTest` verifies layering rules WITHIN the
  * orchestrator. Neither noticed that the orchestrator's own packages had grown mutually dependent:
- * `session` <-> `policy`, `session` <-> `journey`, `session` <-> `journeylog`, `kc` <-> `dpop`, and
+ * `session` <-> `policy`, `session` <-> `journey`, `session` <-> `journeytrace`, `kc` <-> `dpop`, and
  * `session` -> `api.v1` - the largest module in the system, and the one with no internal structure
  * anything checked.
  *

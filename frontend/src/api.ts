@@ -1,6 +1,6 @@
 import { ADMIN_PATH, adminAuthHeader, clearAdminCredentials } from './adminAuth'
 import { createDpopProof, type DpopKeyPair } from './dpop'
-import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyLogResponse, TokenResponse } from './types'
+import type { ActiveMethodView, ChannelResponse, DeviceLinkResponse, ErrorResponse, IdTokenClaims, JourneyTraceResponse, TokenResponse } from './types'
 import { ErrorResponseErrorEnum } from './generated/models'
 import { resolveText, t } from './texts'
 
@@ -356,13 +356,13 @@ export function setDemoLoginTheme(theme: LoginTheme): Promise<void> {
   return callPlain('PUT', '/orchestrator/demo/login-theme', { theme })
 }
 
-/** Same shape as JourneyLogResponse, plus who each account id is (register display name). */
-export interface AdminJourneyLogResponse extends JourneyLogResponse {
+/** Same shape as JourneyTraceResponse, plus who each account id is (register display name). */
+export interface AdminJourneyTraceResponse extends JourneyTraceResponse {
   accounts: { accountId: number; displayName?: string | null }[]
 }
 
-export function fetchAdminJourneyLog(limit = 500): Promise<AdminJourneyLogResponse> {
-  return callPlain('GET', `${ADMIN_PATH}/journey-log?limit=${limit}`)
+export function fetchAdminJourneyTrace(limit = 500): Promise<AdminJourneyTraceResponse> {
+  return callPlain('GET', `${ADMIN_PATH}/journey-trace?limit=${limit}`)
 }
 
 export interface AdminAccount {

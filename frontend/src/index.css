@@ -163,7 +163,7 @@ body {
   /* Diagram hover previews (DiagramHint) are absolutely positioned and can be wider than a narrow
      viewport - even hidden (visibility:hidden, not display:none) they'd otherwise still inflate
      the page's scrollable area and show a permanent horizontal scrollbar. Inner elements that need
-     their own horizontal scroll (journey-log table, the popover itself once open) set overflow-x
+     their own horizontal scroll (journey-trace table, the popover itself once open) set overflow-x
      on themselves, so this page-level clip doesn't affect them. */
   overflow-x: hidden;
 }

@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.journeylog.JourneyLogService
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
 import com.example.dpop.orchestrator.policy.evidenceAxis
@@ -25,8 +25,8 @@ import com.example.dpop.orchestrator.session.forLog
 class JourneyRecorder(
     private val authEvidenceService: AuthEvidenceService,
     private val accountService: AccountService,
-    private val journeyLogService: JourneyLogService,
-    private val journeyLogDetails: JourneyLogDetails,
+    private val journeyTraceService: JourneyTraceService,
+    private val journeyTraceDetails: JourneyTraceDetails,
     private val codec: JourneyStateCodec
 ) {
 
@@ -53,16 +53,16 @@ class JourneyRecorder(
             // The generic advance() call right after this logs the EvidenceReported transition
             // itself (with acrFloor/resolvedAcr), but not WHAT changed - this records that
             // (docs/05-api.md Abschnitt 3: native/external evidence, source=kc) - without
-            // it, the journey log would show every tool outcome in full but go silent on every
+            // it, the journey trace would show every tool outcome in full but go silent on every
             // Keycloak-native factor, even though it's just as real a step in the journey's path.
             // snake_case, not PascalCase: JourneyService buckets this at the machine's discretion,
             // not as a real `event::class.simpleName` transition (naming convention: snake_case for
             // entries that are no transition) - and deliberately not named similarly to
             // "EvidenceReported" (the real transition's own log entry), so the two cannot be
             // confused for one another.
-            journeyLogService.record(channel.forLog(), journey.forLog(), "native_evidence_synced",
+            journeyTraceService.record(channel.forLog(), journey.forLog(), "native_evidence_synced",
                 journeyState = codec.read(journey)::class.simpleName,
-                detail = mapOf("source" to source, "methods" to journeyLogDetails.methodEvidenceDetail(updates))
+                detail = mapOf("source" to source, "methods" to journeyTraceDetails.methodEvidenceDetail(updates))
             )
         }
     }

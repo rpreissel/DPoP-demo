@@ -10,7 +10,7 @@ interface Props {
  * Chrome for the whole Web channel - the same top bar as the App channel (see ChannelNav), just
  * under the light/blue .channel-web color scheme (index.css) instead of App's dark/purple one.
  * The page lays itself out (the website's browser window next to the demo column). No tabs: the
- * journey log and the operator settings live on /admin/.
+ * journey trace and the operator settings live on /admin/.
  */
 export function WebChannelLayout({ children }: Props) {
   return (

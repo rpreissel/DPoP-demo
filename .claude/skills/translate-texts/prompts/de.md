@@ -26,7 +26,7 @@ Kunstwörter und interne Begriffe aus dem Code sind kein Deutsch. Immer umschrei
 
 Diese Wörter sind eingeführte Begriffe der Demo (Doku, Diagramme, Oberfläche) und werden **nicht** ersetzt:
 
-- **Journey**, **Journey-Log** (nicht „Vorgang“, „Vorgangsprotokoll“)
+- **Journey**, **Journey-Trace** (nicht „Vorgang“, „Vorgangsprotokoll“)
 - **Versicherter**, **Partner** und **Interessent** – die drei Rollen eines Kontos: bei uns versichert
   (Versicherungsnummer), uns als Person bekannt (nur Partnernummer), keiner Person zugeordnet
 - **Partnernummer** (`P` und neun Ziffern, jede Person im Personenverzeichnis hat eine)

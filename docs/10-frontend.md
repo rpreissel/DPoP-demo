@@ -107,7 +107,7 @@ zu lesen sieht, wo man ist:
 - **Admin** (`/admin/`): die Sicht des Betreibers, hinter der Admin-Anmeldung (HTTP Basic auf
   `/orchestrator/admin/**`, `AdminSecurityConfig`). Reiter: *Einstellungen* (Verfahren je Kanal
   sperren und ordnen, Reihenfolge der Registrierung, Abgleich mit Keycloak, Links für Entwickler),
-  *Journey-Log* über alle Konten und Geräte (mit laufender Aktualisierung) und *Konten* (löschen,
+  *Journey-Trace* über alle Konten und Geräte (mit laufender Aktualisierung) und *Konten* (löschen,
   Demo zurücksetzen).
 - **Personenverzeichnis** (`/personenverzeichnis/`): das simulierte **Fremdsystem** (ADR-31) mit
   Personen, Freischaltcodes und dem Briefkasten mit den Codes im Klartext. Fachlich spricht sie nur
@@ -117,7 +117,7 @@ zu lesen sieht, wo man ist:
   Reisepass, EUDI-Wallet), zu dem `ident-nect` weiterleitet. Fachlich spricht sie nur `/mock-nect/*`
   an.
 
-Die Kanäle zeigen nur, was ein Nutzer dieses Kanals sehen würde. Das Journey-Log und alles, was die
+Die Kanäle zeigen nur, was ein Nutzer dieses Kanals sehen würde. Der Journey-Trace und alles, was die
 ganze Instanz umstellt, liegt auf der Admin-Seite, und zwar über alle Konten, Geräte und Kanäle
 hinweg.
 

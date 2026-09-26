@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { JourneyLogView } from './JourneyLogView'
+import { JourneyTraceView } from './JourneyTraceView'
 
 const entry = {
   channelSessionId: 'chan-1',
@@ -13,11 +13,11 @@ const entry = {
   createdAt: '2026-09-11T08:30:00.000Z',
 }
 
-describe('JourneyLogView', () => {
+describe('JourneyTraceView', () => {
   it('shows whether a channel log entry came from App or Kc/Web', async () => {
     const fetchLog = vi.fn().mockResolvedValue({ entries: [entry], accounts: [{ accountId: 4, displayName: 'Tina Tester' }] })
 
-    render(<JourneyLogView fetchLog={fetchLog} />)
+    render(<JourneyTraceView fetchLog={fetchLog} />)
 
     expect(await screen.findByText('Kc/Web')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Kc\/Web ·/ })).toBeInTheDocument()
@@ -32,7 +32,7 @@ describe('JourneyLogView', () => {
       ],
     })
 
-    render(<JourneyLogView fetchLog={fetchLog} />)
+    render(<JourneyTraceView fetchLog={fetchLog} />)
 
     expect(await screen.findByRole('heading', { name: /Tina Tester · ChannelSession/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Max Muster' })).toBeInTheDocument()

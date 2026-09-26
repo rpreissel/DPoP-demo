@@ -20,7 +20,7 @@
   text-align: left;
 }
 
-/* The Journey-Log tab is a wide table, not prose - let it use the whole app-main column instead of the 960px reading-width cap the other tabs need. */
+/* The Journey-Trace tab is a wide table, not prose - let it use the whole app-main column instead of the 960px reading-width cap the other tabs need. */
 .app.app-wide {
   max-width: 100%;
 }
@@ -714,23 +714,23 @@ a.method-choice:active {
   color: #dc2626;
 }
 
-.journey-log-channel {
+.journey-trace-channel {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border);
 }
 
-.journey-log-channel:first-of-type {
+.journey-trace-channel:first-of-type {
   margin-top: 1rem;
   padding-top: 0;
   border-top: none;
 }
 
-.journey-log-channel h3 {
+.journey-trace-channel h3 {
   margin: 0 0 0.75rem;
 }
 
-.journey-log-channel-header {
+.journey-trace-channel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -739,11 +739,11 @@ a.method-choice:active {
   margin-bottom: 0.75rem;
 }
 
-.journey-log-channel-header h3 {
+.journey-trace-channel-header h3 {
   margin: 0;
 }
 
-.journey-log-channel-type {
+.journey-trace-channel-type {
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.6rem;
@@ -758,14 +758,14 @@ a.method-choice:active {
   white-space: nowrap;
 }
 
-.journey-log-journey {
+.journey-trace-journey {
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
-.journey-log-journey-header {
+.journey-trace-journey-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -774,16 +774,16 @@ a.method-choice:active {
 }
 
 /* Sub-journeys (docs/04-orchestrierung.md #6) are nested (indented via marginLeft, see renderJourneyNode) and get a visible accent border back to their parent, so a step-up's re-identification reads as part of the flow instead of a scattered unrelated journey. */
-.journey-log-journey--nested {
+.journey-trace-journey--nested {
   border-left: 3px solid var(--accent-border);
   background: var(--accent-bg);
 }
 
-.journey-log-journey-header--sub {
+.journey-trace-journey-header--sub {
   justify-content: flex-start;
 }
 
-.journey-log-sub-marker {
+.journey-trace-sub-marker {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--accent);
@@ -791,17 +791,17 @@ a.method-choice:active {
   letter-spacing: 0.02em;
 }
 
-.journey-log-table-scroll {
+.journey-trace-table-scroll {
   overflow-x: auto;
 }
 
-.journey-log-table {
+.journey-trace-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
 
-.journey-log-table th {
+.journey-trace-table th {
   text-align: left;
   padding: 0.4rem 0.75rem 0.4rem 0;
   font-size: 0.75rem;
@@ -812,37 +812,37 @@ a.method-choice:active {
   white-space: nowrap;
 }
 
-.journey-log-table td {
+.journey-trace-table td {
   padding: 0.5rem 0.75rem 0.5rem 0;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
-.journey-log-table tr:last-child td {
+.journey-trace-table tr:last-child td {
   border-bottom: none;
 }
 
-.journey-log-time {
+.journey-trace-time {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--text);
 }
 
-.journey-log-tool {
+.journey-trace-tool {
   font-family: var(--mono);
   color: var(--text-h);
   white-space: nowrap;
 }
 
-.journey-log-state {
+.journey-trace-state {
   font-family: var(--mono);
   font-size: 0.8rem;
   color: var(--accent);
   white-space: nowrap;
 }
 
-.journey-log-detail-chips {
+.journey-trace-detail-chips {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -851,7 +851,7 @@ a.method-choice:active {
   gap: 0.35rem;
 }
 
-.journey-log-detail-chips li {
+.journey-trace-detail-chips li {
   display: flex;
   align-items: stretch;
   overflow: hidden;
@@ -860,7 +860,7 @@ a.method-choice:active {
   font-size: 0.78rem;
 }
 
-.journey-log-chip-label {
+.journey-trace-chip-label {
   padding: 0.15rem 0.45rem;
   background: var(--accent-bg);
   color: var(--accent);
@@ -871,7 +871,7 @@ a.method-choice:active {
   white-space: nowrap;
 }
 
-.journey-log-chip-value {
+.journey-trace-chip-value {
   padding: 0.15rem 0.5rem;
   font-family: var(--mono);
   color: var(--text-h);

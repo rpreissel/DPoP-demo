@@ -92,7 +92,7 @@ ist. Eine fachliche Entscheidung wie „Die QR-Bestätigung braucht künftig ein
 kein altes Niveau" ist damit eine gezielte, nachvollziehbare Änderung an der Beschreibung dieses
 einen Ziels.
 
-Schließlich wird jeder Schritt, den ein Nutzer durchläuft, protokolliert und ist im Journey-Log
+Schließlich wird jeder Schritt, den ein Nutzer durchläuft, protokolliert und ist im Journey-Trace
 einsehbar: welches Verfahren wann angeboten, angenommen oder abgelehnt wurde und welches Niveau am
 Ende erreicht war. Für eine fachliche oder revisionsrelevante Frage („Warum konnte dieser Nutzer
 sein Konto ohne erneute Prüfung löschen?") muss man also nichts aus verteilten Systemlogs
@@ -474,7 +474,7 @@ Gerät einem anderen Konto wegzunehmen. Neu verknüpfen kann nur der ausdrückli
 des Durchlaufs).
 
 Zentral und für Strategien unerreichbar bleiben: den Nachweis in die `AuthEvidence` übernehmen,
-das Änderungsprotokoll des Kontos und das Journey-Log schreiben und die Begrenzung `min(achievedAcr, enrolledUnderAcr)`.
+das Änderungsprotokoll des Kontos und den Journey-Trace schreiben und die Begrenzung `min(achievedAcr, enrolledUnderAcr)`.
 
 Die Entscheidungen dahinter:
 

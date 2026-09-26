@@ -9,8 +9,8 @@ import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
-import com.example.dpop.orchestrator.journeylog.JourneyLogResponse
-import com.example.dpop.orchestrator.journeylog.JourneyLogService
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceResponse
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
 import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
 import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
 import com.example.dpop.orchestrator.policy.AuthEvidence
@@ -67,7 +67,7 @@ class ChannelService(
     private val tokenService: TokenService,
     private val tokenProvider: TokenProvider,
     private val channelCreationThrottleService: ChannelCreationThrottleService,
-    private val journeyLogService: JourneyLogService,
+    private val journeyTraceService: JourneyTraceService,
     private val personDirectory: PersonDirectory,
     private val toolRegistry: ToolHandlerRegistry,
     private val demoDisclosure: DemoDisclosure
@@ -323,7 +323,7 @@ class ChannelService(
         if (activeJourney != null) {
             journeyService.cancel(activeJourney, channel)
         } else {
-            journeyLogService.recordForChannel(channel.session.forLog(), "LOGGED_OUT")
+            journeyTraceService.recordForChannel(channel.session.forLog(), "LOGGED_OUT")
         }
         journeyService.endSession(channel, ChannelState.LOGGED_OUT)
     }

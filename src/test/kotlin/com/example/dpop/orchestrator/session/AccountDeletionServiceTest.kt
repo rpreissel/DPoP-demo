@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
 import com.example.dpop.tool_api.EnrollmentCleanup
 import com.example.dpop.tool_spi.EnrollmentRef
 import io.kotest.core.spec.style.BehaviorSpec
@@ -31,7 +31,7 @@ class AccountDeletionServiceTest : BehaviorSpec({
         channelSessionRepository: ChannelSessionRepository = mockk(relaxed = true),
         authContextRepository: AuthContextRepository = mockk(relaxed = true),
         authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true),
-        journeyLogRepository: JourneyLogRepository = mockk(relaxed = true),
+        journeyTraceRepository: JourneyTraceRepository = mockk(relaxed = true),
         attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true)
     ) = AccountDeletionService(
         accountService,
@@ -40,7 +40,7 @@ class AccountDeletionServiceTest : BehaviorSpec({
         channelSessionRepository,
         authContextRepository,
         authEvidenceRepository,
-        journeyLogRepository,
+        journeyTraceRepository,
         attemptThrottleRepository
     )
 
@@ -134,7 +134,7 @@ class AccountDeletionServiceTest : BehaviorSpec({
             }
         }
 
-        then("erases the journey log by account AND by the account's channel sessions, plus the account-keyed throttle counters (A5)") {
+        then("erases the journey trace by account AND by the account's channel sessions, plus the account-keyed throttle counters (A5)") {
             val accountService = mockk<AccountService>(relaxed = true)
             every { accountService.allEnrollmentRefs(1L) } returns emptyList()
             val channelSessionId = java.util.UUID.randomUUID()
@@ -142,17 +142,17 @@ class AccountDeletionServiceTest : BehaviorSpec({
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
             every { channelSessionRepository.findByAccountId(1L) } returns listOf(session)
             every { channelSessionRepository.save(any()) } returns session
-            val journeyLogRepository = mockk<JourneyLogRepository>(relaxed = true)
+            val journeyTraceRepository = mockk<JourneyTraceRepository>(relaxed = true)
             val attemptThrottleRepository = mockk<AttemptThrottleRepository>(relaxed = true)
 
             service(
                 accountService,
                 channelSessionRepository = channelSessionRepository,
-                journeyLogRepository = journeyLogRepository,
+                journeyTraceRepository = journeyTraceRepository,
                 attemptThrottleRepository = attemptThrottleRepository
             ).deleteAccount(1L)
 
-            verify { journeyLogRepository.deleteByAccountIdOrChannelSessionIdIn(1L, listOf(channelSessionId)) }
+            verify { journeyTraceRepository.deleteByAccountIdOrChannelSessionIdIn(1L, listOf(channelSessionId)) }
             verify {
                 attemptThrottleRepository.deleteBySubjectAndScopeIn(
                     "1",

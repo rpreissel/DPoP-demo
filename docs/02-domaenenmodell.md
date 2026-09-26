@@ -507,7 +507,7 @@ Jedes Methodenmodul ist gleich aufgebaut: ein langlebiges `<modul>.enrollment` u
 eine kurzlebige `<modul>.<tool-rolle>_tool_session`. Die Tabellen eines Moduls stehen in seiner
 eigenen Migration unter `db/migration/<modul>/`.
 
-Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.journey_log` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
+Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.journey_trace` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
 Aufzeichnung überlebt die Sitzungen), `orchestrator.attempt_throttle`,
 `orchestrator.dpop_proof_replay`, `orchestrator.tool_availability`, `orchestrator.feature_flag`,
 `orchestrator.keycloak_keypair`, `orchestrator.node_signing_key` und `orchestrator.event_publication`

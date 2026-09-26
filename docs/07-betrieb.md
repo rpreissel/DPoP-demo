@@ -62,7 +62,7 @@ Versuche erlaubt sind. Sie liefern `200` und ein `next` (Regel für Wiederholung
 - Eine `AuthJourney` darf nur in gültige Folgezustände wechseln, sowohl im Lebenszyklus als auch im
   Zustand ihres Intents (`JourneyState`).
 - `AuthContext` wird nur aktualisiert, wenn eine Journey erfolgreich abgeschlossen ist.
-- Jede Identifizierung, jeder Widerruf und jede eingerichtete oder deaktivierte Methode erzeugt einen Eintrag im Änderungsprotokoll des Kontos (`account.change_log`, [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); jeder Übergang einer Journey einen Eintrag im Journey-Log.
+- Jede Identifizierung, jeder Widerruf und jede eingerichtete oder deaktivierte Methode erzeugt einen Eintrag im Änderungsprotokoll des Kontos (`account.change_log`, [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); jeder Übergang einer Journey einen Eintrag im Journey-Trace.
 - **Eine Transaktion für alles:** Verarbeitet der Orchestrator ein `ToolOutcome.Completed`
   ([Orchestrierung](04-orchestrierung.md)), speichert er in einer einzigen Transaktion den neuen
   Journey-Zustand, den Konto-Eintrag, das Claim-Log und den Nachweis der Sitzung (`AuthEvidence`).
@@ -130,8 +130,8 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
 - **`ChannelSession`**
   - *Frist beginnt mit:* `expiresAt` / `LOGGED_OUT`
   - *Richtwert:* 30 Tage
-  - *Grund:* `JourneyLogEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5)
-- **`JourneyLogEntry`**
+  - *Grund:* `JourneyTraceEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5)
+- **`JourneyTraceEntry`**
   - *Frist beginnt mit:* `createdAt`
   - *Richtwert:* 14 Tage
   - *Grund:* Ablaufprotokoll für Fehlersuche, Support und Demo, NICHT das Änderungsprotokoll. Mit Abstand die volumenstärkste Tabelle (eine Zeile je Schritt); 14 Tage decken Support-Fälle ab, länger ist über den Zweck nicht zu begründen
@@ -193,7 +193,7 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
   dem Konto bzw. dem Gerät, nicht der Sitzung.
 - **Wird ein Konto gelöscht, räumt das zusätzlich zwei Sitzungstabellen für diese `accountId` auf**,
   obwohl keine von beiden einen Fremdschlüssel auf `account` hat:
-  - `orchestrator.journey_log`, und zwar über **zwei** Schlüssel: das Konto **und** seine
+  - `orchestrator.journey_trace`, und zwar über **zwei** Schlüssel: das Konto **und** seine
     `ChannelSession`s, weil Einträge aus der Zeit, bevor die Sitzung einem Konto zugeordnet war,
     `account_id = NULL` haben;
   - `orchestrator.attempt_throttle`, aber nur die Bereiche `ACCOUNT` und `ACCOUNT_SEND`. Würden auch

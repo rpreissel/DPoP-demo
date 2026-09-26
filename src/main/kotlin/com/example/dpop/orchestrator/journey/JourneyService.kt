@@ -18,7 +18,7 @@ import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelState
 import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.SessionManagementService
-import com.example.dpop.orchestrator.journeylog.JourneyLogService
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
 import com.example.dpop.orchestrator.kc.KeycloakSessionEnded
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -70,8 +70,8 @@ class JourneyService(
     private val routing: JourneyRouting,
     private val contextFactory: JourneyContextFactory,
     private val actionExecutor: JourneyActionExecutor,
-    private val journeyLogService: JourneyLogService,
-    private val journeyLogDetails: JourneyLogDetails,
+    private val journeyTraceService: JourneyTraceService,
+    private val journeyTraceDetails: JourneyTraceDetails,
     private val journeyRecorder: JourneyRecorder,
     // Logout publishes KeycloakSessionEnded rather than calling Keycloak: no listener is
     // registered outside the `keycloak` profile, so the event simply goes nowhere there - which
@@ -148,7 +148,7 @@ class JourneyService(
             // Anfangs-Übergang der Maschine (Statecharts: Pseudostate -> q0, mit Aktion) -
             // mechanisch, von keiner Strategie entschieden, aber ganz normal über dieselbe
             // Pipeline geloggt wie jeder andere Übergang.
-            journeyLogService.record(channel.forLog(), journey.forLog(), "Entry", detail = journeyLogDetails.actionDetail(action, journey, channel))
+            journeyTraceService.record(channel.forLog(), journey.forLog(), "Entry", detail = journeyTraceDetails.actionDetail(action, journey, channel))
             actionExecutor.perform(journey, channel, action)
             // Re-derive now that the seed's own effect (e.g. restored evidence) is reflected in ctx
             // - initialState() must never see the placeholder's stale, pre-seed picture.
@@ -295,7 +295,7 @@ class JourneyService(
         // Flushed: a parent resumed or a new journey started next must not meet this one still
         // STARTED in the database (ux_journey_running_per_channel).
         journeyRepository.saveAndFlush(journey)
-        journeyLogService.record(channel.forLog(), journey.forLog(), "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
+        journeyTraceService.record(channel.forLog(), journey.forLog(), "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
     }
 
     // Routing -----------------------------------------------------------------
@@ -331,7 +331,7 @@ class JourneyService(
         // here last becomes current, and the other is correctly rejected by isCurrent afterwards.
         codec.write(journey, state.withActive(ToolRef(tool.toolId, toolSessionId, tool.startStep)))
         journeyRepository.save(journey)
-        journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
+        journeyTraceService.record(channel.forLog(), journey.forLog(), "TOOL_ACTIVATED", journeyState = state::class.simpleName, detail = mapOf("toolId" to tool.toolId))
     }
 
     /** See [JourneyActionExecutor.matchesAttestedIdentity]. */
@@ -392,7 +392,7 @@ class JourneyService(
         val cleared = state.withOffer(state.offer.withActive(null))
         codec.write(journey, cleared)
         journeyRepository.save(journey)
-        journeyLogService.record(channel.forLog(), journey.forLog(), "Back",
+        journeyTraceService.record(channel.forLog(), journey.forLog(), "Back",
             journeyState = state::class.simpleName, detail = mapOf("tool" to tool.toolId.value))
         return routing.selectionFor(cleared, channel)
     }
@@ -472,7 +472,7 @@ class JourneyService(
             // routing authority ("one function, so the two can never disagree", see nextOf's
             // own doc) - the log only ever shows what routing itself derived.
             val availableTools = routing.availableToolsOf(channel)
-            journeyLogService.record(channel.forLog(), journey.forLog(), event::class.simpleName!!,
+            journeyTraceService.record(channel.forLog(), journey.forLog(), event::class.simpleName!!,
                 journeyState = state::class.simpleName,
                 // acrFloor is what this step was actually judged against; resolvedAcr is the
                 // account's own CURRENT combined level from ctx.evidence (MFA-bump included, see
@@ -480,8 +480,8 @@ class JourneyService(
                 // ever reflects that ONE tool's individual ceiling (e.g. "loa1" for email alone),
                 // so without this the log looks like the login never reached loa2 even when the
                 // combination of two loa1 factors just did.
-                detail = journeyLogDetails.eventDetail(event) +
-                    journeyLogDetails.transitionDetail(transition, journey, channel, state, availableTools) { target ->
+                detail = journeyTraceDetails.eventDetail(event) +
+                    journeyTraceDetails.transitionDetail(transition, journey, channel, state, availableTools) { target ->
                         routing.nextFor(target, availableTools)
                     } +
                     state.logDetail +
@@ -531,7 +531,7 @@ class JourneyService(
         Transition.Logout -> {
             journey.consume()
             journeyRepository.save(journey)
-            journeyLogService.record(channel.forLog(), journey.forLog(), "LOGGED_OUT", journeyState = "LoggedOut")
+            journeyTraceService.record(channel.forLog(), journey.forLog(), "LOGGED_OUT", journeyState = "LoggedOut")
             // The App channel has no browser/cookie of its own to end - but it may hold a real
             // Keycloak session from the custom account-token grant
             // (AccountTokenGrantType's reused session, AuthContext.keycloakSessionId). Ending only
@@ -598,7 +598,7 @@ class JourneyService(
      */
     private fun chargeAttempt(journey: AuthJourney, channel: ChannelSession, tool: ToolDescriptor, outcome: ToolOutcome.Failed): Step {
         journey.attemptBudget -= 1
-        journeyLogService.record(channel.forLog(), journey.forLog(), "TOOL_FAILED",
+        journeyTraceService.record(channel.forLog(), journey.forLog(), "TOOL_FAILED",
             journeyState = codec.read(journey)::class.simpleName,
             detail = mapOf(
                 "toolId" to tool.toolId,

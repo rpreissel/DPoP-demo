@@ -340,7 +340,7 @@ step("orchestrator-acr-amr mapper anlegen") {
 }
 
 // Lässt den Orchestrator accountId direkt aus den Claims eines echten AccessTokens auflösen
-// (KeycloakOidcTokenValidator, demo-only Web-Kanal Journey-Log-Lesepfad) statt es über die
+// (KeycloakOidcTokenValidator, demo-only Web-Kanal Journey-Trace-Lesepfad) statt es über die
 // Keycloak-Session-Id zurückzuentwickeln - liest dasselbe orchestratorAccountId-Attribut, das
 // account-sync schon schreibt.
 step("orchestrator-account-id mapper anlegen") {

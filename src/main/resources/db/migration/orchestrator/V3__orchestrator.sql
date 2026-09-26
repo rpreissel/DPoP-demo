@@ -122,7 +122,7 @@ CREATE TABLE orchestrator.session_event (
 CREATE INDEX ix_session_event_created_at ON orchestrator.session_event (created_at);
 
 -- Rich debugging trace, deliberately not minimized (unlike orchestrator.session_event); short retention.
-CREATE TABLE orchestrator.journey_log (
+CREATE TABLE orchestrator.journey_trace (
     id                 UUID         PRIMARY KEY,
     channel_session_id UUID         NOT NULL,
     journey_id         UUID,
@@ -136,10 +136,10 @@ CREATE TABLE orchestrator.journey_log (
     detail             JSON,
     created_at         TIMESTAMP WITH TIME ZONE NOT NULL
 );
-CREATE INDEX ix_journey_log_channel_session_id ON orchestrator.journey_log (channel_session_id, created_at);
-CREATE INDEX ix_journey_log_account_id ON orchestrator.journey_log (account_id, created_at);
-CREATE INDEX ix_journey_log_binding_key_ref ON orchestrator.journey_log (binding_key_ref, created_at);
-CREATE INDEX ix_journey_log_created_at ON orchestrator.journey_log (created_at);
+CREATE INDEX ix_journey_trace_channel_session_id ON orchestrator.journey_trace (channel_session_id, created_at);
+CREATE INDEX ix_journey_trace_account_id ON orchestrator.journey_trace (account_id, created_at);
+CREATE INDEX ix_journey_trace_binding_key_ref ON orchestrator.journey_trace (binding_key_ref, created_at);
+CREATE INDEX ix_journey_trace_created_at ON orchestrator.journey_trace (created_at);
 
 -- One counter per (scope, subject); scope is part of the key so the subject spaces never collide.
 CREATE TABLE orchestrator.attempt_throttle (

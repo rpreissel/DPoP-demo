@@ -59,5 +59,5 @@ schon daran, dass Keycloak hier an erster Stelle steht; auch mTLS würde daran n
 **Geschichte**: Ursprünglich war angenommen, die Assertion werde mit den Token-Schlüsseln des Realms
 geprüft; umgesetzt wurde von Anfang an ein eigenes Schlüsselpaar. Eine Zeit lang gab es eine Ausnahme
 vom Grundsatz „kein direkter Zugriff aus dem Browser“: `KcMeController` las für die Testoberfläche das
-eigene Journey-Log mit einem echten AccessToken. Seit das Journey-Log nur noch auf der Admin-Seite
+eigene Journey-Trace mit einem echten AccessToken. Seit der Journey-Trace nur noch auf der Admin-Seite
 steht, ist er entfernt (2026-09-23).

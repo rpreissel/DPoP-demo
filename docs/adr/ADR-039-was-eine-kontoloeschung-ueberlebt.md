@@ -33,8 +33,8 @@ bestätigen** und deshalb einstellbar.
 **Zugleich entfallen und festgelegt**:
 
 - **`orchestrator.session_event` entfällt.** Es wurde nur geschrieben, nie gelesen; was darin Nachweis
-  war, steht jetzt im Änderungsprotokoll, der Rest ausführlicher im Journey-Log.
-- **Das Journey-Log bleibt Fehlersuche**, kein Nachweis, und lebt 14 statt 30 Tage.
+  war, steht jetzt im Änderungsprotokoll, der Rest ausführlicher im Journey-Trace.
+- **Der Journey-Trace bleibt Fehlersuche**, kein Nachweis, und lebt 14 statt 30 Tage.
 - **`account.identification` geht im Protokoll auf**: Es wurde nur geschrieben, nie gelesen.
   Das Ereignis `IDENTIFIED` trägt in `details` die Rolle (Identifizierung oder Zuordnung, ADR-18),
   die Referenz beim Anbieter (`provider`, `providerTxId`, `procedure`, `methodVersion`) und einen
@@ -81,12 +81,12 @@ bestätigen** und deshalb einstellbar.
   auf PostgreSQL lässt sie sich bei Bedarf mit einem Ausdrucksindex auf `details` beschleunigen.
 - **Nichts überlebt**: verworfen – bei einer strittigen Übernahme gäbe es keinen Nachweis, wer wann
   womit identifiziert war.
-- **Das Journey-Log als Nachweis verlängern**: verworfen – zu detailreich für Jahre, und nicht jede
+- **Den Journey-Trace als Nachweis verlängern**: verworfen – zu detailreich für Jahre, und nicht jede
   Kontoänderung läuft über eine Journey (Personenverzeichnis, Passwortwechsel über Keycloak, Löschen
   durch den Betreiber).
 
 **Offen**: Anmeldungen selbst (wer sich wann mit welchem Niveau angemeldet hat) stehen nur 14 Tage im
-Journey-Log. Entschieden (2026-09-26), noch nicht gebaut: ein eigenes Anmeldeprotokoll
+Journey-Trace. Entschieden (2026-09-26), noch nicht gebaut: ein eigenes Anmeldeprotokoll
 (`account.sign_in_log`) in derselben
 Form (feste Spalten, `details` mit `type` und `version`) für erfolgreiche und fehlgeschlagene
 Anmeldungen und Step-ups sowie Sperren durch das Versuchslimit, nur kontobezogen. Frist 6 Monate,

@@ -110,8 +110,8 @@ function PersonenTab({ personen, onChanged, onError }: { personen: RegisterPerso
             + {t('Neue Person')}
           </button>
         </div>
-        <div className="journey-log-table-scroll">
-          <table className="journey-log-table">
+        <div className="journey-trace-table-scroll">
+          <table className="journey-trace-table">
             <thead>
               <tr><th>{t('Partnernummer')}</th><th>{t('Rolle')}</th><th>{t('Versicherungsnummer')}</th><th>{t('KVNR')}</th><th>{t('Name')}</th><th>{t('Geburtsdatum')}</th><th>{t('Adresse')}</th><th /></tr>
             </thead>
@@ -219,8 +219,8 @@ function FreischaltcodesTab({ personen, onError }: { personen: RegisterPerson[];
         </select>
       </div>
 
-      <div className="journey-log-table-scroll">
-        <table className="journey-log-table">
+      <div className="journey-trace-table-scroll">
+        <table className="journey-trace-table">
           <thead><tr><th>#</th><th>{t('Status')}</th><th>{t('Gültig bis')}</th><th /></tr></thead>
           <tbody>
             {codes.length === 0 && <tr><td colSpan={4}>{t('Keine Freischaltcodes.')}</td></tr>}

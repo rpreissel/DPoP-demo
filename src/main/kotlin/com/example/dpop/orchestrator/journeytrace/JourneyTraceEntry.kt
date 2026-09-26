@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journeylog
+package com.example.dpop.orchestrator.journeytrace
 
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import jakarta.persistence.Column
@@ -20,8 +20,8 @@ import java.util.UUID
  * `account.change_log` (ADR-39), which outlives even the account. A different tradeoff, not a copy.
  */
 @Entity
-@Table(schema = "orchestrator", name = "journey_log")
-class JourneyLogEntry(
+@Table(schema = "orchestrator", name = "journey_trace")
+class JourneyTraceEntry(
     /** APP-only - null for WEB-channel entries, which have no DPoP binding key (docs/02-domaenenmodell.md Abschnitt 1). */
     @Column(name = "binding_key_ref", length = 64)
     var bindingKeyRef: String? = null,
@@ -37,7 +37,7 @@ class JourneyLogEntry(
     @Column(name = "channel_session_id", nullable = false)
     var channelSessionId: UUID? = null,
 
-    /** Null for a channel-level event with no journey of its own (e.g. logout with nothing running) - see [JourneyLogService.recordForChannel]. */
+    /** Null for a channel-level event with no journey of its own (e.g. logout with nothing running) - see [JourneyTraceService.recordForChannel]. */
     @Column(name = "journey_id")
     var journeyId: UUID? = null,
 

@@ -64,7 +64,7 @@ Kennung liefert `PersonDirectory.versnrOf`.
   wird vom Versicherten zum Partner.
 - `personId` ist überall ein String (`P…`), auch im Demo-Feld `demo.personId` des gemeinsamen
   Antwortformats. Das ist ein bewusster Bruch von v1; `api/published/v1.yaml` wurde dafür auf einen
-  neuen Stand gehoben (wie schon beim Journey-Log, [API](../05-api.md)).
+  neuen Stand gehoben (wie schon beim Journey-Trace, [API](../05-api.md)).
 - In unserem Code heißt das Verzeichnis englisch, wie der Port: `ClaimSource.PERSON_DIRECTORY`
   (gespeichert als `person_directory`), `AttributeAuthority.PersonDirectory`,
   `RetractionAnchor.PERSON_DIRECTORY`. Deutsch bleibt nur das Fremdsystem selbst

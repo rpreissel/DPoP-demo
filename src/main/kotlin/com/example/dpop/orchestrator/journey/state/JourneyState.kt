@@ -47,7 +47,7 @@ sealed interface JourneyState {
     fun withActive(active: ToolRef?): JourneyState
 
     /**
-     * State-owned flags worth surfacing in the journey log (e.g. [com.example.dpop.orchestrator.
+     * State-owned flags worth surfacing in the journey trace (e.g. [com.example.dpop.orchestrator.
      * journey.state.KcSelectMethodState.accountAlreadyKnown]) - default empty so most states need
      * not override it. Lets `JourneyService` log them generically, without downcasting to any
      * concrete state to reach a field only that one carries.

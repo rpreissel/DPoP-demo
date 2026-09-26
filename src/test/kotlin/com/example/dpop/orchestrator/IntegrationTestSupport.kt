@@ -100,7 +100,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             "kobil_mock.ssms_assertion", "kobil_mock.ssms_user",
             "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
             "auth_qr.login_request", "auth_qr.enrollment",
-            "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.journey_log",
+            "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.journey_trace",
             "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
             // No foreign key - the change log outlives accounts on purpose (ADR-39), so it is wiped by name.
             "account.change_log",

@@ -324,12 +324,12 @@ class OrchestratorArchitectureTest : BehaviorSpec({
         then("they form a DAG - no package depends, directly or indirectly, on one that depends on it") {
             // Spring Modulith verifies boundaries BETWEEN top-level modules and never looks inside
             // one. The orchestrator is by far the largest module here, and nothing checked its
-            // interior: session <-> policy, session <-> journey, session <-> journeylog,
+            // interior: session <-> policy, session <-> journey, session <-> journeytrace,
             // kc <-> dpop and session -> api.v1 had all grown into cycles.
             //
             // Almost every one was a NAME in the wrong package rather than a real entanglement -
             // AuthIntent, AmrSource, AcrLevels and OrchestratorException now live in `kernel`,
-            // which depends on nothing; the journey log takes values instead of the entities it
+            // which depends on nothing; the journey trace takes values instead of the entities it
             // traces; retention, which spans sessions and journeys alike, sits above both instead
             // of inside one.
             //

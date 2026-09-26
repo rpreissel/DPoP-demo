@@ -28,7 +28,7 @@ describe('AdminApp', () => {
 
     fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: 'admin' } })
     fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
-    expect(await screen.findByRole('tab', { name: 'Journey-Log' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'Journey-Trace' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
   })
 })

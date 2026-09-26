@@ -11,7 +11,7 @@ ist das größte Modul, und innerhalb davon gab es fünf Zyklen:
 
 - `session` ↔ `policy`
 - `session` ↔ `journey`
-- `session` ↔ `journeylog`
+- `session` ↔ `journeytrace`
 - `kc` ↔ `dpop`
 - `session` → `api.v1`
 
@@ -31,7 +31,7 @@ Diese Typen liegen jetzt in `kernel`. Damit sind vier der fünf Zyklen weg, ohne
 
 ## Zwei Fälle brauchten mehr als einen Umzug
 
-- **`journeylog`** nahm die Entitäten `ChannelSession` und `AuthJourney` entgegen. Am Aufrufer war
+- **`journeytrace`** nahm die Entitäten `ChannelSession` und `AuthJourney` entgegen. Am Aufrufer war
   das bequem, machte aber das Log von den Klassen abhängig, die es protokolliert. Es nimmt jetzt
   zwei kleine Wertklassen (`LoggedChannel`, `LoggedJourney`). Der Aufrufer gibt damit explizit an,
   welche Felder protokolliert werden — das ist zugleich die vollständige Liste dessen, was in der

@@ -11,11 +11,11 @@ import org.springframework.http.HttpMethod
 
 /**
  * The rich, per-step journey trace (docs/04-orchestrierung.md), distinct from the account's audit
- * trail - see JourneyLogEntry's own doc. Read the only way it
- * can be read now: the operator's view across all accounts (`GET /orchestrator/admin/journey-log`),
+ * trail - see JourneyTraceEntry's own doc. Read the only way it
+ * can be read now: the operator's view across all accounts (`GET /orchestrator/admin/journey-trace`),
  * narrowed here to the channel under test.
  */
-class JourneyLogIntegrationTest : IntegrationTestSupport() {
+class JourneyTraceIntegrationTest : IntegrationTestSupport() {
 
     @MockkBean
     private lateinit var jwkThumbprintService: JwkThumbprintService
@@ -27,15 +27,15 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
     @Suppress("UNCHECKED_CAST")
     private fun logOf(channelSessionId: String): List<Map<String, Any?>> =
         (restTemplate.exchange(
-            "http://localhost:$port/orchestrator/admin/journey-log", HttpMethod.GET, HttpEntity<Void>(adminHeaders()), mapType
+            "http://localhost:$port/orchestrator/admin/journey-trace", HttpMethod.GET, HttpEntity<Void>(adminHeaders()), mapType
         ).body!!["entries"] as List<Map<String, Any?>>).filter { it["channelSessionId"] == channelSessionId }
 
     init {
         given("a channel that ran a full registration") {
-            `when`("reading that channel's journey log") {
+            `when`("reading that channel's journey trace") {
                 then("every step is recorded, newest first, grouped by channel/journey") {
 
-                    // A real run, not a seeded account: this suite reads the journey LOG, which
+                    // A real run, not a seeded account: this suite reads the journey TRACE, which
                     // only an actual journey writes.
                     val channelSessionId = registerAndAuthenticate()
 
@@ -60,7 +60,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
         }
 
         given("a tool run that fails once before succeeding") {
-            `when`("reading the journey log afterwards") {
+            `when`("reading the journey trace afterwards") {
                 then("the failed attempt shows up as its own entry") {
 
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
@@ -77,9 +77,9 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
 
         given("an AUTHENTICATED channel with no journey currently running") {
             `when`("logging out") {
-                then("the logout itself still shows up in the journey log") {
+                then("the logout itself still shows up in the journey trace") {
 
-                    // A real run, not a seeded account: this suite reads the journey LOG, which
+                    // A real run, not a seeded account: this suite reads the journey TRACE, which
                     // only an actual journey writes.
                     val channelSessionId = registerAndAuthenticate()
 
@@ -94,7 +94,7 @@ class JourneyLogIntegrationTest : IntegrationTestSupport() {
         }
 
         given("a registration whose channel is bound to an account only partway through") {
-            `when`("reading its journey log") {
+            `when`("reading its journey trace") {
                 then("the steps before the binding are attributed to that account too") {
 
                     val channelSessionId = registerAndAuthenticate()

@@ -237,7 +237,7 @@ freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugrif
 - Integrationstests starten den eingebetteten Server auf einem zufälligen Port und prüfen den Ablauf einer DPoP-gesicherten Sitzung.
 - `ApplicationModules.verify()` prüft, ob die erlaubten Abhängigkeiten **zwischen** den Modulen eingehalten werden.
 - `OrchestratorArchitectureTest` prüft die Schichtung innerhalb von `orchestrator`, die Modulith nicht sieht:
-  - Die Teilpakete müssen zyklenfrei sein (`slices().beFreeOfCycles()`). Es gab dort fünf Zyklen (`session` ↔ `policy`, `journey`, `journeylog`; `kc` ↔ `dpop`; `session` → `api.v1`); sie sind über das Paket `kernel` beseitigt (Abschnitt 3 und [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md)).
+  - Die Teilpakete müssen zyklenfrei sein (`slices().beFreeOfCycles()`). Es gab dort fünf Zyklen (`session` ↔ `policy`, `journey`, `journeytrace`; `kc` ↔ `dpop`; `session` → `api.v1`); sie sind über das Paket `kernel` beseitigt (Abschnitt 3 und [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md)).
   - Aus einer offenen Transaktion darf kein Keycloak-Aufruf herausgehen. Sonst hält die Transaktion Zeilensperren so lange, wie der fremde Dienst zum Antworten braucht. Einzige Ausnahme ist `KcTokenProvider`: dort ist das Token die Antwort selbst.
   - Nichts außerhalb von `api` hängt an `api.v1`. Dort stehen nur Routen, Request-DTOs, Parameterbindung und die OpenAPI-Beschreibung. Die Kanal-Services, die Zugriffsprüfungen (`ChannelAccessGuard`), `DemoDisclosure` und die Antwortformen liegen darunter in `orchestrator/channel`. Die Antwortformen sind wie `ChannelResponse` in `tool_api` unversioniert, weil es eine globale Version gibt ([API](05-api.md) Abschnitt 1). Ein v2 könnte damit neben v1 stehen, ohne v1 zu importieren.
   - Nur `DemoDisclosure` erzeugt ein `DemoInfo`. Damit entfernt `demo.disclosure=false` die Klartext-TANs aus jeder Antwort, statt sie an einer von mehreren Stellen zu filtern ([ADR-28](adr/ADR-028-demo-werte-abschaltbar.md)).
@@ -251,8 +251,8 @@ freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugrif
 
 Die Registrierung (Identifizierung → E-Mail-Bestätigung → Anmeldeverfahren einrichten) wird nur dort
 per HTTP Schritt für Schritt durchlaufen, wo sie selbst geprüft wird: `RegistrationFlowIntegrationTest`,
-`RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und `JourneyLogIntegrationTest` (das
-Journey-Log entsteht nur durch einen echten Durchlauf).
+`RequiredActionIntegrationTest` (Reihenfolge der Pflichten) und `JourneyTraceIntegrationTest` (das
+Journey-Trace entsteht nur durch einen echten Durchlauf).
 
 Alle anderen Testklassen brauchen nur ihr *Ergebnis*: „ein Konto mit SMS und Passwort, mit diesem
 Gerät verknüpft“. Das stellt `AccountFixtures` (im Testcode) über die Dienste der Fachmodule her,

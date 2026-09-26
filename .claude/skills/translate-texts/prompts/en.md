@@ -8,7 +8,7 @@ health insurer reads in its login and registration app. Translate the meaning, n
 - **Short**: one or two sentences, most important first, include what the user can do next if the source says so.
 - **Never** use internal coinages such as "register person" or "enrollment": say "your insurance record",
   "sign-in method".
-- **Fixed demo terms, keep them**: "journey" / "journey log" (not "process"), "insured member", "partner" and
+- **Fixed demo terms, keep them**: "journey" / "journey trace" (not "process"), "insured member", "partner" and
   "prospect" (the three account roles: insured with us / known to us by partner number only / not
   assigned to any person), "partner number" (Partnernummer, "P" plus nine digits), "pairing code", "realm" (Keycloak term), "person directory" (the simulated external system, not "member register") and "insurance number" (Versicherungsnummer, next to the KVNR).
 - **Replace jargon** as the German prompt does: enrollment → sign-in method; linking a device to an account (Geräteverknüpfung) → linked device / link; a sign-in method bound to the device (Gerätebindung) → device-bound, never "linked";

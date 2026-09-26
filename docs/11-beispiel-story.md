@@ -165,12 +165,12 @@ Ein Jahr später will Mara ihr Konto endgültig löschen. `DELETE_ACCOUNT` verla
 Bestätigung mit Ja oder Nein, dann `loa2` **und** einen neu erbrachten Nachweis. Ein alter Nachweis
 aus dem laufenden Kanal genügt nicht; das ist dieselbe Vorsicht wie bei der Anmeldung per QR-Code.
 Erst wenn beides erfüllt ist, löscht der Orchestrator Maras Konto mit allen Ankern, Verfahren,
-Verknüpfungen zu Geräten und ihrem Journey-Log. Er meldet alle ihre Sitzungen ab und überträgt die
-Löschung nach Keycloak. Bis dahin ließ sich jeder Schritt im Journey-Log nachvollziehen: welches
+Verknüpfungen zu Geräten und ihrem Journey-Trace. Er meldet alle ihre Sitzungen ab und überträgt die
+Löschung nach Keycloak. Bis dahin ließ sich jeder Schritt im Journey-Trace nachvollziehen: welches
 Verfahren wann angeboten, angenommen oder abgelehnt wurde, ohne dass jemand verteilte Logs mehrerer
 Systeme zusammensuchen musste. Nach der Löschung bleibt davon bewusst nichts übrig.
 
-*Konzepte: [`DELETE_ACCOUNT`](journeys/delete-account.md), [Journey-Log](04-orchestrierung.md).*
+*Konzepte: [`DELETE_ACCOUNT`](journeys/delete-account.md), [Journey-Trace](04-orchestrierung.md).*
 
 ---
 

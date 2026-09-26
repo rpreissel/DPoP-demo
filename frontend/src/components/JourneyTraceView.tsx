@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { describeError } from '../api'
-import type { JourneyLogEntryView, JourneyLogResponse } from '../types'
+import type { JourneyTraceEntryView, JourneyTraceResponse } from '../types'
 import { t } from '../texts'
 
 /** The admin endpoint's answer: the entries plus every account they can be filtered by. */
-type LogWithAccounts = JourneyLogResponse & { accounts: { accountId: number; displayName?: string | null }[] }
+type LogWithAccounts = JourneyTraceResponse & { accounts: { accountId: number; displayName?: string | null }[] }
 
 const LIVE_INTERVAL_MS = 5000
 
 interface Props {
-  /** The admin page's fetch (`fetchAdminJourneyLog`) - the only caller since the channels dropped their own log tabs. */
+  /** The admin page's fetch (`fetchAdminJourneyTrace`) - the only caller since the channels dropped their own log tabs. */
   fetchLog: () => Promise<LogWithAccounts>
 }
 
-/** Labels for the raw detail keys JourneyService logs (see JourneyLogEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
+/** Labels for the raw detail keys JourneyService logs (see JourneyTraceEntry/JourneyService.eventDetail/decisionDetail/outcomeDetail). */
 const KEY_LABELS: Record<string, string> = {
   decision: 'Decision',
   toState: 'Target State',
@@ -120,13 +120,13 @@ function channelTypeLabel(channelType?: string): string {
   return 'Unbekannt'
 }
 
-/** A journey-scoped entry, narrowed from JourneyLogEntryView once journeyId/intent are known to be set. */
-interface JourneyScopedEntry extends JourneyLogEntryView {
+/** A journey-scoped entry, narrowed from JourneyTraceEntryView once journeyId/intent are known to be set. */
+interface JourneyScopedEntry extends JourneyTraceEntryView {
   journeyId: string
   intent: string
 }
 
-function isJourneyScoped(entry: JourneyLogEntryView): entry is JourneyScopedEntry {
+function isJourneyScoped(entry: JourneyTraceEntryView): entry is JourneyScopedEntry {
   return entry.journeyId !== undefined
 }
 
@@ -143,8 +143,8 @@ function groupEntries(entries: JourneyScopedEntry[]): Map<string, Map<string, Jo
 }
 
 /** Channel-level entries (no journey of their own, e.g. a logout with nothing running), grouped by channelSessionId. */
-function groupChannelLevelEntries(entries: JourneyLogEntryView[]): Map<string, JourneyLogEntryView[]> {
-  const byChannel = new Map<string, JourneyLogEntryView[]>()
+function groupChannelLevelEntries(entries: JourneyTraceEntryView[]): Map<string, JourneyTraceEntryView[]> {
+  const byChannel = new Map<string, JourneyTraceEntryView[]>()
   for (const entry of entries) {
     if (isJourneyScoped(entry)) continue
     const list = byChannel.get(entry.channelSessionId) ?? []
@@ -153,7 +153,7 @@ function groupChannelLevelEntries(entries: JourneyLogEntryView[]): Map<string, J
   return byChannel
 }
 
-function firstChannelType(entries: JourneyLogEntryView[]): string | undefined {
+function firstChannelType(entries: JourneyTraceEntryView[]): string | undefined {
   return entries.find((entry) => entry.channelType)?.channelType
 }
 
@@ -189,14 +189,14 @@ function buildJourneyTree(byJourney: Map<string, JourneyScopedEntry[]>): Journey
 }
 
 /**
- * The admin page's Journey-Log tab (docs/04-orchestrierung.md) - a demo/debug view of every
+ * The admin page's Journey-Trace tab (docs/04-orchestrierung.md) - a demo/debug view of every
  * journey step across all accounts and channels (APP or KEYCLOAK alike), filterable by person,
  * channelSessionId and journeyId, optionally refreshing itself while a demo runs alongside.
  * Channels and journeys are opaque UUIDs with no meaning of their own, so both the filters and the
  * group headings identify them by when they started (plus the intent, for a journey) instead.
  */
-export function JourneyLogView({ fetchLog }: Props) {
-  const [entries, setEntries] = useState<JourneyLogEntryView[]>([])
+export function JourneyTraceView({ fetchLog }: Props) {
+  const [entries, setEntries] = useState<JourneyTraceEntryView[]>([])
   const [accountNames, setAccountNames] = useState<Map<number, string>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -214,7 +214,7 @@ export function JourneyLogView({ fetchLog }: Props) {
         setEntries(response.entries)
         setAccountNames(new Map(response.accounts.map((a) => [a.accountId, a.displayName ?? `Konto ${a.accountId}`])))
       })
-      .catch((err) => setError(describeError(t('Journey-Log laden fehlgeschlagen'), err)))
+      .catch((err) => setError(describeError(t('Journey-Trace laden fehlgeschlagen'), err)))
       .finally(() => setLoading(false))
   }
 
@@ -228,7 +228,7 @@ export function JourneyLogView({ fetchLog }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveOn, fetchLog])
 
-  const accountOf = (entry: JourneyLogEntryView) => (entry.accountId == null ? 'none' : String(entry.accountId))
+  const accountOf = (entry: JourneyTraceEntryView) => (entry.accountId == null ? 'none' : String(entry.accountId))
 
   // Oldest first within a journey's own steps (the backend returns newest-first, the natural
   // order for an API default) - groupedNewestFirst below re-sorts the ChannelSession/Journey
@@ -291,8 +291,8 @@ export function JourneyLogView({ fetchLog }: Props) {
     .sort((a, b) => b.latest.localeCompare(a.latest))
 
   return (
-    <div className="card journey-log-card">
-      <h2>Journey-Log</h2>
+    <div className="card journey-trace-card">
+      <h2>Journey-Trace</h2>
       <p>
         Jeder Journey-Schritt aller Konten und Geräte, neueste zuerst - gruppiert nach Person, ChannelSession und
         Journey. Mit „Live“ läuft die Ansicht neben einer Demo mit. Nur zu Demo-/Debug-Zwecken, kein Audit-Trail.
@@ -364,12 +364,12 @@ export function JourneyLogView({ fetchLog }: Props) {
       {!loading && filtered.length === 0 && !error && <p>Keine Einträge.</p>}
 
       {groupedNewestFirst.map(({ channelSessionId, person, channelType, journeyTree, channelLevelEntries, earliest }) => (
-        <div key={channelSessionId} className="journey-log-channel">
-          <div className="journey-log-channel-header">
+        <div key={channelSessionId} className="journey-trace-channel">
+          <div className="journey-trace-channel-header">
             <h3>
               {person && <>{person} · </>}ChannelSession vom {dateTimeFormat.format(new Date(earliest))}
             </h3>
-            <span className="journey-log-channel-type">{channelTypeLabel(channelType)}</span>
+            <span className="journey-trace-channel-type">{channelTypeLabel(channelType)}</span>
           </div>
           {channelLevelEntries.length > 0 && renderEntryTable(channelLevelEntries)}
           {journeyTree.map((node) => renderJourneyNode(node, 0))}
@@ -380,10 +380,10 @@ export function JourneyLogView({ fetchLog }: Props) {
 }
 
 /** The Zeit/Event/Tool/Details table shared by a journey's own steps and a channel's journey-less entries (e.g. logout). */
-function renderEntryTable(entries: JourneyLogEntryView[]) {
+function renderEntryTable(entries: JourneyTraceEntryView[]) {
   return (
-    <div className="journey-log-table-scroll">
-      <table className="journey-log-table">
+    <div className="journey-trace-table-scroll">
+      <table className="journey-trace-table">
         <thead>
           <tr>
             <th>Time</th>
@@ -399,19 +399,19 @@ function renderEntryTable(entries: JourneyLogEntryView[]) {
             const chips = formatDetail(rest)
             return (
               <tr key={index}>
-                <td className="journey-log-time">{timeFormat.format(new Date(entry.createdAt))}</td>
-                <td className="journey-log-state">{entry.journeyState ?? '–'}</td>
+                <td className="journey-trace-time">{timeFormat.format(new Date(entry.createdAt))}</td>
+                <td className="journey-trace-state">{entry.journeyState ?? '–'}</td>
                 <td>
                   <span className="badge">{entry.eventType}</span>
                 </td>
-                <td className="journey-log-tool">{typeof toolId === 'string' ? toolId : '–'}</td>
+                <td className="journey-trace-tool">{typeof toolId === 'string' ? toolId : '–'}</td>
                 <td>
                   {chips.length > 0 ? (
-                    <ul className="journey-log-detail-chips">
+                    <ul className="journey-trace-detail-chips">
                       {chips.map((chip) => (
                         <li key={chip.key}>
-                          <span className="journey-log-chip-label">{chip.label}</span>
-                          <span className="journey-log-chip-value">{chip.value}</span>
+                          <span className="journey-trace-chip-label">{chip.label}</span>
+                          <span className="journey-trace-chip-value">{chip.value}</span>
                         </li>
                       ))}
                     </ul>
@@ -434,11 +434,11 @@ function renderJourneyNode(node: JourneyNode, depth: number) {
   return (
     <div
       key={journeyId}
-      className={depth > 0 ? 'journey-log-journey journey-log-journey--nested' : 'journey-log-journey'}
+      className={depth > 0 ? 'journey-trace-journey journey-trace-journey--nested' : 'journey-trace-journey'}
       style={depth > 0 ? { marginLeft: `${depth * 1.5}rem` } : undefined}
     >
-      <div className={depth > 0 ? 'journey-log-journey-header journey-log-journey-header--sub' : 'journey-log-journey-header'}>
-        {depth > 0 && <span className="journey-log-sub-marker">↳ Sub-Journey</span>}
+      <div className={depth > 0 ? 'journey-trace-journey-header journey-trace-journey-header--sub' : 'journey-trace-journey-header'}>
+        {depth > 0 && <span className="journey-trace-sub-marker">↳ Sub-Journey</span>}
         <span className="value-plain">{journeyEntries[0].intent}</span>
         <span className="value">{dateTimeFormat.format(new Date(journeyEntries[0].createdAt))}</span>
       </div>

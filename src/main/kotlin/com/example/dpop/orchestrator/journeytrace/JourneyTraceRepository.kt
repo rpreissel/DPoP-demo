@@ -1,4 +1,4 @@
-package com.example.dpop.orchestrator.journeylog
+package com.example.dpop.orchestrator.journeytrace
 
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -8,9 +8,9 @@ import org.springframework.data.repository.query.Param
 import java.time.Instant
 import java.util.UUID
 
-interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
-    /** The operator's view across every channel and account (`AdminJourneyLogController`), newest first. */
-    fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<JourneyLogEntry>
+interface JourneyTraceRepository : JpaRepository<JourneyTraceEntry, UUID> {
+    /** The operator's view across every channel and account (`AdminJourneyTraceController`), newest first. */
+    fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<JourneyTraceEntry>
 
     /**
      * Retention sweep (`RetentionJob`). A bulk statement rather than a derived `deleteBy...`:
@@ -19,7 +19,7 @@ interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
      * context first just to delete it row by row.
      */
     @Modifying
-    @Query("delete from JourneyLogEntry e where e.createdAt < :cutoff")
+    @Query("delete from JourneyTraceEntry e where e.createdAt < :cutoff")
     fun deleteByCreatedAtBefore(@Param("cutoff") cutoff: Instant): Int
 
     /**
@@ -42,7 +42,7 @@ interface JourneyLogRepository : JpaRepository<JourneyLogEntry, UUID> {
      * against rows that no longer exist - the same spurious 409, just later.
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("delete from JourneyLogEntry e where e.accountId = :accountId or e.channelSessionId in :channelSessionIds")
+    @Query("delete from JourneyTraceEntry e where e.accountId = :accountId or e.channelSessionId in :channelSessionIds")
     fun deleteByAccountIdOrChannelSessionIdIn(
         @Param("accountId") accountId: Long,
         @Param("channelSessionIds") channelSessionIds: Collection<UUID>

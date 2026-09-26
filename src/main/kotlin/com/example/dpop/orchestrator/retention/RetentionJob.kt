@@ -9,7 +9,7 @@ import com.example.dpop.orchestrator.session.ChannelSessionRepository
 import com.example.dpop.orchestrator.session.ToolSessionRepository
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
-import com.example.dpop.orchestrator.journeylog.JourneyLogRepository
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -28,7 +28,7 @@ import java.time.Instant
  * additionally clears any journeys still pointing at the channels it is about to delete (a
  * confirmed-dead KEYCLOAK channel can be much younger than the journey retention window).
  * SessionEvent is independent - it deliberately outlives the sessions it references (dangling
- * ids are expected, not a defect). The same holds for JourneyLogEntry and AttemptThrottle: both
+ * ids are expected, not a defect). The same holds for JourneyTraceEntry and AttemptThrottle: both
  * are keyed by ids they do not constrain, so both are swept purely by age - and both MUST be
  * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
  * ext_personenverzeichnis.person/freischaltcode belong to the account, never touched here.
@@ -100,7 +100,7 @@ class SessionRetentionSweeper(
     private val channelSessionRepository: ChannelSessionRepository,
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceRepository: AuthEvidenceRepository,
-    private val journeyLogRepository: JourneyLogRepository,
+    private val journeyTraceRepository: JourneyTraceRepository,
     private val attemptThrottleRepository: AttemptThrottleRepository
 ) {
     private val log = LoggerFactory.getLogger(SessionRetentionSweeper::class.java)
@@ -120,12 +120,12 @@ class SessionRetentionSweeper(
         deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
 
 
-        val journeyLogEntries = journeyLogRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_LOG_RETENTION))
+        val journeyTraceEntries = journeyTraceRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_TRACE_RETENTION))
         val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
-        if (journeyLogEntries > 0 || staleCounters > 0) {
+        if (journeyTraceEntries > 0 || staleCounters > 0) {
             log.info(
-                "Retention: deleted {} journey log entry/entries and {} attempt throttle counter(s)",
-                journeyLogEntries,
+                "Retention: deleted {} journey trace entry/entries and {} attempt throttle counter(s)",
+                journeyTraceEntries,
                 staleCounters
             )
         }
@@ -185,13 +185,13 @@ class SessionRetentionSweeper(
         private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(30)
 
         /**
-         * The journey log is read per channel session (the admin view groups by it), so
+         * The journey trace is read per channel session (the admin view groups by it), so
          * outliving [CHANNEL_SESSION_RETENTION] buys nothing while
          * this is by far the highest-volume table in the system - one row per journey step, each
          * with a JSON `detail`. It is a debugging/demo trace, NOT the change log; that is
          * `account.change_log` (ADR-39), which keeps its own, much longer window.
          */
-        private val JOURNEY_LOG_RETENTION: Duration = Duration.ofDays(14)
+        private val JOURNEY_TRACE_RETENTION: Duration = Duration.ofDays(14)
 
         /**
          * Two orders of magnitude beyond the longest window or lockout any throttle service uses

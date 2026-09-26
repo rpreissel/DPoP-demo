@@ -62,7 +62,7 @@ class AdminIntegrationTest : IntegrationTestSupport() {
                 val accountId = adminList("/orchestrator/admin/accounts")
                     .single { it["displayName"] == "Max Muster" }["accountId"].let { (it as Number).toLong() }
 
-                val log = adminGet("/orchestrator/admin/journey-log?limit=200")
+                val log = adminGet("/orchestrator/admin/journey-trace?limit=200")
                 @Suppress("UNCHECKED_CAST")
                 val entries = log["entries"] as List<Map<String, Any?>>
                 @Suppress("UNCHECKED_CAST")
@@ -81,7 +81,7 @@ class AdminIntegrationTest : IntegrationTestSupport() {
                 val accountId = seedRegisteredAccount()
 
                 @Suppress("UNCHECKED_CAST")
-                val accounts = adminGet("/orchestrator/admin/journey-log")["accounts"] as List<Map<String, Any?>>
+                val accounts = adminGet("/orchestrator/admin/journey-trace")["accounts"] as List<Map<String, Any?>>
                 accounts.map { (it["accountId"] as Number).toLong() } shouldContain accountId
             }
         }

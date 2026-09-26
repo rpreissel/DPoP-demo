@@ -121,13 +121,13 @@ export type ChannelResponse = Omit<Wire.ChannelResponse, 'stepData' | 'demo'> & 
 }
 
 /**
- * One row of the rich, per-step journey trace (admin page, `GET /orchestrator/admin/journey-log`) -
+ * One row of the rich, per-step journey trace (admin page, `GET /orchestrator/admin/journey-trace`) -
  * distinct from the backend's minimized orchestrator.session_event audit trail. Demo/debug only:
  * shows everything the backend could determine about a journey's path, grouped client-side by
  * channelSessionId/journeyId. Hand-written like the other admin types: operator endpoints are not
  * part of the app contract, so nothing generates them.
  */
-export interface JourneyLogEntryView {
+export interface JourneyTraceEntryView {
   channelSessionId: string
   /** APP or KEYCLOAK. */
   channelType?: string
@@ -142,7 +142,7 @@ export interface JourneyLogEntryView {
   createdAt: string
 }
 
-export type JourneyLogResponse = { entries: JourneyLogEntryView[] }
+export type JourneyTraceResponse = { entries: JourneyTraceEntryView[] }
 
 /**
  * App-Kanal AccessToken (docs/05-api.md #2) - je nach Backend-Profil entweder ein spec-shaped
