@@ -1,5 +1,6 @@
 package com.example.dpop.ext_personenverzeichnis.api.v1
 
+import com.example.dpop.demo_mode.DemoSurface
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.http.HttpHeaders
 import com.example.dpop.texts.TextBundle
@@ -38,6 +39,7 @@ data class FreischaltcodeAusstellenRequest(val gueltigBis: Instant)
  * person is a case of its own, not a side effect of this demo page.
  */
 @RestController
+@DemoSurface
 @RequestMapping("/mock-personenverzeichnis")
 @Tag(name = "Mock Personenverzeichnis", description = "Simuliertes Personenverzeichnis - kein Endpunkt dieser Anwendung, sondern das Fremdsystem")
 class PersonenverzeichnisController(

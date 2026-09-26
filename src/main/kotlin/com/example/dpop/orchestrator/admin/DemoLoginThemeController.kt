@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.admin
 
+import com.example.dpop.demo_mode.DemoSurface
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.context.annotation.Profile
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController
  * Own named endpoint rather than opening the admin one: the admin API stays admin-only as a whole.
  */
 @RestController
+@DemoSurface
 @RequestMapping("$DEMO_API/login-theme")
 @Tag(name = "Demo: login theme", description = "Switch Keycloak's login pages between FreeMarker and Keycloakify, without admin login")
 @Profile("keycloak")

@@ -34,7 +34,10 @@ eigenes Verfahren ohne `demoOnly`, kein Modus dieses einen.
 Ausnahmen – nicht mit unerklärten.
 
 **Der Demomodus**: `demo.mode` (Umgebung `DEMO_MODE`, Voreinstellung `true` für diese Demo-Instanz).
-Er schaltet zwei Dinge: die `demoOnly`-Verfahren und, solange nicht eigens gesetzt, die Demo-Werte in
+Nur im Demomodus existieren außerdem die unangemeldeten Oberflächen der simulierten Fremdsysteme
+(Personenverzeichnis, KOBIL, Nect) und der Login-Theme-Schalter (`@DemoSurface`, Modul `demo_mode`,
+per ArchUnit verlangt), und nur dort darf eine geänderte Migration das Realm neu aufbauen. Ferner
+schaltet er zwei Dinge: die `demoOnly`-Verfahren und, solange nicht eigens gesetzt, die Demo-Werte in
 Antworten (`demo.disclosure`, [ADR-28](ADR-028-demo-werte-abschaltbar.md)). Jede Instanz mit echten
 Personen läuft mit `demo.mode=false`.
 

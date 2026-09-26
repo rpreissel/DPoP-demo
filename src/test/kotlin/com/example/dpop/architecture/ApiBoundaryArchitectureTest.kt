@@ -1,5 +1,6 @@
 package com.example.dpop.architecture
 
+import com.example.dpop.demo_mode.DemoSurface
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
 import com.example.dpop.tool_api.BindingKey
 import com.tngtech.archunit.core.domain.JavaClass
@@ -81,6 +82,18 @@ class ApiBoundaryArchitectureTest : BehaviorSpec({
                 .and(isHandler())
                 .should(haveBindingKey)
                 .because("DPoP binds a request to its channel only through @BindingKey - a handler without it is open")
+                .check(everything)
+        }
+    }
+
+    given("the unauthenticated surfaces of the simulated foreign systems (ADR-35/36)") {
+        then("exist only in demo mode - every controller there, and the demo's own theme switch, is a @DemoSurface") {
+            classes()
+                .that().areAnnotatedWith(RestController::class.java)
+                .and().resideInAnyPackage(*simulatedForeignSystems.toTypedArray())
+                .or().haveFullyQualifiedName("com.example.dpop.orchestrator.admin.DemoLoginThemeController")
+                .should().beAnnotatedWith(DemoSurface::class.java)
+                .because("reachable in an instance with real people, each would be a way to take over accounts (review 2026-09, Phase F)")
                 .check(everything)
         }
     }

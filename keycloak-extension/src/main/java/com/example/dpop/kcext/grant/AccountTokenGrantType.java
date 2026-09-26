@@ -57,6 +57,7 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     public static final String ASSERTION_PARAM = "assertion";
     public static final String ACCOUNT_ID_ATTRIBUTE = AccountUsers.ACCOUNT_ID_ATTRIBUTE;
     private static final String SESSION_MARKER_NOTE = "dpop-demo-account-token-session";
+    private static final String REPLAY_KEY_PREFIX = "dpop-demo-account-assertion:";
 
 
     @Override
@@ -180,7 +181,20 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
             if (audience == null || !audience.contains(GRANT_TYPE)) {
                 return null;
             }
-            if (!AccountAssertionTimes.acceptable(claims, System.currentTimeMillis())) {
+            long now = System.currentTimeMillis();
+            if (!AccountAssertionTimes.acceptable(claims, now)) {
+                return null;
+            }
+            // Each assertion redeems exactly once (review 2026-09, Phase F): without this, one that
+            // leaked could mint tokens until it expires. Keycloak's single-use store spans the
+            // cluster; the entry lives as long as the assertion could still be accepted.
+            String jti = claims.getJWTID();
+            if (jti == null || jti.isBlank()) {
+                return null;
+            }
+            long lifespanSeconds = Math.max(1, (claims.getExpirationTime().getTime() - now) / 1000 + 60);
+            if (!session.singleUseObjects().putIfAbsent(REPLAY_KEY_PREFIX + jti, lifespanSeconds)) {
+                logger.debugf("Account-token assertion replayed: jti=%s", jti);
                 return null;
             }
             return claims;

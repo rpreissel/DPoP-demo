@@ -491,14 +491,14 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 - **Web-Kanal:** Keycloak-Refresh-Token in `sessionStorage` (`WebChannelView.tsx:21-36`); kein
   `state`/`iss`-Check im OIDC-Callback (`webOidc.ts:151-177`). Klären, ob die Regel „Refresh-Token
   nie ins Frontend“ auch hier gelten soll.
-- **Unauthentifizierter Realm-Schreibzugriff:** `DemoLoginThemeController.kt:19-36` schaltet ohne
+- **Unauthentifizierter Realm-Schreibzugriff** – *behoben 2026-09-26: nur im Demomodus (`@DemoSurface`):* `DemoLoginThemeController.kt:19-36` schaltet ohne
   Login realm-weit das Login-Theme um, über den Master-Admin-Zugang (S-3).
-- **Personenverzeichnis-Verwaltung ohne Login:** `PersonenverzeichnisController.kt:40-84` stellt
+- **Personenverzeichnis-Verwaltung ohne Login** – *behoben 2026-09-26: alle Controller der simulierten Fremdsysteme nur im Demomodus (`@DemoSurface`, ArchUnit):* `PersonenverzeichnisController.kt:40-84` stellt
   Freischaltcodes im Klartext aus und ändert Stammdaten. Als Fremdsystem-Mock deklariert; in einer
   erreichbaren Instanz trotzdem ein Kontoübernahme-Pfad – hinter Admin-Auth legen oder per Profil abschalten.
 - **Fehlerantworten** – *behoben 2026-09-26: eine `IllegalArgumentException` ohne eigene Worte bekommt einen neutralen Text, die Meldung geht nur ins Log; nutzerlesbare Ablehnungen (Rufnummer, E-Mail, Passwortregeln, unbekanntes Niveau) sind `InvalidInputException` mit übersetztem Text; CSP gehört zu Phase G:* `OrchestratorExceptionHandler.kt:56-61` reicht jede
   `IllegalArgumentException.message` durch (Klassennamen aus Bibliotheken). Kein CSP-Header.
-- **Keycloak-Kleinkram:** kein `jti`-Replay-Schutz für die Konto-Assertion
+- **Keycloak-Kleinkram** – *behoben 2026-09-26: `jti` der Konto-Assertion einmalig (Keycloaks Einmal-Speicher), JWKS-Nachladen bei unbekannter `kid` höchstens alle 30 s; Wildcard-Redirects und Schlüsselrotation bleiben für Phase G:* kein `jti`-Replay-Schutz für die Konto-Assertion
   (`AccountTokenGrantType.java:162-188`); unbekannte `kid` erzwingt ohne Backoff einen JWKS-Abruf
   (`KeycloakJwkSource.kt:31`); Redirect-URIs mit Wildcard; keine Schlüsselrotation.
 - **Compose lokal:** Ports ohne `127.0.0.1:`-Präfix, Standardpasswörter – im geteilten Netz aus

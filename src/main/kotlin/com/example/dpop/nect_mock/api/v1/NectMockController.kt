@@ -1,5 +1,6 @@
 package com.example.dpop.nect_mock.api.v1
 
+import com.example.dpop.demo_mode.DemoSurface
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.http.HttpHeaders
 import com.example.dpop.texts.TextBundle
@@ -44,6 +45,7 @@ data class NectRedirect(val redirectUri: String)
  * outcome only by redeeming the case. No login and no DPoP - this service knows nothing about ours.
  */
 @RestController
+@DemoSurface
 @RequestMapping("/mock-nect")
 @Tag(name = "Mock Nect", description = "Simulierter Identifizierungsdienst - kein Endpunkt dieser Anwendung, sondern das Fremdsystem")
 class NectMockController(private val nect: NectIdent) {

@@ -1,5 +1,6 @@
 package com.example.dpop.kobil_mock.api.v1
 
+import com.example.dpop.demo_mode.DemoSurface
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
@@ -40,6 +41,7 @@ data class KobilRiskSimulationRequest(val tenantId: String, val userId: String, 
  * No DPoP, no channel, no journey: this service knows nothing about ours.
  */
 @RestController
+@DemoSurface
 @RequestMapping("/mock-kobil")
 @Tag(name = "Mock KOBIL", description = "Simuliertes KOBIL-Backend - kein Endpunkt dieser Anwendung, sondern der Fremddienst")
 class KobilMockController(private val ssms: KobilSsms) {

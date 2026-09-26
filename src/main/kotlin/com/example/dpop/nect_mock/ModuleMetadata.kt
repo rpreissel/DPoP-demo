@@ -11,5 +11,5 @@ import org.springframework.modulith.ApplicationModule
  *
  * Verified by `DpopApplicationTests.modulithStructureIsValid`.
  */
-@ApplicationModule(allowedDependencies = ["texts"])
+@ApplicationModule(allowedDependencies = ["texts", "demo_mode"])
 internal class ModuleMetadata
