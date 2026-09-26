@@ -22,3 +22,26 @@ fun buildRequestUrl(request: HttpServletRequest): String = buildString {
     }
     append(request.requestURI)
 }
+
+/**
+ * Whether a proof's `htu` names the request it came with (RFC 9449 section 4.3): query and fragment
+ * ignored, scheme and host compared without regard to case, a default port counts as absent - and
+ * the path compared exactly. It used to be one case-insensitive comparison of the whole URL, three
+ * times over (DPoP, device proofs, peer-auth); paths are case-sensitive, so `/Tools/x` is not
+ * `/tools/x` (review 2026-09-26, F-10). An `htu` that is no absolute http(s) URL matches nothing.
+ */
+fun htuMatches(htu: String, requestUrl: String): Boolean {
+    val claimed = targetOf(htu) ?: return false
+    val actual = targetOf(requestUrl) ?: return false
+    return claimed == actual
+}
+
+private data class Target(val scheme: String, val host: String, val port: Int, val path: String)
+
+private fun targetOf(url: String): Target? {
+    val uri = runCatching { java.net.URI(url.substringBefore('#').substringBefore('?')) }.getOrNull() ?: return null
+    val scheme = uri.scheme?.lowercase()?.takeIf { it == "http" || it == "https" } ?: return null
+    val host = uri.host?.lowercase() ?: return null
+    val port = if (uri.port == -1) (if (scheme == "https") 443 else 80) else uri.port
+    return Target(scheme, host, port, uri.rawPath.orEmpty().ifEmpty { "/" })
+}

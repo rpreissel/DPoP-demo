@@ -95,7 +95,7 @@ class AuthQrFlowIntegrationTest : IntegrationTestSupport() {
     /** Activates auth-qr-lookup on a fresh WEB channel, returns (toolSessionId, pairingCode). */
     private fun startWebLookup(): Pair<String, String> {
         val webChannelSessionId = UUID.randomUUID()
-        stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+        stubAssertion(channelAnchor = webChannelSessionId.toString())
         kcPatch(webChannelSessionId)
         val webToolSessionId = kcPost("/orchestrator/api/v1/channels/$webChannelSessionId/tools/auth-qr-lookup")
             .nextRaw()["toolSessionId"] as String

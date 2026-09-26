@@ -70,7 +70,7 @@ class PeerAuthRoundTripTest : BehaviorSpec() {
             .jwtID(UUID.randomUUID().toString())
             .issueTime(Date())
             .build()
-        val header = JWSHeader.Builder(JWSAlgorithm.ES256).keyID(key.keyID).build()
+        val header = JWSHeader.Builder(JWSAlgorithm.ES256).type(PeerAuthValidator.ASSERTION_TYPE).keyID(key.keyID).build()
         val jwt = SignedJWT(header, claims)
         jwt.sign(ECDSASigner(key))
         return jwt.serialize()

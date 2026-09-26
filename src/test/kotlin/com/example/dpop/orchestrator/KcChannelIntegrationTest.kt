@@ -79,10 +79,10 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
 
     init {
         Given("a fresh Keycloak-chosen channelSessionId, no channel yet") {
-            When("PATCH is called with a kcAuthSessionId anchor (initial login)") {
+            When("PATCH is called with the channel id as its anchor (initial login)") {
                 Then("it creates the channel and offers the initial-login candidates") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val response = kcPatch(channelSessionId)
 
                     response.channel()["channelSessionId"] shouldBe channelSessionId.toString()
@@ -96,7 +96,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("PATCH is called twice with the same id and anchor") {
                 Then("the second call resumes the very same channel (idempotent upsert)") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val first = kcPatch(channelSessionId)
                     val second = kcPatch(channelSessionId)
 
@@ -107,7 +107,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("a later PATCH on the same id presents a different kc-anchor") {
                 Then("it is rejected as a binding mismatch") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     kcPatch(channelSessionId)
                     stubAssertion(channelAnchor = "a-completely-different-anchor")
 
@@ -132,9 +132,10 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
 
             When("accountId names an account that doesn't exist") {
                 Then("it is rejected up front as not found, never as an internal strategy error") {
-                    stubAssertion(channelAnchor = "kc-user-session-${UUID.randomUUID()}")
+                    val channelSessionId = UUID.randomUUID()
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val rejected = assertThrows<HttpClientErrorException> {
-                        kcPatchRaw(UUID.randomUUID(), """{"accountId":999999,"amr":[{"nativeToolId":"kc-sms-form","amrSourceId":"kc-sms-form-exec-1"}]}""")
+                        kcPatchRaw(channelSessionId, """{"accountId":999999,"amr":[{"nativeToolId":"kc-sms-form","amrSourceId":"kc-sms-form-exec-1"}]}""")
                     }
                     rejected.statusCode shouldBe HttpStatus.NOT_FOUND
                 }
@@ -152,7 +153,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     )
 
                     val kcChannelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-user-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = kcChannelSessionId.toString())
                     val response = kcPatch(kcChannelSessionId, """{"accountId":$accountId,"targetAcr":"loa2"}""")
 
                     response.next()["context"] shouldBe "auth"
@@ -185,7 +186,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     val otherAccountId = accountService.createUnidentifiedAccount().accountId
 
                     val kcChannelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-user-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = kcChannelSessionId.toString())
                     kcPatch(kcChannelSessionId, """{"accountId":$accountId,"targetAcr":"loa2"}""")
 
                     val rejected = assertThrows<HttpClientErrorException> {
@@ -208,7 +209,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     val email = registerWithEmailAndPassword()
 
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val initial = kcPatch(channelSessionId)
                     @Suppress("UNCHECKED_CAST")
                     (initial.stepData()["options"] as List<String>) shouldNotContain "ident-fsc"
@@ -233,7 +234,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                 Then("its source stays orchestrator - the stronger, verified claim is never downgraded to kc") {
                     val email = registerWithEmailAndPassword()
                     val channelSessionId = UUID.randomUUID()
-                    val anchor = "kc-auth-session-${UUID.randomUUID()}"
+                    val anchor = channelSessionId.toString()
                     stubAssertion(channelAnchor = anchor)
                     kcPatch(channelSessionId)
                     val toolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password-lookup")
@@ -266,7 +267,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                     )
 
                     val kcChannelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-user-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = kcChannelSessionId.toString())
                     // A raised loa2 floor - sms alone (capped at loa1) doesn't satisfy it yet, so
                     // this still offers candidates, but authData already reflects the native evidence.
                     val partial = kcPatch(
@@ -305,7 +306,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("PATCH is called with intent=register") {
                 Then("it offers identification, never the login-only lookup candidates") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val response = kcPatch(channelSessionId, """{"intent":"register"}""")
 
                     response.channel()["state"] shouldBe "REGISTERING"
@@ -318,9 +319,10 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
 
             When("an unknown intent is named") {
                 Then("it is rejected up front, never silently mapped to kc_select_method") {
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    val channelSessionId = UUID.randomUUID()
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     val rejected = assertThrows<HttpClientErrorException> {
-                        kcPatchRaw(UUID.randomUUID(), withDefaultAvailableTools("""{"intent":"lookup_login"}"""))
+                        kcPatchRaw(channelSessionId, withDefaultAvailableTools("""{"intent":"lookup_login"}"""))
                     }
                     rejected.statusCode shouldBe HttpStatus.CONFLICT
                 }
@@ -329,7 +331,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
             When("identification, sms enrollment, the shared email obligation and the web-only password obligation are all driven through") {
                 Then("the channel ends up AUTHENTICATED, email confirmed and enroll-password last") {
                     val channelSessionId = UUID.randomUUID()
-                    stubAssertion(channelAnchor = "kc-auth-session-${UUID.randomUUID()}")
+                    stubAssertion(channelAnchor = channelSessionId.toString())
                     kcPatch(channelSessionId, """{"intent":"register"}""")
 
                     val identToolSessionId = kcPost("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc")

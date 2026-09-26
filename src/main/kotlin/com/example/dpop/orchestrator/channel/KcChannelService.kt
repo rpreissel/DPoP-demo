@@ -21,6 +21,7 @@ import com.example.dpop.account.SignInLog
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration
 import java.util.UUID
@@ -145,6 +146,12 @@ class KcChannelService(
 
         val isFreshChannel = sessionManagementService.findChannelSessionById(channelSessionId) == null
         if (isFreshChannel) {
+            // The anchor a new channel is bound to is the channel id the extension signed for, not
+            // just any validly signed value (review 2026-09-26, F-10) - the documented convention
+            // (OrchestratorClient.upsertChannel), now enforced where the binding is made.
+            if (assertion.channelAnchor != channelSessionId.toString()) {
+                throw PeerAuthValidationException("Peer-auth channel_anchor does not name this channel")
+            }
             sessionManagementService.createKcChannelSession(
                 channelSessionId,
                 assertion.channelAnchor,

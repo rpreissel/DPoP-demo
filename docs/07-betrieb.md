@@ -324,6 +324,12 @@ Fremdsysteme, Kontenverwaltung mit Demo-Reset), keinen Flyway-Reset und keine De
 Admin-Anmeldungen sind gedrosselt: fünf falsche Passwörter für einen Benutzernamen sperren ihn für
 15 Minuten (429), auch für das richtige Passwort.
 
+Hinter einem Reverse-Proxy braucht die Prüfung von `htu` (DPoP, Geräte-Beweise, Peer-Auth)
+`server.forward-headers-strategy`, damit Schema, Host und Port die des Clients sind. Das ist nur
+sicher, wenn ein vertrauenswürdiger Proxy `X-Forwarded-*` jedes Mal überschreibt; sonst setzt ein
+Client sie selbst. Verglichen wird nach RFC 9449: Schema und Host ohne Groß-/Kleinschreibung, der
+Pfad exakt (`htuMatches`).
+
 ## 4) Kontosperre, Mengenbegrenzung und Versanddrosselung (Schutz vor Ausprobieren und Massenversand)
 
 Gemeinsame Grundlage sind `AttemptThrottle` (Entität, Primärschlüssel `(scope, subject)`) und

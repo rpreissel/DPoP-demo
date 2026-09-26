@@ -75,9 +75,14 @@ class DeploymentTopologyCheck(
                     "zwei Instanzen legen denselben Keycloak-User und dasselbe Keypair parallel an."
             )
             add(
-                "Die geplanten Jobs (Retention, Tool-Session-Sweep) haben keine " +
-                    "Leader-Election und keine Sperre - bei mehreren Instanzen laufen sie mehrfach " +
-                    "parallel. Dafuer fehlt die Umsetzung noch (docs/07-betrieb.md)."
+                "Die geplanten Jobs (Retention der Sitzungen, Tool-Sessions, Replay-Schutz, " +
+                    "Aenderungs- und Anmeldeprotokoll) haben keine Leader-Election und keine Sperre - " +
+                    "bei mehreren Instanzen laufen sie mehrfach parallel. Dafuer fehlt die Umsetzung " +
+                    "noch (docs/07-betrieb.md)."
+            )
+            add(
+                "RestoreDataCodec erzeugt sein Signaturgeheimnis je Prozess - ein RestoreData-Token " +
+                    "einer Instanz ist fuer die andere unlesbar (Web-Anmeldung muss neu beginnen)."
             )
         }
 

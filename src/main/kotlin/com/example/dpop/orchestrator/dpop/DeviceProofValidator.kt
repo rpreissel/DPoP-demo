@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.dpop
 
+import com.example.dpop.tool_api.htuMatches
 import com.example.dpop.tool_api.DeviceProofs
 import com.example.dpop.tool_api.UserVerification
 import com.example.dpop.tool_api.VerifiedDeviceProof
@@ -112,7 +113,7 @@ class DeviceProofValidator(
             if (htu == null) {
                 throw DpopValidationException("Device proof htu claim is missing")
             }
-            if (!normalizeUrl(htu).equals(normalizeUrl(httpUrl), ignoreCase = true)) {
+            if (!htuMatches(htu, httpUrl)) {
                 throw DpopValidationException("Device proof htu claim does not match request URL")
             }
 
@@ -145,12 +146,6 @@ class DeviceProofValidator(
             ?: throw DpopValidationException("Unsupported or missing userVerification claim: $rawValue")
     }
 
-    private fun normalizeUrl(url: String): String {
-        val queryIndex = url.indexOf('?')
-        val withoutQuery = if (queryIndex >= 0) url.substring(0, queryIndex) else url
-        val fragmentIndex = withoutQuery.indexOf('#')
-        return if (fragmentIndex >= 0) withoutQuery.substring(0, fragmentIndex) else withoutQuery
-    }
 
     companion object {
         private const val DEVICE_PROOF_JWT_TYPE = "device-proof+jwt"

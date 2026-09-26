@@ -4,6 +4,7 @@ import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
 import com.example.dpop.auth_qr.api.v1.QrPairingStep
 import com.example.dpop.auth_qr.internal.QrLoginRequest
+import com.example.dpop.auth_qr.internal.ConfirmationCodeDigest
 import com.example.dpop.auth_qr.internal.QrLoginRequestRepository
 import com.example.dpop.tool_spi.ToolOutcome
 import io.kotest.core.spec.style.BehaviorSpec
@@ -25,7 +26,7 @@ class ConfirmQrLoginToolHandlerTest : BehaviorSpec({
 
     val toolDataRepository = mockk<ConfirmQrLoginToolSessionRepository>()
     val qrLoginRequestRepository = mockk<QrLoginRequestRepository>()
-    val handler = ConfirmQrLoginToolHandler(ConfirmQrLoginDescriptor, toolDataRepository, qrLoginRequestRepository)
+    val handler = ConfirmQrLoginToolHandler(ConfirmQrLoginDescriptor, toolDataRepository, qrLoginRequestRepository, ConfirmationCodeDigest("test-pepper"))
     val toolSessionId = UUID.randomUUID()
     val pairingCode = "ABCD1234"
 

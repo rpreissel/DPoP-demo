@@ -1,6 +1,7 @@
 package com.example.dpop.kcext;
 
 import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.ECKey;
@@ -48,7 +49,7 @@ final class PeerAuthAssertionSigner {
                 .claim("channel_anchor", channelSessionId);
 
         SignedJWT jwt = new SignedJWT(
-                new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(signingKey.getKeyID()).build(),
+                new JWSHeader.Builder(JWSAlgorithm.ES256).type(new JOSEObjectType("peer-auth+jwt")).keyID(signingKey.getKeyID()).build(),
                 claims.build()
         );
         try {

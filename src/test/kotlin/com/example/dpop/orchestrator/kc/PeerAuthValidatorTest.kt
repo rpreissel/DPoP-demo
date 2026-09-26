@@ -62,7 +62,7 @@ class PeerAuthValidatorTest : BehaviorSpec({
         algorithm: JWSAlgorithm = JWSAlgorithm.ES256,
         keyId: String = kid
     ): String {
-        val header = JWSHeader.Builder(algorithm).keyID(keyId).build()
+        val header = JWSHeader.Builder(algorithm).type(PeerAuthValidator.ASSERTION_TYPE).keyID(keyId).build()
         val claimsBuilder = JWTClaimsSet.Builder()
             .issueTime(issuedAt)
             .claim("htm", htm)
@@ -135,26 +135,23 @@ class PeerAuthValidatorTest : BehaviorSpec({
         }
     }
 
-    given("an RSA-signed assertion") {
-        then("it is accepted like an EC-signed one, verified against the matching RSA key") {
+    given("an RSA-signed assertion (review 2026-09-26, F-10)") {
+        then("it is refused - the extension signs with ES256 only, nothing else is accepted") {
             val rsaKey = RSAKeyGenerator(2048).keyID(kid).generate()
-            val header = JWSHeader.Builder(JWSAlgorithm.RS256).keyID(kid).build()
-            val claims = JWTClaimsSet.Builder()
-                .jwtID(UUID.randomUUID().toString())
-                .issueTime(Date())
-                .issuer(issuer)
-                .audience(audience)
-                .claim("htm", method)
-                .claim("htu", url)
-                .claim("channel_anchor", "channel-anchor-rsa")
-                .build()
-            val jwt = SignedJWT(header, claims)
+            val header = JWSHeader.Builder(JWSAlgorithm.RS256).type(PeerAuthValidator.ASSERTION_TYPE).keyID(kid).build()
+            val jwt = SignedJWT(header, JWTClaimsSet.Builder().jwtID("j").issueTime(Date()).claim("htm", method).claim("htu", url).build())
             jwt.sign(RSASSASigner(rsaKey.toPrivateKey()))
-            val jwkSource = mockk<KeycloakJwkSource> { every { find(kid) } returns rsaKey.toPublicJWK() }
+            shouldThrow<PeerAuthValidationException> { validator(mockk()).validate(jwt.serialize(), method, url) }
+        }
+    }
 
-            val result = validator(jwkSource).validate(jwt.serialize(), method, url)
-
-            result.channelAnchor shouldBe "channel-anchor-rsa"
+    given("an assertion without typ=peer-auth+jwt (review 2026-09-26, F-10)") {
+        then("it is refused before any JWKS lookup - a JWT of another purpose is never read as one") {
+            val key = ECKeyGenerator(Curve.P_256).keyID(kid).generate()
+            val header = JWSHeader.Builder(JWSAlgorithm.ES256).keyID(kid).build()
+            val jwt = SignedJWT(header, JWTClaimsSet.Builder().jwtID("j").issueTime(Date()).claim("htm", method).claim("htu", url).build())
+            jwt.sign(ECDSASigner(key))
+            shouldThrow<PeerAuthValidationException> { validator(mockk()).validate(jwt.serialize(), method, url) }
         }
     }
 

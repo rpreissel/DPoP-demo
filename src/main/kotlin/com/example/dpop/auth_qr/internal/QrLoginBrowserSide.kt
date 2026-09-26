@@ -20,7 +20,10 @@ import java.time.Instant
  * With step 2 the victim would also have to type a code into the attacker's browser.
  */
 @Component
-class QrLoginBrowserSide(private val requests: QrLoginRequestRepository) {
+class QrLoginBrowserSide(
+    private val requests: QrLoginRequestRepository,
+    private val confirmationCodeDigest: ConfirmationCodeDigest,
+) {
 
     sealed interface State {
         data object WaitingForApp : State
@@ -52,7 +55,7 @@ class QrLoginBrowserSide(private val requests: QrLoginRequestRepository) {
             QrLoginStatus.APPROVED -> when {
                 expired -> State.Failed(EXPIRED)
                 confirmationCode.isNullOrBlank() -> State.EnterCode
-                requests.completeIfConfirmed(pairingCode, PairingCodeGenerator.digest(confirmationCode), now) == 1 ->
+                requests.completeIfConfirmed(pairingCode, confirmationCodeDigest.of(confirmationCode), now) == 1 ->
                     State.Confirmed(
                         checkNotNull(request.resolvingAccountId) { "APPROVED QrLoginRequest without resolvingAccountId" },
                         request.expectedAccountId

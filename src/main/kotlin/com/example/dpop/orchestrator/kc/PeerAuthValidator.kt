@@ -1,14 +1,14 @@
 package com.example.dpop.orchestrator.kc
 
+import com.example.dpop.tool_api.htuMatches
 import com.example.dpop.orchestrator.dpop.DpopReplayProtectionService
 import com.example.dpop.orchestrator.dpop.DpopValidationException
 import com.nimbusds.jose.JOSEException
+import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.ECDSAVerifier
-import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWK
-import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import org.springframework.beans.factory.annotation.Value
@@ -47,6 +47,11 @@ class PeerAuthValidator(
         }
 
         val header = signedJWT.header
+        // Explicit type, so no other JWT signed with the same key - a token of some other purpose -
+        // is ever read as a peer-auth assertion (review 2026-09-26, F-10; RFC 8725 3.11).
+        if (header.type != ASSERTION_TYPE) {
+            throw PeerAuthValidationException("Peer-auth assertion must have typ=${ASSERTION_TYPE.type}")
+        }
         if (header.algorithm !in SUPPORTED_ALGORITHMS) {
             throw PeerAuthValidationException("Unsupported peer-auth algorithm: ${header.algorithm}")
         }
@@ -88,7 +93,6 @@ class PeerAuthValidator(
     private fun validateSignature(signedJWT: SignedJWT, jwk: JWK) {
         try {
             val valid = when (jwk) {
-                is RSAKey -> signedJWT.verify(RSASSAVerifier(jwk.toRSAPublicKey()))
                 is ECKey -> signedJWT.verify(ECDSAVerifier(jwk.toECPublicKey()))
                 else -> throw PeerAuthValidationException("Unsupported key type: ${jwk.keyType}")
             }
@@ -113,7 +117,7 @@ class PeerAuthValidator(
             throw PeerAuthValidationException("Peer-auth htm claim does not match request method")
         }
         val htu = claims.getStringClaim("htu")
-        if (htu == null || !normalizeUrl(htu).equals(normalizeUrl(httpUrl), ignoreCase = true)) {
+        if (htu == null || !htuMatches(htu, httpUrl)) {
             throw PeerAuthValidationException("Peer-auth htu claim does not match request URL")
         }
 
@@ -128,19 +132,11 @@ class PeerAuthValidator(
         }
     }
 
-    private fun normalizeUrl(url: String): String {
-        val queryIndex = url.indexOf('?')
-        val withoutQuery = if (queryIndex >= 0) url.substring(0, queryIndex) else url
-        val fragmentIndex = withoutQuery.indexOf('#')
-        return if (fragmentIndex >= 0) withoutQuery.substring(0, fragmentIndex) else withoutQuery
-    }
 
     companion object {
-        private val SUPPORTED_ALGORITHMS: Set<JWSAlgorithm> = setOf(
-            JWSAlgorithm.RS256,
-            JWSAlgorithm.ES256,
-            JWSAlgorithm.ES384,
-            JWSAlgorithm.ES512
-        )
+        private val SUPPORTED_ALGORITHMS: Set<JWSAlgorithm> = setOf(JWSAlgorithm.ES256)
+
+        /** The `typ` the extension's PeerAuthAssertionSigner sets. */
+        val ASSERTION_TYPE = JOSEObjectType("peer-auth+jwt")
     }
 }

@@ -15,10 +15,17 @@ value class Email private constructor(val value: String) {
     companion object {
         private val PATTERN = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$".toRegex()
 
+        /**
+         * The longest address SMTP can deliver to (RFC 5321: a 256-octet path minus its angle
+         * brackets). Longer is no address - and would otherwise reach the 255-character columns and
+         * fail there as an internal error (review 2026-09-26, F-10).
+         */
+        private const val MAX_LENGTH = 254
+
         /** Normalizes (trim + lowercase) then validates [raw] - `null` if it is not well-formed. */
         fun ofOrNull(raw: String): Email? {
             val normalized = raw.trim().lowercase()
-            return if (PATTERN.matches(normalized)) Email(normalized) else null
+            return if (normalized.length <= MAX_LENGTH && PATTERN.matches(normalized)) Email(normalized) else null
         }
 
         /** Same as [ofOrNull], but throws for a malformed address - the anchor write/lookup path's contract. */

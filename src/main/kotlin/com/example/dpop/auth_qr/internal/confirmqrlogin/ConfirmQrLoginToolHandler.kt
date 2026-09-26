@@ -2,6 +2,7 @@ package com.example.dpop.auth_qr.internal.confirmqrlogin
 
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
+import com.example.dpop.auth_qr.internal.ConfirmationCodeDigest
 import com.example.dpop.auth_qr.internal.PairingCodeGenerator
 import com.example.dpop.auth_qr.internal.QrLoginRequestRepository
 import com.example.dpop.auth_qr.internal.QrLoginStatus
@@ -28,7 +29,8 @@ import com.example.dpop.tool_spi.MissingFields
 class ConfirmQrLoginToolHandler(
     private val descriptor: ConfirmQrLoginDescriptor,
     private val toolDataRepository: ConfirmQrLoginToolSessionRepository,
-    private val qrLoginRequestRepository: QrLoginRequestRepository
+    private val qrLoginRequestRepository: QrLoginRequestRepository,
+    private val confirmationCodeDigest: ConfirmationCodeDigest,
 ) {
 
     /**
@@ -81,7 +83,7 @@ class ConfirmQrLoginToolHandler(
                 val confirmationCode = PairingCodeGenerator.confirmationCode()
                 val now = Instant.now()
                 val rows = qrLoginRequestRepository.approveIfPending(
-                    resolvedCode, accountId, PairingCodeGenerator.digest(confirmationCode), now, now.plus(CONFIRMATION_TTL)
+                    resolvedCode, accountId, confirmationCodeDigest.of(confirmationCode), now, now.plus(CONFIRMATION_TTL)
                 )
                 if (rows == 1) {
                     // The one and only time the plaintext leaves the server - it is stored as a hash.

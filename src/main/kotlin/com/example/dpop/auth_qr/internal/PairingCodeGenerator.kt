@@ -1,6 +1,5 @@
 package com.example.dpop.auth_qr.internal
 
-import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
@@ -20,10 +19,6 @@ internal object PairingCodeGenerator {
 
     /** Six digits - typed by hand into the browser; guessing is capped by [MAX_CONFIRMATION_ATTEMPTS]. */
     fun confirmationCode(): String = "%06d".format(random.nextInt(1_000_000))
-
-    /** How the confirmation code is stored and compared - never in plaintext. */
-    fun digest(code: String): String =
-        MessageDigest.getInstance("SHA-256").digest(code.trim().toByteArray()).joinToString("") { "%02x".format(it) }
 
     /** Wrong confirmation codes a request survives before it is burned. */
     const val MAX_CONFIRMATION_ATTEMPTS = 3

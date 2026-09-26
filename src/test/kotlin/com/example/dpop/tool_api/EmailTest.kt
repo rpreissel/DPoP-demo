@@ -29,4 +29,13 @@ class EmailTest : BehaviorSpec({
             Email.of("Max@Example.COM").value shouldBe "max@example.com"
         }
     }
+
+    given("the length limit (RFC 5321, review 2026-09-26 F-10)") {
+        then("254 characters is an address, 255 is none") {
+            val local = "a".repeat(64)
+            val domain254 = "b".repeat(254 - local.length - 1 - 4) + ".com"
+            Email.ofOrNull("$local@$domain254")!!.value.length shouldBe 254
+            Email.ofOrNull("$local@b$domain254") shouldBe null
+        }
+    }
 })

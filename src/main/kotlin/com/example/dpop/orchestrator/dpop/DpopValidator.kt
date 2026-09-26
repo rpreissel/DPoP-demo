@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.dpop
 
+import com.example.dpop.tool_api.htuMatches
 import com.nimbusds.jose.JOSEException
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
@@ -105,7 +106,7 @@ class DpopValidator(
             if (htu == null) {
                 throw DpopValidationException("DPoP htu claim is missing")
             }
-            if (!normalizeUrl(htu).equals(normalizeUrl(httpUrl), ignoreCase = true)) {
+            if (!htuMatches(htu, httpUrl)) {
                 throw DpopValidationException("DPoP htu claim does not match request URL")
             }
 
@@ -128,12 +129,6 @@ class DpopValidator(
         }
     }
 
-    private fun normalizeUrl(url: String): String {
-        val queryIndex = url.indexOf('?')
-        val withoutQuery = if (queryIndex >= 0) url.substring(0, queryIndex) else url
-        val fragmentIndex = withoutQuery.indexOf('#')
-        return if (fragmentIndex >= 0) withoutQuery.substring(0, fragmentIndex) else withoutQuery
-    }
 
     companion object {
         private const val DPOP_JWT_TYPE = "dpop+jwt"
