@@ -248,6 +248,9 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 10. B-6 Backup/Restore in 07 mit geprobtem Restore – **zurückgestellt (Entscheidung 2026-09-26).**
     ~~F-10 `kid` für den Protokoll-HMAC~~ – erledigt 2026-09-26: `lookup_key_id`, frühere Geheimnisse
     nur zum Suchen, `LookupKeyCoverageCheck`.
+    ~~B-9 Logging~~ – erledigt 2026-09-26: `LoggingContextFilter` (Anfrage-, Kanal-, Tool-Session-Id im
+    MDC), ECS-JSON im Betrieb per `LOGGING_STRUCTURED_FORMAT_CONSOLE`. Die `accountId` steht nicht im
+    MDC (sie ist erst nach der DPoP-Auflösung bekannt); 4xx bleiben auf INFO.
 
 **Phase J – Was ein Kollege liest**
 

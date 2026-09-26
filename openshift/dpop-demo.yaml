@@ -138,6 +138,8 @@ spec:
             - {name: SPRING_PROFILES_ACTIVE, value: keycloak}
             - {name: SPRING_DATASOURCE_URL, value: 'jdbc:h2:file:/data/dpopdb'}
             - {name: KEYCLOAK_SETUP_VARIANT, value: openshift}
+            # Strukturierte Logs (ECS-JSON) mit Anfrage- und Sitzungs-Id (docs/07-betrieb.md Abschnitt 7).
+            - {name: LOGGING_STRUCTURED_FORMAT_CONSOLE, value: ecs}
             - name: PUBLIC_ORCHESTRATOR_URL
               valueFrom: {configMapKeyRef: {name: dpop-demo-env, key: PUBLIC_ORCHESTRATOR_URL}}
             - name: PUBLIC_KEYCLOAK_URL

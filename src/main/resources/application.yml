@@ -128,6 +128,13 @@ tool-session:
 server:
   port: 8080
 
+# Log-Kontext je Anfrage (LoggingContextFilter, docs/07-betrieb.md Abschnitt 7): Anfrage-Id und
+# die Sitzungs-Id aus dem Pfad in jeder Zeile. Im Betrieb strukturiert als ECS-JSON einschalten:
+# LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs (openshift/dpop-demo.yaml) - lokal bleibt die Konsole lesbar.
+logging:
+  pattern:
+    correlation: "[%X{requestId:-} %X{channelSessionId:-}%X{toolSessionId:-}] "
+
 # Health und Kennzahlen (docs/07-betrieb.md Abschnitt 7): auf einem eigenen Port, den keine Route
 # nach aussen fuehrt - /actuator gibt es auf 8080 nicht. Freigegeben sind nur health (mit den
 # Probes liveness/readiness) und prometheus. Readiness haengt an der Datenbank, nicht an Keycloak:

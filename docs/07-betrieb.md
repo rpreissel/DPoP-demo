@@ -493,3 +493,9 @@ Health und Kennzahlen liegen auf einem **eigenen Management-Port** (`MANAGEMENT_
 Im Demomodus zeigt die Willkommensseite unter „Server-Status“ denselben Zustand und dieselben
 Kennzahlen (`GET /orchestrator/demo/server-info`, Block `operations`); der Browser erreicht den
 Management-Port nicht, deshalb liest das Backend sie aus.
+
+**Logs.** Jede Zeile, die während einer Anfrage geschrieben wird, trägt eine Anfrage-Id und – wenn
+der Pfad sie nennt – die `channelSessionId` bzw. `toolSessionId` (`LoggingContextFilter`, MDC).
+Nur Ids aus der URL, nichts Persönliches. Lokal stehen sie in eckigen Klammern vor der Meldung; im
+Betrieb schreibt der Orchestrator strukturiert als ECS-JSON (`LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`,
+in `openshift/dpop-demo.yaml` gesetzt), mit den Ids als eigenen Feldern.
