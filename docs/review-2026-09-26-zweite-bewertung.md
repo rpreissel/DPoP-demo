@@ -217,7 +217,8 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
    Restrisiko (Namensvetter außerhalb des Registers) in ADR-18 benannt und getragen.
 3. ~~F-3 `ProductionModeCheck`~~ – erledigt 2026-09-26, mit B-2 (`FlywayResetConfig` und `demo_seed` nur
    im Demomodus) und F-7 (Kontenverwaltung hinter `@DemoSurface`, Admin-Drossel, Passwort als Hash).
-4. F-4 `PhoneNumber`-Wertobjekt, Drossel und Flow darüber.
+4. ~~F-4 `PhoneNumber`-Wertobjekt, Drossel und Flow darüber~~ – erledigt 2026-09-26 (auch der Seed-Pfad
+   `SmsCredentialPortImpl` nutzt es; vorher drei Regeln).
 5. F-8 QR-Code mit Pepper; F-10 Kleinigkeiten (typ/ES256, `htu`-Pfad exakt, Pepper-Mindeststärke,
    E-Mail-Länge, 400 statt 500).
 6. F-5/F-6 als eine Entscheidung „Schlüssel und Vertrauensanker“: Antwort-Schlüssel pinnen, ADR-9 auf

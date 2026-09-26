@@ -2,6 +2,7 @@ package com.example.dpop.auth_sms.api.v1
 
 import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolHandler
 import com.example.dpop.tool_api.BindingKey
+import com.example.dpop.tool_api.PhoneNumber
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
 import com.example.dpop.tool_spi.ToolOutcome
@@ -105,11 +106,11 @@ class EnrollSmsToolController(
         val context = toolEndpoint.loadCurrent(toolSessionId, bindingKeyRef, ENROLL_SMS_TOOL_ID)
 
         val body = request ?: EnrollSmsPatchRequest()
-        // Normalized the same way EnrollSmsFlow validates it (whitespace stripped), purely to key
-        // the send-throttle before the handler runs - see ToolEndpoint.isSendThrottledForContact.
+        // Keyed on the very number enroll-sms would send to (PhoneNumber, review 2026-09-26, F-4) - a
+        // number it would not send to is sent nothing and needs no throttle.
         val sendThrottled = body.phoneNumber
-            ?.replace("\\s+".toRegex(), "")?.trim()
-            ?.let { toolEndpoint.isSendThrottledForContact(it) }
+            ?.let { PhoneNumber.ofOrNull(it) }
+            ?.let { toolEndpoint.isSendThrottledForContact(it.value) }
             ?: false
         val outcome = handler.patch(toolSessionId, body.phoneNumber, body.tan, sendThrottled)
 

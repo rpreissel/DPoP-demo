@@ -1,5 +1,6 @@
 package com.example.dpop.auth_sms.internal
 
+import com.example.dpop.tool_api.PhoneNumber
 import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_api.SmsCredentialPort
 import com.example.dpop.tool_spi.EnrollmentRef
@@ -18,10 +19,9 @@ internal class SmsCredentialPortImpl(
 
     @Transactional
     override fun enroll(phoneNumber: String): EnrollmentRef {
-        // Same normalization the enroll-sms flow applies, so a seeded number is stored in the
-        // shape auth-sms/auth-sms-lookup later compare against.
-        val normalized = phoneNumber.replace("\\s+".toRegex(), "").trim()
-        val enrollment = enrollmentRepository.save(AuthSmsEnrollment(phoneNumber = normalized))
+        // The same rule enroll-sms applies (PhoneNumber), so a seeded number is stored in the shape
+        // auth-sms/auth-sms-lookup later compare against.
+        val enrollment = enrollmentRepository.save(AuthSmsEnrollment(phoneNumber = PhoneNumber.of(phoneNumber).value))
         return EnrollmentRef(type = SMS_ENROLLMENT_TYPE, id = enrollment.id.toString())
     }
 }

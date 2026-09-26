@@ -345,7 +345,7 @@ dieselben Schlüssel. Jeder Bereich hat einen eigenen `@Service` mit eigenen Gre
   - *Antwort, wenn die Grenze überschritten ist:* `429 Too Many Requests`
 - **`SendThrottleService`**
   - *Bereich:* `ACCOUNT_SEND` / `CONTACT_SEND`
-  - *Zählt:* **Versendete** TANs und Codes, egal ob sie später richtig eingegeben werden (gleitendes Zeitfenster, 3 in 10 Min.)
+  - *Zählt:* **Versendete** TANs und Codes, egal ob sie später richtig eingegeben werden (gleitendes Zeitfenster, 3 in 10 Min.). Der Kontakt ist normalisiert wie der Versand selbst: E-Mail über `Email`, Rufnummer über `PhoneNumber` (Trennzeichen raus, `00` → `+`), sodass `+49-170…` und `0049170…` ein Kontakt sind
   - *Antwort, wenn die Grenze überschritten ist:* `ACCOUNT_SEND` (LOOKUP_AUTH) steckt in der gewöhnlichen Fehlerantwort. `CONTACT_SEND` (Einrichten durch den Nutzer selbst; der Schlüssel ist ein HMAC-SHA256 mit dem OTP-Pepper statt der Adresse im Klartext) darf offen als eigener Fehler zurückkommen
 
 - **Warum das zusätzlich zu `ToolSession.retryCount` nötig ist** (Regel für Wiederholungen in

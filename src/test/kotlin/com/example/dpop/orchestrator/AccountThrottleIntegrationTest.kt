@@ -52,6 +52,19 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("one mobile number in four spellings (review 2026-09-26, F-4)") {
+            then("the send throttle counts them as one - three codes go out, the fourth is held back") {
+                val channelSessionId = identify()
+                confirmEmail(channelSessionId)
+                val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/enroll-sms").nextRaw()["toolSessionId"] as String
+                val sentBefore = smsGateway.outbox().size
+                listOf("+49 170 7654321", "+49-170-7654321", "0049/170/7654321", "+49 (170) 765 43-21").forEach {
+                    patch("/orchestrator/api/v1/tools/$toolSessionId/enroll-sms", """{"phoneNumber":"$it"}""")
+                }
+                smsGateway.outbox().size - sentBefore shouldBe 3
+            }
+        }
+
         given("a fresh channel") {
             `when`("repeatedly failing auth across fresh tool sessions") {
                 then("the account-level throttle locks") {
