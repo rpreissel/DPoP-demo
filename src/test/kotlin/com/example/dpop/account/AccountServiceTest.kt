@@ -1,5 +1,10 @@
 package com.example.dpop.account
 
+import com.example.dpop.account.internal.PersonLookupKey
+import com.example.dpop.account.internal.ChangeLog
+import com.example.dpop.account.internal.AccountAuthMethodRepository
+import com.example.dpop.account.internal.AnchorRegistry
+import com.example.dpop.account.internal.ClaimLedger
 import com.example.dpop.account.internal.Account
 import com.example.dpop.account.internal.AccountAnchor
 import com.example.dpop.account.internal.AccountAnchorRepository
@@ -306,3 +311,21 @@ class AccountServiceTest : BehaviorSpec({
         }
     }
 })
+
+/**
+ * The service over mocked repositories, with the REAL [ClaimLedger] and [AnchorRegistry] in between
+ * (review 2026-09-26, A-6): these tests are about what gets written, so the two parts stay real.
+ */
+private fun AccountService(
+    accountRepository: AccountRepository,
+    accountClaimRepository: AccountClaimRepository,
+    accountAnchorRepository: AccountAnchorRepository,
+    accountAuthMethodRepository: AccountAuthMethodRepository,
+    accountRetractionRepository: AccountRetractionRepository,
+    eventPublisher: ApplicationEventPublisher,
+    changeLog: ChangeLog,
+    personLookupKey: PersonLookupKey,
+): AccountService {
+    val ledger = ClaimLedger(accountClaimRepository, accountRetractionRepository, changeLog)
+    return AccountService(accountRepository, ledger, AnchorRegistry(accountAnchorRepository, ledger), accountAuthMethodRepository, eventPublisher, changeLog, personLookupKey)
+}

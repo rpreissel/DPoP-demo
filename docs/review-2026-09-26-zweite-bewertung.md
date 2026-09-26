@@ -279,7 +279,11 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
     (`IdentFsc…`), Retention-Jobs nach dem Modul (`IdFsc…`). ~~A-4 Verfügbarkeit und Flags~~ –
     entschieden und erledigt 2026-09-26: `demo.disclosure` gestrichen (= `demo.mode`); yml-Voreinstellung
     der Tools und `feature_flag` bleiben, ihre Rollen stehen in ADR-32.
-16. A-6 Zuschnitt (`ChannelResponseAssembler`, `ClaimLedger`/`AnchorRegistry`, `EvidenceTrail`), Totes weg.
+16. ~~A-6 Zuschnitt, Totes weg~~ – erledigt 2026-09-26: `ChannelResponseAssembler` (Antwortbau aus
+    `ChannelService`), `ClaimLedger` und `AnchorRegistry` unter der schmalen Fassade `AccountService`
+    (824 → 584 Zeilen), `EvidenceTrail` statt zweitem `AuthEvidence`, `ToolState` und
+    `resolveAccountByInsuranceNumber` entfernt, `PersonChanged.insuranceNumber`. `journey.accountId`
+    bleibt als nur geschriebener Nachweis.
 17. A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a.
 
 **Phase L – Tests**

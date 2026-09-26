@@ -3,7 +3,8 @@ package com.example.dpop.account
 import com.example.dpop.tool_api.PersonChanged
 import com.example.dpop.texts.Text
 import com.example.dpop.account.internal.Account
-import com.example.dpop.account.internal.AccountAnchor
+import com.example.dpop.account.internal.AnchorRegistry
+import com.example.dpop.account.internal.ClaimLedger
 import com.example.dpop.account.internal.AccountAnchorRepository
 import com.example.dpop.account.internal.AccountClaim
 import com.example.dpop.account.internal.AccountClaimRepository
@@ -50,10 +51,9 @@ data class AccountDeleted(val accountId: Long)
 @Service
 class AccountService(
     private val accountRepository: AccountRepository,
-    private val accountClaimRepository: AccountClaimRepository,
-    private val accountAnchorRepository: AccountAnchorRepository,
+    private val claimLedger: ClaimLedger,
+    private val anchorRegistry: AnchorRegistry,
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
-    private val accountRetractionRepository: AccountRetractionRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val changeLog: ChangeLog,
     private val personLookupKey: PersonLookupKey,
@@ -91,11 +91,7 @@ class AccountService(
     @Transactional(readOnly = true)
     fun claimedTypesOf(accountId: Long, methodInstanceId: String): Set<AttributeType> {
         val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return emptySet()
-        return accountClaimRepository.findByAuthMethodId(instanceId)
-            .filter { it.accountId == accountId }
-            .filter { it.attributeType?.authority == AttributeAuthority.MethodModule }
-            .mapNotNull { it.attributeType }
-            .toSet()
+        return claimLedger.ownedBy(accountId, instanceId).map { it.first }.toSet()
     }
 
     /**
@@ -131,30 +127,9 @@ class AccountService(
         // so a concurrent confirm-email cannot interleave with this withdrawal.
         lockForUpdate(accountId)
         // Only what still counts: a value already withdrawn needs no second retraction row, and
-        // findEstablished is the same "assertions minus retractions" view every reader uses.
-        val established = accountClaimRepository.findEstablished(accountId)
-            .filter { it.attributeType == attributeType }
-            .map { it.normalizedValue }
-            .distinct()
-        if (established.isEmpty()) return false
-
-        val now = Instant.now()
-        established.forEach { value ->
-            saveRetraction(
-                AccountRetraction(
-                    accountId = accountId,
-                    attributeType = attributeType,
-                    normalizedValue = value,
-                    trustAnchor = trustAnchor,
-                    reason = reason,
-                    retractedAt = now
-                )
-            )
-        }
-        if (attributeType.isLocalAnchor) {
-            accountAnchorRepository.findByAccountIdAndAttributeType(accountId, attributeType)
-                ?.let { accountAnchorRepository.delete(it) }
-        }
+        // "established" is the same "assertions minus retractions" view every reader uses.
+        if (!claimLedger.retractEstablished(accountId, attributeType, trustAnchor, reason, Instant.now())) return false
+        if (attributeType.isLocalAnchor) anchorRegistry.remove(accountId, attributeType)
         return true
     }
 
@@ -167,22 +142,9 @@ class AccountService(
      */
     private fun retractReplacedClaims(accountId: Long, replaced: List<UUID>, replacement: UUID, now: Instant) {
         if (replaced.isEmpty()) return
-        fun ownedBy(instance: UUID) = accountClaimRepository.findByAuthMethodId(instance)
-            .filter { it.accountId == accountId && it.attributeType?.authority == AttributeAuthority.MethodModule }
-            .mapNotNull { claim -> claim.attributeType?.let { it to claim.normalizedValue } }
-            .toSet()
-        val kept = ownedBy(replacement)
-        replaced.flatMap { ownedBy(it) }.distinct().filterNot { it in kept }.forEach { (type, value) ->
-            saveRetraction(
-                AccountRetraction(
-                    accountId = accountId,
-                    attributeType = type,
-                    normalizedValue = value,
-                    trustAnchor = RetractionAnchor.ACCOUNT_MANAGEMENT,
-                    reason = "replaced",
-                    retractedAt = now
-                )
-            )
+        val kept = claimLedger.ownedBy(accountId, replacement)
+        replaced.flatMap { claimLedger.ownedBy(accountId, it) }.distinct().filterNot { it in kept }.forEach { (type, value) ->
+            claimLedger.retract(accountId, type, value, RetractionAnchor.ACCOUNT_MANAGEMENT, "replaced", now)
         }
     }
 
@@ -195,23 +157,8 @@ class AccountService(
     ): Int {
         val instanceId = runCatching { UUID.fromString(methodInstanceId) }.getOrNull() ?: return 0
         val now = Instant.now()
-        val retractable = accountClaimRepository.findByAuthMethodId(instanceId)
-            .filter { it.accountId == accountId }
-            .filter { it.attributeType?.authority == AttributeAuthority.MethodModule }
-            .mapNotNull { claim -> claim.attributeType?.let { type -> type to claim.normalizedValue } }
-            .distinct()
-        retractable.forEach { (type, value) ->
-            saveRetraction(
-                AccountRetraction(
-                    accountId = accountId,
-                    attributeType = type,
-                    normalizedValue = value,
-                    trustAnchor = trustAnchor,
-                    reason = reason,
-                    retractedAt = now
-                )
-            )
-        }
+        val retractable = claimLedger.ownedBy(accountId, instanceId)
+        retractable.forEach { (type, value) -> claimLedger.retract(accountId, type, value, trustAnchor, reason, now) }
         return retractable.size
     }
 
@@ -244,160 +191,12 @@ class AccountService(
         provenAcr: AcrLevel,
         authMethodId: UUID? = null
     ) {
-        val seen = mutableSetOf<AttributeType>()
-        claims.forEach { claim ->
-            claim.validateValue()
-            check(seen.add(claim.attributeType)) {
-                "recordClaims($accountId): more than one claim for ${claim.attributeType.wireName}"
-            }
-        }
-        val logged = accountClaimRepository.findEstablished(accountId)
-            .map { claim ->
-                EstablishedClaimKey(
-                    checkNotNull(claim.attributeType),
-                    checkNotNull(claim.normalizedValue),
-                    checkNotNull(claim.claimSource),
-                    claim.authMethodId
-                )
-            }
-            .toMutableSet()
-        claims.forEach { claim ->
-            val establishedAt = Instant.now()
-            if (logged.add(
-                    EstablishedClaimKey(
-                        claim.attributeType,
-                        checkNotNull(AccountClaim.normalize(claim.attributeType, claim.value)),
-                        claim.source.value,
-                        authMethodId
-                    )
-                )
-            ) {
-                accountClaimRepository.save(
-                    AccountClaim(
-                        accountId = accountId,
-                        attributeType = claim.attributeType,
-                        value = claim.value,
-                        claimSource = claim.source.value,
-                        // What was actually proven, not what the tool can reach at most: an
-                        // enrollment from a loa1 session establishes at loa1 even if the tool's
-                        // own ceiling is loa2 (ADR-5; review 2026-09, Phase F - the log used to
-                        // keep the uncapped tool value).
-                        establishedAcr = (claim.establishedAcr?.let { AcrLevel.min(it, provenAcr) } ?: provenAcr).value,
-                        authMethodId = authMethodId,
-                        establishedAt = establishedAt
-                    )
-                )
-            }
+        claimLedger.append(accountId, claims, provenAcr, authMethodId).forEach { (claim, establishedAt) ->
             if (claim.attributeType.isLocalAnchor) {
                 lockForUpdate(accountId)
-                recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
+                anchorRegistry.bind(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
             }
         }
-    }
-
-    /**
-     * Materializes an anchor row. Idempotent when this account already holds the value. A value
-     * held by ANOTHER account is rejected outright ([IdentityConflictException]), never
-     * re-assigned: ADR-11 makes a cross-account conflict an upstream rejection, and throwing rolls
-     * the whole claim back, log entry included. A new value for THIS account's own anchor
-     * re-binds it only if [AnchorRule.allowsReplacement] says so (`EMAIL`); `PERSON_ID` (immutable
-     * after first binding) is rejected the same way. Only ever called from the `AttributeAuthority.Local`
-     * branch of [recordClaims] - [type] is guaranteed to have an [AnchorRule].
-     *
-     * A rebind UPDATES the row in place rather than deleting and re-inserting: Hibernate flushes
-     * insertions before deletions, so a delete-then-insert pair would briefly hold both rows and
-     * trip `ux_anchor_account_type`. The same rebind also RETRACTS the old value from the claim
-     * log ([AccountRetraction], `ACCOUNT_MANAGEMENT`): the log has to agree with the anchor
-     * (ADR-19) instead of keeping a replaced value established forever. Claim-log normalization
-     * applies to the retracted value - the anchor's own differs for case-preserving types.
-     *
-     * Both writes are priced separately by [AnchorRule.acrFloor] and refused below it -
-     * establishing binds a value to an account, replacing re-points an account that other people's
-     * lookups already resolve through, which is the write worth protecting.
-     */
-    private fun recordAnchor(
-        accountId: Long,
-        type: AttributeType,
-        value: String,
-        establishedAt: Instant,
-        provenAcr: AcrLevel
-    ) {
-        val anchor = checkNotNull(type.anchorRule) { "$type is not a local anchor attribute" }
-        val normalized = type.normalizeAnchorValue(value)
-        accountAnchorRepository.findByAttributeTypeAndValue(type, normalized)?.let { held ->
-            if (held.accountId == accountId) return
-            log.warn(
-                "Anchor conflict: {} anchor already held by account {}, rejected for account {}",
-                type.wireName, held.accountId, accountId
-            )
-            throw IdentityConflictException(Text("Dieser {type}-Wert gehoert bereits zu einem anderen Konto", "type" to type.wireName))
-        }
-        val existing = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)
-        if (existing != null) {
-            if (!anchor.allowsReplacement) {
-                log.warn(
-                    "Anchor conflict: {} for account {} is immutable, already bound to {}, rejected new value",
-                    type.wireName, accountId, existing.value
-                )
-                throw IdentityConflictException(Text("Dieser {type}-Wert kann fuer dieses Konto nicht mehr geaendert werden", "type" to type.wireName))
-            }
-            requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.replace, replacing = true)
-            // ADR-19: the replaced value verfaellt - a retraction makes the log agree with the
-            // anchor instead of keeping the old value established forever. Claim-log
-            // normalization applies (the anchor's own differs for case-preserving types).
-            //
-            // Not when old and new are the same value in the log's terms: a case-preserving anchor
-            // (eID restricted_id) can be replaced by a value differing only in case, and the
-            // retraction - stamped with the new claim's own time - would then also void the claim
-            // just being set (review 2026-09, Phase F).
-            val replacedLogValue = AccountClaim.normalize(type, checkNotNull(existing.value))
-            if (replacedLogValue != AccountClaim.normalize(type, value)) saveRetraction(
-                AccountRetraction(
-                    accountId = accountId,
-                    attributeType = type,
-                    normalizedValue = replacedLogValue,
-                    trustAnchor = RetractionAnchor.ACCOUNT_MANAGEMENT,
-                    reason = "anker-ersetzt",
-                    retractedAt = establishedAt
-                )
-            )
-            existing.value = normalized
-            existing.establishedAcr = provenAcr.value
-            existing.establishedAt = establishedAt
-            accountAnchorRepository.save(existing)
-            return
-        }
-        requireAnchorAcr(type, provenAcr, floor = anchor.acrFloor.establish, replacing = false)
-        accountAnchorRepository.save(
-            AccountAnchor(
-                accountId = accountId,
-                attributeType = type,
-                value = normalized,
-                establishedAcr = provenAcr.value,
-                establishedAt = establishedAt
-            )
-        )
-    }
-
-    /**
-     * Refuses an anchor write the session has not paid for. Rejecting rather than silently logging
-     * the claim without its anchor: a caller that believed it bound an identity must not proceed on
-     * a false premise (ADR-11's line - reject, never quietly skip).
-     */
-    private fun requireAnchorAcr(type: AttributeType, provenAcr: AcrLevel, floor: AcrLevel, replacing: Boolean) {
-        if (AcrLevel.rank(provenAcr) >= AcrLevel.rank(floor)) return
-        log.warn(
-            "Anchor floor: {} may only be {} at {} or above, session proved {}",
-            type.wireName, if (replacing) "replaced" else "set", floor.value, provenAcr.value
-        )
-        throw IdentityConflictException(
-            // Two sentences, not one with the verb as a value: a verb is wording, every language inflects it itself.
-            if (replacing) {
-                Text("Dieser {type}-Wert kann erst ab {floor} ersetzt werden, nachgewiesen ist {provenAcr}", "type" to type.wireName, "floor" to floor.value, "provenAcr" to provenAcr.value)
-            } else {
-                Text("Dieser {type}-Wert kann erst ab {floor} gesetzt werden, nachgewiesen ist {provenAcr}", "type" to type.wireName, "floor" to floor.value, "provenAcr" to provenAcr.value)
-            }
-        )
     }
 
     /**
@@ -431,7 +230,7 @@ class AccountService(
      * goes through the ordinary [recordClaim] path, one claim at a time in the order they were
      * originally established: every conflict check, ACR floor and retraction rule (ADR-12) then
      * applies to the absorbing account exactly as it did to the account that yielded, and an
-     * anchor [into] already holds with the same value is the no-op [recordAnchor] already is.
+     * anchor [into] already holds with the same value is the no-op [AnchorRegistry.bind] already is.
      * Claim by claim rather than batched, because the log may legitimately hold several values of
      * the same attribute (two eID cards in one run) - replaying them in order reproduces the same
      * end state instead of tripping the one-claim-per-attribute contract.
@@ -454,21 +253,17 @@ class AccountService(
         }
         checkNotNull(findAccount(into)) { "Account not found: $into" }
 
-        val anchors = accountAnchorRepository.findByAccountId(from)
+        val anchors = anchorRegistry.anchorsOf(from)
         // The price each anchor write was originally paid with (AnchorRule.acrFloor) - re-used
         // here rather than the CURRENT session's level, so absorbing neither under- nor overpays
         // for what was already established.
         val anchorAcr = anchors.mapNotNull { anchor ->
             anchor.attributeType?.let { type -> type to (anchor.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE) }
         }.toMap()
-        val claims = accountClaimRepository.findEstablished(from).sortedBy { it.establishedAt }
+        val claims = claimLedger.established(from).sortedBy { it.establishedAt }
 
-        // Release the unique anchor values BEFORE the same values are written on `into`, and
-        // flush it: Hibernate orders insertions before deletions within one flush, so without
-        // this the re-write would trip `ux_anchor_value` against the account it is taking over
-        // from (the same ordering trap `recordAnchor`'s in-place rebind documents).
-        accountAnchorRepository.deleteAll(anchors)
-        accountAnchorRepository.flush()
+        // Release the unique anchor values BEFORE the same values are written on `into`.
+        anchorRegistry.releaseNow(anchors)
         changeLog.accountAbsorbed(into, from)
         deleteAccount(from)
 
@@ -488,15 +283,6 @@ class AccountService(
         log.info("Account {} absorbed provisional account {} ({} claims)", into, from, claims.size)
     }
 
-    /** Every withdrawal goes through here, so none escapes the change log (ADR-39) - the value stays in the retraction row, which goes with the account. */
-    private fun saveRetraction(retraction: AccountRetraction): AccountRetraction {
-        changeLog.attributeRetracted(
-            checkNotNull(retraction.accountId), retraction.attributeType?.name,
-            trustAnchor = retraction.trustAnchor?.name, reason = retraction.reason, at = checkNotNull(retraction.retractedAt)
-        )
-        return accountRetractionRepository.save(retraction)
-    }
-
     /**
      * The audit record of one identification run (ADR-39): which procedure, at which level, in which
      * role (identifying or only correlating, ADR-18), and where to check it - never what it saw.
@@ -509,13 +295,11 @@ class AccountService(
      */
     @Transactional
     fun addIdentification(accountId: Long, method: String, loa: String?, role: String? = null, report: Map<String, Any?> = emptyMap()) {
-        val verified = accountClaimRepository.findEstablished(accountId)
-            .filter { ClaimSource(it.claimSource.orEmpty()).trustLevel.rank >= TrustLevel.PROVEN.rank }
-            .strongestEstablishedValues(PERSON_LOOKUP_ATTRIBUTES)
+        val verified = claimLedger.provenValues(accountId, PERSON_LOOKUP_ATTRIBUTES)
         val lookupKey = personLookupKey.of(
             verified[AttributeType.FAMILY_NAME], verified[AttributeType.GIVEN_NAMES], verified[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
         )
-        val personId = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, AttributeType.PERSON_ID)?.value
+        val personId = anchorRegistry.valueOf(accountId, AttributeType.PERSON_ID)
         changeLog.identified(accountId, method, loa, role, report, lookupKey, personId)
     }
 
@@ -681,11 +465,11 @@ class AccountService(
     // AccountDirectory (tool_api) -------------------------------------------------------------
 
     override fun resolveByAnchor(type: AttributeType, value: String): Long? =
-        accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value))?.accountId
+        anchorRegistry.holderOf(type, value)
 
     override fun anchorValue(accountId: Long, type: AttributeType): String? {
         check(type.isLocalAnchor) { "$type is not a local account anchor, it is owned by ${type.authority}" }
-        return accountAnchorRepository.findByAccountIdAndAttributeType(accountId, type)?.value
+        return anchorRegistry.valueOf(accountId, type)
     }
 
     /**
@@ -698,7 +482,7 @@ class AccountService(
      * [com.example.dpop.account.internal.strongestEstablishedValues].
      */
     fun establishedClaimValues(accountId: Long, types: Set<AttributeType>): Map<AttributeType, String> =
-        accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(types)
+        claimLedger.establishedValues(accountId, types)
 
     override fun activeEnrollment(accountId: Long, method: String): EnrollmentRef? =
         findActiveMethod(accountId, method)?.enrollmentRef
@@ -748,9 +532,8 @@ class AccountService(
      * the anchor conflict and be retried forever, never resolving (review 2026-09, M-13).
      */
     private fun releaseFromOtherAccount(type: AttributeType, value: String, keeper: Long) {
-        val held = accountAnchorRepository.findByAttributeTypeAndValue(type, type.normalizeAnchorValue(value)) ?: return
-        if (held.accountId == keeper) return
-        val previousHolder = checkNotNull(held.accountId)
+        val previousHolder = anchorRegistry.holderOf(type, value) ?: return
+        if (previousHolder == keeper) return
         log.info("{} anchor moved by the Personenverzeichnis: released from account {} for account {}", type.wireName, previousHolder, keeper)
         retractAttribute(previousHolder, type, RetractionAnchor.PERSON_DIRECTORY, "Im Personenverzeichnis einer anderen Person zugeordnet")
     }
@@ -768,7 +551,7 @@ class AccountService(
 
     private fun toProfile(account: Account): AccountProfile {
         val accountId = checkNotNull(account.id) { "Account has no id" }
-        val anchors = accountAnchorRepository.findByAccountId(accountId).associateBy { it.attributeType }
+        val anchors = anchorRegistry.anchorsOf(accountId).associateBy { it.attributeType }
         val emailAnchor = anchors[AttributeType.EMAIL]
         return AccountProfile(
             accountId = accountId,
@@ -776,20 +559,9 @@ class AccountService(
             authenticationMethods = accountAuthMethodRepository.findByAccountIdOrderByCreatedAt(accountId).map { it.toView() },
             email = emailAnchor?.value,
             emailConfirmedAt = emailAnchor?.establishedAt,
-            establishedClaims = establishedClaims(accountId)
+            establishedClaims = claimLedger.establishedTrust(accountId)
         )
     }
-
-    /** Assertions minus retractions, highest [TrustLevel] per attribute - see [AccountProfile.establishedClaims]. */
-    private fun establishedClaims(accountId: Long): Map<AttributeType, TrustLevel> =
-        accountClaimRepository.findEstablished(accountId)
-            .mapNotNull { claim ->
-                val type = claim.attributeType ?: return@mapNotNull null
-                val source = claim.claimSource?.let(::ClaimSource) ?: return@mapNotNull null
-                type to source.trustLevel
-            }
-            .groupBy({ it.first }, { it.second })
-            .mapValues { (_, levels) -> levels.maxBy { it.rank } }
 
     private fun AccountAuthMethod.toView() = AuthMethodView(
         id = id.toString(),
@@ -810,15 +582,3 @@ class AccountService(
         val PERSON_LOOKUP_ATTRIBUTES = setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
     }
 }
-
-/**
- * What makes a claim already logged: same attribute, same normalized value, same source, same
- * method instance - the key [AccountService.recordClaims] skips on, keeping the claim log a
- * change log instead of a run log.
- */
-private data class EstablishedClaimKey(
-    val type: AttributeType,
-    val normalizedValue: String,
-    val source: String,
-    val authMethodId: UUID?
-)
