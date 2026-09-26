@@ -24,7 +24,34 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
         beforeEach { stubDpopWithFakeJwk(jwkThumbprintService) }
     }
 
+    /** A wrong password on a fresh auth-password tool - a failed attempt that sends nothing (the send throttle has its own test below). */
+    private fun failPassword(channelSessionId: String) {
+        val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password").nextRaw()["toolSessionId"] as String
+        patch("/orchestrator/api/v1/tools/$toolSessionId/auth-password", """{"password":"wrong-password-123"}""")
+    }
+
     init {
+        given("an account that keeps requesting SMS codes (review 2026-09, Phase F)") {
+            `when`("auth-sms is activated a fourth time within the window") {
+                then("it is refused with 429 and no code is sent - not a failed attempt") {
+                    seedRegisteredAccount()
+                    repeat(3) {
+                        val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                        post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+                    }
+                    val sentBefore = smsGateway.outbox().size
+                    val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                    val refused = assertThrows<HttpClientErrorException> {
+                        post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms")
+                    }
+                    refused.statusCode.value() shouldBe 429
+                    smsGateway.outbox().size shouldBe sentBefore
+                    // The login itself is not locked - a password still works.
+                    post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-password").nextRaw()["toolSessionId"].shouldNotBeNull()
+                }
+            }
+        }
+
         given("a fresh channel") {
             `when`("repeatedly failing auth across fresh tool sessions") {
                 then("the account-level throttle locks") {
@@ -35,13 +62,12 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // account-level throttle must (docs/04-orchestrierung.md #7).
                 repeat(5) {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
-                    patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
+                    failPassword(channelSessionId)
                 }
 
                 val lockedChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val exception = assertThrows<HttpClientErrorException> {
-                    post("/orchestrator/api/v1/channels/$lockedChannelSessionId/tools/auth-sms")
+                    post("/orchestrator/api/v1/channels/$lockedChannelSessionId/tools/auth-password")
                 }
                 exception.statusCode.value() shouldBe 423
 
@@ -60,8 +86,7 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // the journey before the account-level counter is anywhere near its own threshold.
                 repeat(3) {
                     val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
-                    patch("/orchestrator/api/v1/tools/$toolSessionId/auth-sms", """{"tan":"000000"}""")
+                    failPassword(channelSessionId)
                 }
                 val freshChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
                 val authenticated = authenticateViaSms(freshChannelSessionId)
@@ -72,12 +97,11 @@ class AccountThrottleIntegrationTest : IntegrationTestSupport() {
                 // already at 3/5 - they still land on the same account via the device link.
                 repeat(2) {
                     val retryChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                    val retryToolSessionId = post("/orchestrator/api/v1/channels/$retryChannelSessionId/tools/auth-sms").nextRaw()["toolSessionId"] as String
-                    patch("/orchestrator/api/v1/tools/$retryToolSessionId/auth-sms", """{"tan":"000000"}""")
+                    failPassword(retryChannelSessionId)
                 }
                 // Still allowed - only 2 failures since the reset, well under the lock threshold.
                 val nextChannelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
-                val stillAllowed = post("/orchestrator/api/v1/channels/$nextChannelSessionId/tools/auth-sms")
+                val stillAllowed = post("/orchestrator/api/v1/channels/$nextChannelSessionId/tools/auth-password")
                 stillAllowed.nextRaw()["toolSessionId"].shouldNotBeNull()
 
 

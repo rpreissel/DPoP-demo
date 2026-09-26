@@ -35,10 +35,14 @@ class AccountDeletionService(
 ) {
     private val cleanupsByType: Map<String, EnrollmentCleanup> = cleanups.associateBy { it.enrollmentType }
 
+    /** The module's credential row goes - unless another account's method still points at it. */
+    private fun deleteCredential(accountId: Long, ref: com.example.dpop.tool_spi.EnrollmentRef) {
+        if (accountService.isEnrollmentSharedWithOtherAccount(accountId, ref)) return
+        cleanupsByType[ref.type]?.delete(ref)
+    }
+
     fun deleteAccount(accountId: Long) {
-        accountService.allEnrollmentRefs(accountId).forEach { ref ->
-            cleanupsByType[ref.type]?.delete(ref)
-        }
+        accountService.allEnrollmentRefs(accountId).forEach { ref -> deleteCredential(accountId, ref) }
 
         deviceAccountLinkRepository.deleteByAccountId(accountId)
 
@@ -101,7 +105,7 @@ class AccountDeletionService(
      * once that key is no longer theirs (docs/09-dpop.md).
      */
     fun revokeMethod(accountId: Long, methodInstanceId: String) {
-        accountService.enrollmentRefFor(accountId, methodInstanceId)?.let { ref -> cleanupsByType[ref.type]?.delete(ref) }
+        accountService.enrollmentRefFor(accountId, methodInstanceId)?.let { ref -> deleteCredential(accountId, ref) }
         // The credential row is gone, so whatever only IT backed stops being a valid claim
         // (ADR-12). Account-owned facts this method happened to assert along the way survive -
         // the rule lives in retractClaimsOf, not here.

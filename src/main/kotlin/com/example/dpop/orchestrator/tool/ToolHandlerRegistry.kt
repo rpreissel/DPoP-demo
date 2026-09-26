@@ -3,6 +3,8 @@ package com.example.dpop.orchestrator.tool
 import com.example.dpop.texts.Text
 import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.tool_spi.ToolDescriptor
+import com.example.dpop.tool_spi.ClaimSource
+import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
@@ -34,6 +36,15 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
                 "${key.first}/${key.second}: ${group.map { it.toolId }}"
             }
             "Duplicate (method, role) in tool catalog: $details"
+        }
+        // A KVNR is only ever vouched for by the Personenverzeichnis itself. Identity matching has
+        // no path for a KVNR a tool merely read (it used to have one, unreachable and unchecked -
+        // review 2026-09, Phase F); a tool declaring one must fail here, not open that path silently.
+        val unvouchedKvnr = descriptorsByToolId.values.filter { descriptor ->
+            descriptor.claims.any { it.attributeType == AttributeType.KVNR && it.source != ClaimSource.PERSON_DIRECTORY }
+        }
+        check(unvouchedKvnr.isEmpty()) {
+            "Only the Personenverzeichnis may vouch for a KVNR, but ${unvouchedKvnr.map { it.toolId }} declare one from elsewhere"
         }
     }
 

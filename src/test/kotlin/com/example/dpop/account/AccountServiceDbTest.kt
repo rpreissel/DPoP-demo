@@ -652,4 +652,15 @@ class AccountServiceDbTest(
             ) shouldBe 3
         }
     }
+
+    given("a card anchor replaced by a value that differs only in case (review 2026-09, Phase F)") {
+        then("the new claim stands - the replacement does not void what it just set") {
+            val account = accountService.createUnidentifiedAccount()
+            val source = ClaimSource.of(com.example.dpop.tool_spi.ToolId("ident-eid"))
+            accountService.recordClaim(account.accountId, Claim(AttributeType.EID_RESTRICTED_ID, "AbC123", source), provenAcr = AcrLevel.LOA3)
+            accountService.recordClaim(account.accountId, Claim(AttributeType.EID_RESTRICTED_ID, "ABC123", source), provenAcr = AcrLevel.LOA3)
+
+            accountService.establishedClaimValues(account.accountId, setOf(AttributeType.EID_RESTRICTED_ID))[AttributeType.EID_RESTRICTED_ID] shouldBe "ABC123"
+        }
+    }
 })

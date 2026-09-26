@@ -33,6 +33,24 @@ class EnrollSmsFlowTest : BehaviorSpec({
             }
         }
 
+        `when`("a number outside the EU/EEA, or without a country code, was submitted (review 2026-09, Phase F)") {
+            then("it is rejected before any SMS is sent") {
+                listOf("+1 202 555 0143", "+44 7700 900123", "0170 1234567", "+49 12").forEach { number ->
+                    EnrollSmsFlow.decide(state, EnrollSmsInput(phoneNumber = number), tanGenerator) shouldBe
+                        EnrollSmsDecision.InvalidPhoneNumber(number)
+                }
+            }
+        }
+
+        `when`("an EU/EEA number arrives in another spelling") {
+            then("it is normalized - 00 becomes +, separators go") {
+                EnrollSmsFlow.decide(state, EnrollSmsInput(phoneNumber = "0049 (170) 123-4567"), tanGenerator) shouldBe
+                    EnrollSmsDecision.SendTan("+491701234567")
+                EnrollSmsFlow.decide(state, EnrollSmsInput(phoneNumber = "+47 412 34 567"), tanGenerator) shouldBe
+                    EnrollSmsDecision.SendTan("+4741234567")
+            }
+        }
+
         `when`("a valid phone number was submitted") {
             then("a TAN is sent to the normalized number") {
                 EnrollSmsFlow.decide(state, EnrollSmsInput(phoneNumber = "+49 170 1234567"), tanGenerator) shouldBe

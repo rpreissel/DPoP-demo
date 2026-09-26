@@ -61,7 +61,7 @@ class AccountClaim(
     @PrePersist
     @PreUpdate
     fun normalizeValue() {
-        normalizedValue = normalize(value)
+        normalizedValue = normalize(attributeType, value)
     }
 
     companion object {
@@ -70,6 +70,15 @@ class AccountClaim(
          * anti-join in [AccountClaimRepository.findEstablished]'s not-exists subtraction both
          * depend on it, or a withdrawn value silently keeps counting (ADR-12).
          */
-        fun normalize(value: String?): String? = value?.trim()?.lowercase()
+        fun normalize(type: AttributeType?, value: String?): String? =
+            value?.trim()?.let { if (type in CASE_PRESERVING) it else it.lowercase() }
+
+        /**
+         * Card pseudonyms are opaque values in which case matters - their anchor keeps it
+         * (`normalizeAnchorValue`), so the log must too. Lowercasing them here made two different
+         * pseudonyms one value in the log: the replacement of one by the other then left no claim
+         * for the new value, or voided it outright (review 2026-09, Phase F).
+         */
+        private val CASE_PRESERVING = setOf(AttributeType.EID_RESTRICTED_ID, AttributeType.NECT_RESTRICTED_ID)
     }
 }

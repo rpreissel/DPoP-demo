@@ -183,7 +183,14 @@ class JourneyActionExecutor(
                     // step is extending (CORRELATION always reaches here with inHand present and
                     // no register person of its own yet). Opening a SECOND account beside it
                     // would silently split one run across two.
-                    inHandAccount.isUnidentified -> inHandAccount.accountId
+                    // - but only as the SAME person: an Interessent that already attested an
+                    // identity must not take a second one (review 2026-09, Phase F).
+                    inHandAccount.isUnidentified -> {
+                        if (!identityResolver.attestationFits(inHandAccount.accountId, action.outcome.claims.toSet())) {
+                            throw IdentityConflictException(Text("Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung"))
+                        }
+                        inHandAccount.accountId
+                    }
                     // An identified account plus an attestation that resolves to nobody means a
                     // DIFFERENT person - mixing a stranger's attested identity into it is the one
                     // thing that must never happen quietly. Somebody else registering on a linked
@@ -475,10 +482,15 @@ class JourneyActionExecutor(
         val accountId = accountOfProof(journey, channel, action)
         bindAccount(journey, channel, accountId)
         linkDeviceIfIntentImplies(journey, channel, accountId)
-        val used = checkNotNull(accountService.findActiveMethod(accountId, action.tool.method)) {
-            "No active method '${action.tool.method}' for account $accountId"
-        }
-        val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, used.enrolledUnderAcr?.let(AcrLevel::of))
+        // The instance that was used, not simply the first active one (review 2026-09, Phase F): for a
+        // method with several instances (devices, KOBIL installations) it is the one on the caller's
+        // key - the same rule the tool chose it by (ToolDescriptor.keyBinding). Should that still
+        // leave more than one, the lowest cap applies - an ACR is never granted on a guess.
+        val active = accountService.findActiveMethods(accountId, action.tool.method)
+        check(active.isNotEmpty()) { "No active method '${action.tool.method}' for account $accountId" }
+        val used = active.filter { action.tool.keyBinding?.livesOn(it.details, channel.bindingKeyRef) ?: true }.ifEmpty { active }
+        val cap: AcrLevel? = used.map { it.enrolledUnderAcr?.let(AcrLevel::of) }.reduce { a, b -> AcrLevel.min(a, b) }
+        val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, cap)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
     }
 

@@ -74,7 +74,7 @@ internal object EnrollSmsFlow {
     fun decide(state: EnrollSmsState, input: EnrollSmsInput, tanGenerator: TanGenerator): EnrollSmsDecision {
         input.phoneNumber?.let { raw ->
             val normalized = normalize(raw)
-            return if (PHONE_PATTERN.matches(normalized)) {
+            return if (isAllowed(normalized)) {
                 EnrollSmsDecision.SendTan(normalized)
             } else {
                 EnrollSmsDecision.InvalidPhoneNumber(raw)
@@ -93,7 +93,28 @@ internal object EnrollSmsFlow {
         }
     }
 
-    private fun normalize(phoneNumber: String) = phoneNumber.replace("\\s+".toRegex(), "").trim()
+    /** Separators out, a leading `00` becomes `+` - "+49 170 123 45-67", "0049 (170) 1234567" are the same number. */
+    private fun normalize(phoneNumber: String) =
+        phoneNumber.replace(SEPARATORS, "").let { if (it.startsWith("00")) "+" + it.removePrefix("00") else it }
 
-    private val PHONE_PATTERN = "^\\+?[0-9]{6,20}$".toRegex()
+    /**
+     * International format with a country code from the EU/EEA (review 2026-09, Phase F): SMS to
+     * premium destinations is the classic abuse of a public "send me a code" endpoint ("SMS
+     * pumping"), and nobody registers here with a number from elsewhere. At most 15 digits (E.164).
+     */
+    private fun isAllowed(number: String): Boolean {
+        if (!E164.matches(number)) return false
+        val digits = number.removePrefix("+")
+        return ALLOWED_COUNTRY_CODES.any { digits.startsWith(it) && digits.length > it.length + 5 }
+    }
+
+    private val SEPARATORS = "[\\s\\-/().]".toRegex()
+    private val E164 = "^\\+[1-9][0-9]{7,14}$".toRegex()
+
+    /** EU member states plus the EEA (Iceland, Liechtenstein, Norway). */
+    private val ALLOWED_COUNTRY_CODES = setOf(
+        "43", "32", "359", "385", "357", "420", "45", "372", "358", "33", "49", "30", "36", "353", "39",
+        "371", "370", "352", "356", "31", "48", "351", "40", "421", "386", "34", "46",
+        "354", "423", "47",
+    )
 }

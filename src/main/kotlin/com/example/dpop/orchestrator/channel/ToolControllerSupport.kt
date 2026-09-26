@@ -255,6 +255,12 @@ class ToolControllerSupport(
     override fun isSendThrottledForContact(contact: String): Boolean =
         sendThrottleService.isThrottledForContact(contact)
 
+    override fun requireSendAllowed(context: ToolContext) {
+        if (context.accountId?.let { sendThrottleService.isThrottled(it) } == true) {
+            throw OrchestratorException.tooManyRequests(Text("Zu viele Codes angefordert. Bitte versuchen Sie es in einigen Minuten erneut."))
+        }
+    }
+
     /**
      * Charges the brute-force counter that matches what this tool actually attempted.
      *

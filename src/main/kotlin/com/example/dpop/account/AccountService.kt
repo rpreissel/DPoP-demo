@@ -287,7 +287,7 @@ class AccountService(
             if (logged.add(
                     EstablishedClaimKey(
                         claim.attributeType,
-                        checkNotNull(AccountClaim.normalize(claim.value)),
+                        checkNotNull(AccountClaim.normalize(claim.attributeType, claim.value)),
                         claim.source.value,
                         authMethodId
                     )
@@ -363,11 +363,17 @@ class AccountService(
             // ADR-19: the replaced value verfaellt - a retraction makes the log agree with the
             // anchor instead of keeping the old value established forever. Claim-log
             // normalization applies (the anchor's own differs for case-preserving types).
-            saveRetraction(
+            //
+            // Not when old and new are the same value in the log's terms: a case-preserving anchor
+            // (eID restricted_id) can be replaced by a value differing only in case, and the
+            // retraction - stamped with the new claim's own time - would then also void the claim
+            // just being set (review 2026-09, Phase F).
+            val replacedLogValue = AccountClaim.normalize(type, checkNotNull(existing.value))
+            if (replacedLogValue != AccountClaim.normalize(type, value)) saveRetraction(
                 AccountRetraction(
                     accountId = accountId,
                     attributeType = type,
-                    normalizedValue = AccountClaim.normalize(existing.value),
+                    normalizedValue = replacedLogValue,
                     trustAnchor = RetractionAnchor.ACCOUNT_MANAGEMENT,
                     reason = "anker-ersetzt",
                     retractedAt = establishedAt
@@ -668,6 +674,16 @@ class AccountService(
     @Transactional(readOnly = true)
     fun allEnrollmentRefs(accountId: Long): List<EnrollmentRef> =
         accountAuthMethodRepository.findByAccountIdOrderByCreatedAt(accountId).map { it.enrollmentRef }
+
+    /**
+     * Whether a method of ANOTHER account points at the same credential row as [enrollmentRef] - a
+     * device key rebound to a new account, whose enrollment reused the row by its thumbprint. Such a
+     * row must survive this account's deletion or revocation (review 2026-09, Phase F: it used to be
+     * deleted, and the other account's method ran into a 500).
+     */
+    @Transactional(readOnly = true)
+    fun isEnrollmentSharedWithOtherAccount(accountId: Long, enrollmentRef: EnrollmentRef): Boolean =
+        accountAuthMethodRepository.existsByEnrollmentTypeAndEnrollmentIdAndAccountIdNot(enrollmentRef.type, enrollmentRef.id, accountId)
 
     /** The [EnrollmentRef] for ONE method instance - for a caller revoking a single credential (`AccountDeletionService.revokeMethod`). */
     @Transactional(readOnly = true)

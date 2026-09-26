@@ -56,6 +56,15 @@ interface IdentityResolver {
      * the case this must refuse.
      */
     fun attestedIdentityMatches(accountId: Long, personId: String): Boolean
+
+    /**
+     * May account [accountId] take these attested [claims] without becoming somebody else? `true`
+     * when it has attested no identity yet, or the new claims name the same person (name, given
+     * name, birthdate - compared in passport form: case, umlaut spelling and diacritics do not
+     * count). For an account without a register person (an Interessent, ADR-18): it used to take
+     * any second identity unchecked (review 2026-09, Phase F).
+     */
+    fun attestationFits(accountId: Long, claims: Set<Claim>): Boolean
 }
 
 /** Result of resolving attested claims against the existing account stock. Never a boolean. */

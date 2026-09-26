@@ -51,11 +51,15 @@ class IdentityMatchingService(
     override fun resolve(claims: Set<Claim>): Resolution {
         val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR }
         val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
-        val externalPersonId = if (kvnrClaim != null &&
-            (personClaim == null || kvnrClaim.source.trustLevel != TrustLevel.STAMMDATEN)
-        ) personDirectory.findPersonIdByKvnr(normalizeKvnr(kvnrClaim.value)) else null
-        verifyToolAttestedConsistency(claims, externalPersonId)
-        return resolveByAnchor(claims, externalPersonId.takeIf { personClaim == null }) ?: Resolution.Unresolved
+        // A KVNR here always comes from the Personenverzeichnis itself (ToolHandlerRegistry refuses
+        // any other source at startup) - it was checked at the source, so it only resolves the person
+        // when the claims carry no person reference of their own.
+        val externalPersonId = if (kvnrClaim != null && personClaim == null) {
+            personDirectory.findPersonIdByKvnr(normalizeKvnr(kvnrClaim.value))
+        } else {
+            null
+        }
+        return resolveByAnchor(claims, externalPersonId) ?: Resolution.Unresolved
     }
 
     /**
@@ -79,30 +83,22 @@ class IdentityMatchingService(
         )
     }
 
-    /**
-     * Tool-attested claims get checked against the stammdaten behind their own kvnr before any
-     * matching happens - the tool's word alone doesn't reach the stock. Stammdaten-attested
-     * claims (ident-fsc's, PERSON_DIRECTORY) skip this: their anchor IS the stammdaten backend,
-     * they were checked at the source. A kvnr that resolves to nobody passes - that's the
-     * Interessent case, not a conflict.
-     */
-    private fun verifyToolAttestedConsistency(claims: Set<Claim>, personId: String?) {
-        val kvnrClaim = claims.firstOrNull { it.attributeType == AttributeType.KVNR } ?: return
-        if (kvnrClaim.source.trustLevel == TrustLevel.STAMMDATEN) return
-        if (personId == null) return
-        val personClaim = claims.firstOrNull { it.attributeType == AttributeType.PERSON_ID }
-        if (personClaim != null && personClaim.value.trim() != personId) {
-            throw IdentityConflictException(Text("KVNR und PersonId verweisen auf unterschiedliche Personen"))
-        }
-        val claimed = ClaimedIdentity(
-            name = claims.claimValue(AttributeType.NAME),
-            vorname = claims.claimValue(AttributeType.VORNAME),
-            geburtsdatum = claims.claimValue(AttributeType.GEBURTSDATUM)?.let(LocalDate::parse)
-        )
-        if (!personDirectory.matchesStammdaten(personId, claimed)) {
-            throw IdentityConflictException(Text("Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein"))
+    override fun attestationFits(accountId: Long, claims: Set<Claim>): Boolean {
+        val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)
+        return ATTESTABLE_IDENTITY_ATTRIBUTES.all { type ->
+            val before = attested[type] ?: return@all true
+            val now = claims.firstOrNull { it.attributeType == type }?.value ?: return@all true
+            passportForm(before) == passportForm(now)
         }
     }
+
+    /** Uppercase, German umlauts spelled out, other diacritics dropped - how a passport chip writes a name. */
+    private fun passportForm(value: String): String =
+        java.text.Normalizer.normalize(
+            value.trim().uppercase()
+                .replace("Ä", "AE").replace("Ö", "OE").replace("Ü", "UE").replace("ß", "SS").replace("ẞ", "SS"),
+            java.text.Normalizer.Form.NFD
+        ).replace("\\p{M}".toRegex(), "").replace("[^A-Z0-9-]".toRegex(), "")
 
     /**
      * Anchor values - unique, error-free lookups via `account.anchor`'s UNIQUE constraint,
@@ -136,7 +132,4 @@ class IdentityMatchingService(
         }
         return matches.maxByOrNull { it.matchedVia.bindingStrength }
     }
-
-    private fun Set<Claim>.claimValue(type: AttributeType): String? =
-        firstOrNull { it.attributeType == type }?.value
 }

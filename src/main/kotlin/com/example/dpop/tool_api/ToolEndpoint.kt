@@ -180,6 +180,15 @@ interface ToolEndpoint {
     fun isSendThrottledForContact(contact: String): Boolean
 
     /**
+     * Refuses (429) to send yet another code to [context]'s account when that is over budget -
+     * for an IDENTIFIED_AUTH tool that sends on activation (`auth-sms`, `auth-email`), whose account
+     * the channel already knows, so saying so reveals nothing. Counts the attempt. Not a failed
+     * attempt: it charges no login throttle and no journey budget (review 2026-09, Phase F - the
+     * activation used to send unchecked, one code per click).
+     */
+    fun requireSendAllowed(context: ToolContext)
+
+    /**
      * Builds the response for a GET call.
      *
      * @param freshOutcome the tool's freshly rebuilt `InProgress` state, or `null` if [context]'s

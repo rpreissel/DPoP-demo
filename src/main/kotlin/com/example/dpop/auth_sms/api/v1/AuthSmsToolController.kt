@@ -73,6 +73,8 @@ class AuthSmsToolController(
         // reference (docs/06-ablaeufe.md #3: only the orchestrator may reference `account`).
         val enrollmentRef = context.accountId?.let { accountDirectory.activeEnrollment(it, descriptor.method) }
             ?: throw UnresolvableReferenceException(Text("Kein aktives Anmeldeverfahren dieser Art fuer dieses Konto"), "no active sms method")
+        // Activation sends the TAN - bounded like every other send (SendThrottleService).
+        toolEndpoint.requireSendAllowed(context)
         val outcome = handler.start(context.toolSessionId, enrollmentRef)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

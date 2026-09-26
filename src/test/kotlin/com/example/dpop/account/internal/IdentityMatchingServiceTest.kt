@@ -37,28 +37,6 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         personDirectory: PersonDirectory
     ) = IdentityMatchingService(anchorRepository, claimRepository, personDirectory)
 
-    given("a tool-attested kvnr whose claims contradict the stammdaten on file") {
-        val anchorRepository = mockk<AccountAnchorRepository>()
-        val claimRepository = mockk<AccountClaimRepository>()
-        val personDirectory = mockk<PersonDirectory>()
-        val resolver = service(anchorRepository, claimRepository, personDirectory)
-        val claims = setOf(
-            Claim(AttributeType.KVNR, "A123456789", ClaimSource.of(ToolId("ident-eid"))),
-            Claim(AttributeType.NAME, "Anders", ClaimSource.of(ToolId("ident-eid"))),
-            Claim(AttributeType.VORNAME, "Andrea", ClaimSource.of(ToolId("ident-eid"))),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", ClaimSource.of(ToolId("ident-eid")))
-        )
-        every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
-        every { personDirectory.matchesStammdaten("P000000007", any()) } returns false
-
-        `when`("resolve is called") {
-            then("it refuses to match anything and reports the conflict") {
-                shouldThrow<IdentityConflictException> { resolver.resolve(claims) }
-                    .message shouldBe "Ausweisdaten stimmen nicht mit den angegebenen Daten ueberein"
-            }
-        }
-    }
-
     given("a tool-attested kvnr with consistent claims and an existing person_id anchor") {
         val anchorRepository = mockk<AccountAnchorRepository>()
         val claimRepository = mockk<AccountClaimRepository>()
@@ -306,6 +284,37 @@ class IdentityMatchingServiceTest : BehaviorSpec({
                 resolver.attestedIdentityMatches(1L, "P000000042") shouldBe false
                 verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
             }
+        }
+    }
+
+    given("attestationFits - an Interessent may not take a second identity (review 2026-09, Phase F)") {
+        val eid = ClaimSource.of(ToolId("ident-eid"))
+        fun claim(type: AttributeType, value: String) = AccountClaim(
+            accountId = 1L, attributeType = type, value = value, claimSource = eid.value, establishedAt = Instant.now()
+        )
+        val claimRepository = mockk<AccountClaimRepository>()
+        val resolver = service(mockk(), claimRepository, mockk())
+
+        then("an account that attested nothing yet takes any identity") {
+            every { claimRepository.findEstablished(1L) } returns emptyList()
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.NAME, "Anders", eid))) shouldBe true
+        }
+
+        then("the same person in another spelling fits - case, umlauts and diacritics do not count") {
+            every { claimRepository.findEstablished(1L) } returns listOf(
+                claim(AttributeType.NAME, "Müller"), claim(AttributeType.VORNAME, "José"), claim(AttributeType.GEBURTSDATUM, "1985-06-15")
+            )
+            resolver.attestationFits(1L, setOf(
+                Claim(AttributeType.NAME, "MUELLER", eid), Claim(AttributeType.VORNAME, "Jose", eid), Claim(AttributeType.GEBURTSDATUM, "1985-06-15", eid)
+            )) shouldBe true
+        }
+
+        then("somebody else does not - a different birthdate or name is a second identity") {
+            every { claimRepository.findEstablished(1L) } returns listOf(
+                claim(AttributeType.NAME, "Müller"), claim(AttributeType.GEBURTSDATUM, "1985-06-15")
+            )
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.GEBURTSDATUM, "1990-01-01", eid))) shouldBe false
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.NAME, "Schmidt", eid))) shouldBe false
         }
     }
 })

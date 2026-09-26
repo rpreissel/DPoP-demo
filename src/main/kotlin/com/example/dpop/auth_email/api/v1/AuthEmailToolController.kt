@@ -70,6 +70,8 @@ class AuthEmailToolController(
         // lookup, same 422 either way.
         val accountId = context.accountId
             ?: throw UnresolvableReferenceException(Text("Kein Konto fuer diesen Kanal"))
+        // Activation sends the code - bounded like every other send (SendThrottleService).
+        toolEndpoint.requireSendAllowed(context)
         val outcome = handler.start(context.toolSessionId, accountId)
 
         val response = toolEndpoint.applyOutcome(context, outcome)

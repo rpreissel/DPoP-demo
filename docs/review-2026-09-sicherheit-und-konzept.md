@@ -461,20 +461,20 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 - **Drosselung als Opt-in je Handler:** `ToolControllerSupport.chargeThrottles` (`:256-300`) zählt
   nur mit `attemptedPersonId`/`attemptedAccountId` (siehe S-6). `ToolOutcome.Failed` für IDENT und
   LOOKUP_AUTH sollte das Subjekt typseitig verlangen.
-- **Versand-Drosselung:** Aktivierung von `auth-sms`/`auth-email` prüft `isSendThrottled` nicht;
+- **Versand-Drosselung** – *behoben 2026-09-26: Aktivierung prüft die Drossel (`requireSendAllowed`, 429, kein Fehlversuch); Rufnummern nur E.164 aus EU/EWR:* Aktivierung von `auth-sms`/`auth-email` prüft `isSendThrottled` nicht;
   Rufnummern-Regex (`EnrollSmsFlow.kt:98`) ohne Präfix-Allowlist.
-- **Geteilte `DeviceEnrollment`-Zeile über Konten:** `EnrollDeviceToolHandler.kt:57-66`
+- **Geteilte `DeviceEnrollment`-Zeile über Konten** – *behoben 2026-09-26: eine Credential-Zeile, auf die ein anderes Konto noch zeigt, wird nicht gelöscht (`AccountDeletionService.deleteCredential`):* `EnrollDeviceToolHandler.kt:57-66`
   (`findByThumbprint ?: save`); Löschung bei einem Konto lässt das andere mit 500 zurück.
-- **Mehrinstanz-Methoden:** `performAcceptProof` liest `enrolledUnderAcr` von der ersten aktiven
+- **Mehrinstanz-Methoden** – *behoben 2026-09-26: die Instanz auf dem Schlüssel des Aufrufers, sonst die niedrigste Deckelung:* `performAcceptProof` liest `enrolledUnderAcr` von der ersten aktiven
   Instanz, nicht von der genutzten (`JourneyActionExecutor.kt:464-467`).
 - **Audit** – *Löschung/Methodenlebenszyklus gelöst 2026-09-26 (ADR-39); `established_acr` offen:* `established_acr` im Claim-Log ist der ungedeckelte Tool-Wert (Widerspruch zu ADR-5);
   Audit-Tabellen hängen per `ON DELETE CASCADE` am Konto (`V2__account.sql`); Methodenlebenszyklus
   ohne Append-only-Eintrag. Entscheiden, was eine Kontolöschung überleben muss.
-- **Widerruf zum selben Zeitpunkt:** `AccountClaimRepository.kt:49` (`>=`) plus abweichende
+- **Widerruf zum selben Zeitpunkt** – *behoben 2026-09-26: Kartenpseudonyme behalten im Log ihre Schreibweise wie im Anker (V26); ein Ersetzen durch denselben Log-Wert schreibt keinen Widerruf:* `AccountClaimRepository.kt:49` (`>=`) plus abweichende
   Normalisierung von Anker und Log für Restricted-IDs entkräften einen gerade gesetzten Claim.
-- **Toter, scharfer Zweig:** `IdentityMatchingService.kt:54-58, 89-105` (tool-bescheinigte KVNR)
+- **Toter, scharfer Zweig** – *behoben 2026-09-26: entfernt; das Tool-Register lehnt beim Start jede KVNR ab, für die nicht das Personenverzeichnis bürgt:* `IdentityMatchingService.kt:54-58, 89-105` (tool-bescheinigte KVNR)
   ist unerreichbar, würde aber mit einem künftigen Tool still aktiv. Entfernen oder als Regel erzwingen.
-- **Interessenten-Konto kann eine zweite Identität annehmen:** `JourneyActionExecutor.kt:172`
+- **Interessenten-Konto kann eine zweite Identität annehmen** – *behoben 2026-09-26: `IdentityResolver.attestationFits` (gleiche Person in Passform) vor dem Übernehmen:* `JourneyActionExecutor.kt:172`
   ohne Abgleich mit den schon bescheinigten Stammdaten des Kontos.
 - **Namensvetter-Risiko:** Korrelation vergleicht nur Name, Vorname, Geburtsdatum
   (`IdentityMatchingService.kt:47-48`). Adresse bewusst ein- oder ausschließen und in ADR-18 festhalten.
