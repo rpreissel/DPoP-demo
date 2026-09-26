@@ -62,7 +62,7 @@ class ToolControllerSupport(
     private val loginThrottleService: LoginThrottleService,
     private val identThrottleService: IdentThrottleService,
     private val sendThrottleService: SendThrottleService,
-    private val channelService: ChannelService,
+    private val responseAssembler: ChannelResponseAssembler,
     private val journeyService: JourneyService,
     private val toolAvailabilityService: ToolAvailabilityService,
     private val demoDisclosure: DemoDisclosure
@@ -201,10 +201,10 @@ class ToolControllerSupport(
         sessionManagementService.endToolSession(ctx.toolSessionId, ToolSessionStatus.ABANDONED)
         val step = move(journey, live, toolRegistry.descriptorOf(ToolId(ctx.toolId)))
         return ChannelResponse(
-            channel = channelService.buildChannelBlock(channel),
+            channel = responseAssembler.buildChannelBlock(channel),
             next = step.next,
             stepData = step.stepData,
-            authData = channelService.authDataFor(channel)
+            authData = responseAssembler.authDataFor(channel)
         )
     }
 
@@ -229,11 +229,11 @@ class ToolControllerSupport(
         // step.demo comes from the tool's own ToolOutcome.InProgress.demo - a field of its own, so
         // it never mixes with stepData (docs/05-api.md #2: production contract).
         return ChannelResponse(
-            channel = channelService.buildChannelBlock(channel),
+            channel = responseAssembler.buildChannelBlock(channel),
             next = step.next,
             stepData = step.stepData,
             demo = demoInfo(journey, channel, step.demo),
-            authData = channelService.authDataFor(channel)
+            authData = responseAssembler.authDataFor(channel)
         )
     }
 
@@ -313,11 +313,11 @@ class ToolControllerSupport(
         // response a resume ever sees for an active tool. Since ToolOutcome reports step data and
         // demo values separately, there is nothing left to split here.
         return ChannelResponse(
-            channel = channelService.buildChannelBlock(channel),
+            channel = responseAssembler.buildChannelBlock(channel),
             next = next,
             stepData = freshOutcome?.stepData,
             demo = demoInfo(journey, channel, freshOutcome?.demo),
-            authData = channelService.authDataFor(channel)
+            authData = responseAssembler.authDataFor(channel)
         )
     }
 
@@ -353,7 +353,7 @@ class ToolControllerSupport(
             // An authenticated channel gets the block even with nothing left to say - the client's
             // completed-view reads accountId/personId off it.
             includeWhenEmpty = channel.state == ChannelState.AUTHENTICATED,
-            session = channelService.demoSession(channel)
+            session = responseAssembler.demoSession(channel)
         )
     }
 

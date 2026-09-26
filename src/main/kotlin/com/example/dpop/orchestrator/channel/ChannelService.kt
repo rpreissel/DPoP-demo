@@ -40,7 +40,6 @@ import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.DemoInfo
 import com.example.dpop.tool_api.DemoSession
 import com.example.dpop.tool_api.Next
-import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration
 import java.util.UUID
@@ -68,9 +67,8 @@ class ChannelService(
     private val tokenProvider: TokenProvider,
     private val channelCreationThrottleService: ChannelCreationThrottleService,
     private val journeyTraceService: JourneyTraceService,
-    private val personDirectory: PersonDirectory,
     private val toolRegistry: ToolHandlerRegistry,
-    private val demoDisclosure: DemoDisclosure
+    private val responseAssembler: ChannelResponseAssembler,
 ) {
 
     /**
@@ -156,7 +154,7 @@ class ChannelService(
         } else {
             null
         }
-        return MethodsResponse(toActiveMethodViews(methods))
+        return MethodsResponse(responseAssembler.toActiveMethodViews(methods))
     }
 
     /**
@@ -205,27 +203,6 @@ class ChannelService(
     }
 
     /**
-     * `maxAcr`/`factorTypes` come from the tool catalog (a method's own, account-independent
-     * ceiling); `enrolledUnderAcr`/`effectiveAcr` from the account's own enrollment record (the
-     * ADR-5 cap, [DefaultAuthPolicy.canAccountReach]'s same `AcrLevel.min` calculation) - surfaced
-     * here so the UI can show WHY a method might not reach as far as its own catalog entry
-     * promises, instead of that only being discoverable later as a confusing rejection.
-     */
-    private fun toActiveMethodViews(methods: List<AuthMethodView>?): List<ActiveMethodView> =
-        methods.orEmpty().map { m ->
-            val descriptor = toolRegistry.descriptors().firstOrNull { it.method == m.method }
-            ActiveMethodView(
-                id = checkNotNull(m.id) { "Active method without an id" },
-                method = m.method,
-                label = m.label,
-                factorTypes = descriptor?.factorTypes?.toList(),
-                        maxAcr = descriptor?.maxAcr?.value,
-                enrolledUnderAcr = m.enrolledUnderAcr,
-                effectiveAcr = descriptor?.let { AcrLevel.min(AcrLevel.of(m.enrolledUnderAcr), it.maxAcr) }?.value
-            )
-        }
-
-    /**
      * `internal`, not `private`: [KcChannelService] reuses this same "resume and advance the
      * active journey" logic for the kc-facade's upsert endpoint (docs/05-api.md
      * Abschnitt 3) instead of duplicating it - only channel creation differs per facade.
@@ -239,21 +216,21 @@ class ChannelService(
     internal fun resumeChannel(channel: ChannelSession, seedAction: Action? = null): ChannelResponse {
         // An ended channel (docs/02-domaenenmodell.md #3) is only shown, never resumed - otherwise a
         // GET on an old channelSessionId would hand back a fresh login attempt on a dead channel.
-        val live = LiveChannel.of(channel) ?: return respond(channel)
+        val live = LiveChannel.of(channel) ?: return responseAssembler.respond(channel)
 
         val channelId = channel.channelSessionId!!
         journeyService.findActive(channelId)?.let {
             val step = journeyService.stepOf(it, channel)
-            return respond(channel, step.next, step.stepData)
+            return responseAssembler.respond(channel, step.next, step.stepData)
         }
-        if (channel.state == ChannelState.AUTHENTICATED) return respond(channel)
+        if (channel.state == ChannelState.AUTHENTICATED) return responseAssembler.respond(channel)
 
         return startEntryJourney(live, seedAction)
     }
 
     private fun startEntryJourney(channel: LiveChannel, seedAction: Action? = null): ChannelResponse {
         val step = journeyService.startEntryJourney(channel, seedAction)
-        return respond(sessionManagementService.findChannelSessionById(channel.session.channelSessionId!!)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channel.session.channelSessionId!!)!!, step.next, step.stepData)
     }
 
     fun raiseRequiredAcr(channelSessionId: UUID, bindingKeyRef: String, requiredAcr: String): ChannelResponse {
@@ -270,14 +247,14 @@ class ChannelService(
 
         val floor = refreshed.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
         val account = refreshed.accountId?.let { accountService.findAccount(it) }
-        if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return respond(refreshed)
+        if (authPolicy.isSatisfied(currentEvidence(refreshed), floor, account)) return responseAssembler.respond(refreshed)
 
         val step = journeyService.startTowardAcr(
             live,
             targetAcr = floor,
             startingAcr = authPolicy.resolveAcr(currentEvidence(refreshed), account)
         )
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /** Abandons the running journey and offers a fresh start where applicable. */
@@ -288,7 +265,7 @@ class ChannelService(
 
         journeyService.cancel(active, channel)
 
-        return if (channel.session.state == ChannelState.AUTHENTICATED) respond(channel.session) else startEntryJourney(channel)
+        return if (channel.session.state == ChannelState.AUTHENTICATED) responseAssembler.respond(channel.session) else startEntryJourney(channel)
     }
 
     /**
@@ -310,7 +287,7 @@ class ChannelService(
             journeyService.cancel(activeJourney, channel)
         }
         val step = journeyService.start(channel, AuthIntent.LOGOUT)
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /**
@@ -383,7 +360,7 @@ class ChannelService(
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(live, AuthIntent.MANAGE_AUTH_METHODS, seed = wish)
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /**
@@ -405,7 +382,7 @@ class ChannelService(
             live, AuthIntent.CONFIRM_PEER_LOGIN,
             seed = ConfirmPeerLoginState.Requested(startedAuthenticated = true)
         )
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /**
@@ -422,7 +399,7 @@ class ChannelService(
         checkNotNull(channel.accountId) { "AUTHENTICATED channel without accountId" }
 
         val step = journeyService.start(live, AuthIntent.DELETE_ACCOUNT)
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     /** The user's answer to whatever the current step is waiting on instead of a tool run. */
@@ -431,75 +408,11 @@ class ChannelService(
         val active = journeyService.findActive(channelSessionId)
             ?: throw OrchestratorException.invalidState(Text("No active journey for this channel"))
         val step = journeyService.answer(active, channel, answer)
-        return respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
+        return responseAssembler.respond(sessionManagementService.findChannelSessionById(channelSessionId)!!, step.next, step.stepData)
     }
 
     private fun currentEvidence(channel: ChannelSession): AuthEvidence =
         channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence() ?: AuthEvidence(emptyList())
-
-    private fun respond(channel: ChannelSession, next: Next? = null, stepData: StepData? = null): ChannelResponse {
-        // A terminal channel (docs/02-domaenenmodell.md #3) never has a next - regardless of what
-        // a caller passed in, so no caller (e.g. a strategy's own now-meaningless placeholder
-        // after account deletion) can accidentally resurrect a dead channel with a stray next.
-        val resolved = if (channel.state?.isTerminal == true) {
-            null
-        } else {
-            next ?: journeyService.findActive(channel.channelSessionId!!)?.let { journeyService.nextOf(it, channel) }
-                ?: if (channel.state == ChannelState.AUTHENTICATED) Next.AUTHENTICATED else null
-        }
-        return ChannelResponse(
-            channel = buildChannelBlock(channel, includeAccountFields = true),
-            next = resolved,
-            stepData = stepData,
-            demo = demoInfo(channel),
-            authData = authDataFor(channel)
-        )
-    }
-
-    /**
-     * `KEYCLOAK`-only (docs/05-api.md Abschnitt 3) - `null` for `APP`. Used both by
-     * [respond] here and by `ToolControllerSupport`'s own response building, so every KEYCLOAK
-     * response carries it, entry point and tool activation/PATCH alike, not just this class's own.
-     */
-    fun authDataFor(channel: ChannelSession): AuthData? {
-        if (channel.channel != ChannelType.KEYCLOAK) return null
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
-        val amr = evidence?.currentAmr?.associateWith { evidence.currentAmrSource[it] ?: AmrSource.ORCHESTRATOR }
-        val acr = evidence?.let {
-            val account = channel.accountId?.let { id -> accountService.findAccount(id) }
-            authPolicy.resolveAcr(it.toCoreEvidence(), account)
-        }
-        return AuthData(accountId = channel.accountId, acr = acr?.value, amr = amr)
-    }
-
-    /**
-     * Same demo-only journey-chain view as ToolControllerSupport's, for channel-level responses
-     * (tool_api/Envelope.kt, JourneyDebugStep). Assembled by [DemoDisclosure], never here - that
-     * bean is the one place that decides whether this deployment discloses demo values at all.
-     */
-    private fun demoInfo(channel: ChannelSession): DemoInfo? {
-        val journeys = journeyService.debugChain(channel)
-        val accountId = channel.accountId
-        val personId = accountId?.let { accountService.findAccount(it)?.personId }
-        return demoDisclosure.assemble(accountId, personId, journeys, session = demoSession(channel))
-    }
-
-    /**
-     * Who the session belongs to and what it has proven so far - for the demo column, which shows
-     * it at every step. Null until something was proven: before that there is nothing to show but
-     * "not signed in", which the client says on its own. Same acr resolution as [buildChannelBlock].
-     */
-    fun demoSession(channel: ChannelSession): DemoSession? {
-        if (!channel.hasProvenFactor) return null
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
-        val account = channel.accountId?.let { accountService.findAccount(it) }
-        return DemoSession(
-            authenticated = channel.state == ChannelState.AUTHENTICATED,
-            personName = account?.personId?.let { personDirectory.displayName(it) },
-            acr = evidence?.let { authPolicy.resolveAcr(it.toCoreEvidence(), account) }?.value,
-            amr = evidence?.currentAmr ?: emptyList()
-        )
-    }
 
     /**
      * What else this device is known by, besides the DPoP channel key the client already shows:
@@ -526,42 +439,6 @@ class ChannelService(
             descriptor.instanceDisclosure?.referenceOf(instance.details)
                 ?.let { BoundCredentialView(method = instance.method, reference = it) }
         }
-
-    /**
-     * The channel-level block shared by every response, channel- and tool-level alike
-     * (docs/05-api.md #2) - public so the tool controllers can attach it without a separate
-     * `GET /channels` round-trip.
-     *
-     * [includeAccountFields] gates `currentAcr`/`currentAmr`/`activeMethods`, default `false`:
-     * tool controllers are the common caller and never need them - the security-summary screen
-     * that reads these is fetched on demand, so it never belongs in the core flow contract. Even
-     * when `true`, they only actually appear once [ChannelSession.hasProvenFactor] - a
-     * recognized-but-unproven device (`accountId` set via `DeviceAccountLink`, no evidence yet)
-     * must not leak the account's active methods before anything was proven on THIS channel.
-     */
-    fun buildChannelBlock(channel: ChannelSession, includeAccountFields: Boolean = false): ChannelBlock {
-        val channelType = checkNotNull(channel.channel) { "Channel without a channel type" }.name
-        if (!includeAccountFields || !channel.hasProvenFactor) {
-            return ChannelBlock(
-                channelSessionId = channel.channelSessionId!!,
-                channelType = channelType,
-                state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
-                hasProvenFactor = channel.hasProvenFactor
-            )
-        }
-        val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }
-        val account = channel.accountId?.let { accountService.findAccount(it) }
-        val currentAcr = evidence?.let { authPolicy.resolveAcr(it.toCoreEvidence(), account) }
-        return ChannelBlock(
-            channelSessionId = channel.channelSessionId!!,
-            channelType = channelType,
-            state = channel.state?.name ?: ChannelState.ANONYMOUS.name,
-            hasProvenFactor = channel.hasProvenFactor,
-            currentAcr = currentAcr?.value,
-            currentAmr = evidence?.currentAmr,
-            activeMethods = toActiveMethodViews(account?.activeAuthenticationMethods)
-        )
-    }
 
     companion object {
         // The device's long-lived identity lives in DeviceAccountLink, not the ChannelSession -

@@ -24,7 +24,7 @@ class ChannelServiceTokenAccessTest : BehaviorSpec({
     val service = ChannelService(
         mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
         mockk(relaxed = true), guard, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true),
-        mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true)
+        mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true)
     )
 
     given("an authenticated KEYCLOAK channel") {
