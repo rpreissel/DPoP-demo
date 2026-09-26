@@ -1,6 +1,16 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.journey.proofLevel
+import com.example.dpop.orchestrator.domain.journey.linksDeviceImplicitly
+import com.example.dpop.orchestrator.domain.journey.levelToWriteUnder
+import com.example.dpop.orchestrator.domain.journey.credentialsLivingOn
+import com.example.dpop.orchestrator.domain.journey.checkCorrelation
+import com.example.dpop.orchestrator.domain.journey.checkAttestationMove
+import com.example.dpop.orchestrator.domain.journey.accountOfProof
+import com.example.dpop.orchestrator.domain.journey.MethodDependencies
+import com.example.dpop.orchestrator.domain.journey.IdentificationTarget
+import com.example.dpop.orchestrator.domain.journey.AccountMerge
 import com.example.dpop.orchestrator.domain.journey.IntentStrategy
 import com.example.dpop.orchestrator.domain.journey.JourneyEvent
 import com.example.dpop.orchestrator.domain.journey.Transition
@@ -9,27 +19,22 @@ import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.RetractionAnchor
-import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.domain.OrchestratorException
 import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.orchestrator.domain.policy.AuthPolicy
-import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
 import com.example.dpop.orchestrator.domain.policy.Reachability
 import com.example.dpop.orchestrator.session.AccountDeletionService
-import com.example.dpop.orchestrator.domain.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
-import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_api.IdentityResolver
 import com.example.dpop.tool_api.Resolution
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.MethodRole
-import com.example.dpop.tool_spi.ToolCategory
 import com.example.dpop.tool_spi.assertClaimsCovered
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -126,41 +131,11 @@ class JourneyActionExecutor(
     private fun performRecordIdentification(journey: AuthJourney, channel: ChannelSession, action: Action.RecordIdentification) {
         assertClaimsCovered(action.tool, action.outcome.claims)
         val inHand = channel.accountId
-        // A MethodRole.CORRELATION step (ident-kvnr, ADR-18) proves nothing about the subject
-        // itself - it only turns a typed number into a register-vouched PERSON_ID, which is
-        // exactly what that role declares. An IDENTIFICATION tool may bind on its own strength
-        // (ident-fsc's mailed code IS possession of something sent to that very person); a
-        // correlation step may not: its whole security argument is that the register's person
-        // matches what THIS account already had attested. Without the check, attesting yourself
-        // and then typing a stranger's number would bind their anchor here, whenever that
-        // stranger has no account of their own yet. A correlation step always runs against an
-        // account already in hand (RegisterState.Assigning's own invariant) - crash loudly if
-        // that is somehow violated rather than silently opening a fresh account for it.
+        // A correlation step proves nothing about the subject on its own (ADR-18): see checkCorrelation.
         if (action.tool.role == MethodRole.CORRELATION) {
             val correlatingAccount = checkNotNull(inHand) { "Correlation without a known account under ${journey.intent}" }
-            val account = checkNotNull(accountService.findAccount(correlatingAccount)) {
-                "Correlation against an account that does not exist: $correlatingAccount"
-            }
-            // Attaching a person to an account that ALREADY has one is not a correlation, it is a
-            // change of identity - and one bought with no proof at all. Refused outright rather
-            // than matched: there is no value of the typed number that would make it legitimate.
-            // Today only RegisterStrategy offers the step, and only while personId is null; this
-            // makes that a property of the act instead of of the strategy that happens to offer it.
-            if (account.personId != null) {
-                throw IdentityConflictException(Text("Dieses Konto ist bereits einer Person zugeordnet"))
-            }
-            // Unconditional, and the reason the step is allowed to exist: its whole security
-            // argument is that the register's person matches what THIS account already had
-            // attested. Without it, attesting yourself and then typing a stranger's number would
-            // bind their anchor here whenever that stranger has no account of their own yet.
-            // A run that resolves nobody has nothing to correlate and must not pass silently.
-            // The tool asked the same question before reporting (matchesAttestedIdentity) and
-            // failed uniformly on a mismatch; reaching this throw means a tool skipped that.
-            val claimedPersonId = checkNotNull(action.outcome.personId) {
-                "${action.tool.toolId} completed as a correlation without resolving a person"
-            }
-            if (!identityResolver.attestedIdentityMatches(correlatingAccount, claimedPersonId)) {
-                throw IdentityConflictException(Text("Die Versichertennummer gehoert nicht zu der nachgewiesenen Identitaet"))
+            checkCorrelation(loadAccount(correlatingAccount), action.tool.toolId, action.outcome.personId) { personId ->
+                identityResolver.attestedIdentityMatches(correlatingAccount, personId)
             }
         }
         val resolution = identityResolver.resolve(action.outcome.claims.toSet())
@@ -173,38 +148,15 @@ class JourneyActionExecutor(
             // effect of an identification step").
             is Resolution.ExistingAccount ->
                 if (inHand == null) resolution.accountId else accountOf(journey, channel, inHand, resolution.accountId)
-            // Nothing resolved - the attested subject has no account yet. Which account this run
-            // then writes to is a declared rule, not a default:
+            // Nothing resolved - the attested subject has no account yet: IdentificationTarget decides.
             Resolution.Unresolved -> {
                 val inHandAccount = inHand?.let { accountService.findAccount(it) }
-                when {
-                    // Nothing in hand: a fresh account. It and its claims share this journey
-                    // transaction, including rollback.
-                    inHandAccount == null -> accountService.createUnidentifiedAccount().accountId
-                    // An account without a person binding takes the attestation (ADR-10): this is
-                    // the REGISTER "Enrollment zuerst" account finally getting its identity, a
-                    // provisional one being attested a second time, or the account a correlation
-                    // step is extending (CORRELATION always reaches here with inHand present and
-                    // no register person of its own yet). Opening a SECOND account beside it
-                    // would silently split one run across two.
-                    // - but only as the SAME person: an Interessent that already attested an
-                    // identity must not take a second one (review 2026-09, Phase F).
-                    inHandAccount.isUnidentified -> {
-                        if (!identityResolver.attestationFits(inHandAccount.accountId, action.outcome.claims.toSet())) {
-                            throw IdentityConflictException(Text("Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung"))
-                        }
-                        inHandAccount.accountId
-                    }
-                    // An identified account plus an attestation that resolves to nobody means a
-                    // DIFFERENT person - mixing a stranger's attested identity into it is the one
-                    // thing that must never happen quietly. Somebody else registering on a linked
-                    // phone does not get here: `intent=register` never takes the device's account
-                    // (AuthIntent.startsFromDeviceLink), so its channel has nothing in hand
-                    // (docs/04-orchestrierung.md #2, "Zweitaccount"). A branch that opened a second
-                    // account here was unreachable and is gone (review 2026-09, fahrplan Phase D 21).
-                    else -> throw IdentityConflictException(
-                        Text("Die bezeugte Identitaet gehoert nicht zu dem Konto dieser Sitzung")
-                    )
+                val target = IdentificationTarget.forUnresolved(inHandAccount) {
+                    identityResolver.attestationFits(checkNotNull(inHandAccount).accountId, action.outcome.claims.toSet())
+                }
+                when (target) {
+                    IdentificationTarget.NewAccount -> accountService.createUnidentifiedAccount().accountId
+                    is IdentificationTarget.AccountInHand -> target.accountId
                 }
             }
         }
@@ -216,48 +168,24 @@ class JourneyActionExecutor(
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
 
-    /**
-     * Which account a confirmed identification actually writes to (ADR-20). The rule is one
-     * sentence: **the provisional account is absorbed into the other one**, whichever of the two
-     * it is; if neither is provisional, nothing moves. Declared outcomes, no default:
-     *
-     * - Resolution found nothing, or found the account already in hand: that account.
-     * - Two accounts, and the one IN HAND is provisional
-     *   ([com.example.dpop.account.AccountProfile.isProvisional]): that is the ident-first case -
-     *   the journey had to open a placeholder for an attestation that resolved nobody, and the
-     *   correlation step then found the real account. The journey moves over and takes the
-     *   attestation along.
-     * - Two accounts, and the RESOLVED one is provisional: the mirror image, which is what the
-     *   "Enrollment zuerst" registration runs into. The account in hand is the real one (it holds
-     *   the credentials this run just created); the resolved one is a placeholder an earlier,
-     *   abandoned eID run left behind, found again through its `restricted_id` anchor (ADR-19).
-     *   Without this branch that leftover would permanently block its own card from ever
-     *   identifying a durable account. Here the journey stays put and absorbs the placeholder -
-     *   no rebind, nothing to re-point.
-     * - Neither is provisional: rejected. A credential was enrolled or a person bound on both, so
-     *   two real accounts would be merging - a decision for an explicit account merge, never a
-     *   side effect of an identification step.
-     *
-     * Both provisional is the first case: moving to the resolved account keeps the anchor that
-     * did the resolving where the rest of the stock expects it.
-     */
+    /** Which account a confirmed identification actually writes to - see [AccountMerge] (ADR-20). */
     private fun accountOf(journey: AuthJourney, channel: ChannelSession, inHand: Long, resolved: Long?): Long {
         if (resolved == null || resolved == inHand) return inHand
-        val inHandAccount = accountService.findAccount(inHand)
-            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${inHand}")
-        if (inHandAccount.isProvisional) {
-            rebindAccount(journey, channel, from = inHand, to = resolved)
-            accountService.absorbProvisionalAccount(inHand, resolved)
-            return resolved
+        return when (val merge = AccountMerge.decide(loadAccount(inHand)) { loadAccount(resolved) }) {
+            is AccountMerge.MoveInto -> {
+                rebindAccount(journey, channel, from = merge.from, to = merge.into)
+                accountService.absorbProvisionalAccount(merge.from, merge.into)
+                merge.into
+            }
+            is AccountMerge.AbsorbResolved -> {
+                accountService.absorbProvisionalAccount(merge.resolved, merge.into)
+                merge.into
+            }
         }
-        val resolvedAccount = accountService.findAccount(resolved)
-            ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=${resolved}")
-        if (resolvedAccount.isProvisional) {
-            accountService.absorbProvisionalAccount(resolved, inHand)
-            return inHand
-        }
-        throw IdentityConflictException(Text("Identification claims resolve to a different account"))
     }
+
+    private fun loadAccount(accountId: Long): AccountProfile =
+        accountService.findAccount(accountId) ?: throw OrchestratorException.processGone(Text("Account not found"), "accountId=$accountId")
 
     /**
      * Moves a running channel from the provisional account it holds to the one an assignment
@@ -312,39 +240,12 @@ class JourneyActionExecutor(
         val accountId = accountOfAttestation(journey, channel, inHand, action, coreEvidence)
         // The same capped figure an enrollment is stamped with - an anchor write is priced by what
         // the session actually proved (AnchorRule.acrFloor), never by the tool's ceiling.
-        val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-        val provenAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+        val provenAcr = levelToWriteUnder(authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId)))
         accountService.recordClaims(accountId, action.outcome.claims, provenAcr = provenAcr)
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, action.outcome, action.outcome.achievedAcr)
     }
 
-    /**
-     * An attested anchor value that resolves to ANOTHER account may move this session there ONLY
-     * if THIS session has already proven a real Identification (ident-fsc/ident-eid -
-     * [EvidenceAxis.IDENTITY] evidence, [DefaultAuthPolicy]'s own IAL/AAL split) earlier - read
-     * from the channel's evidence, which this session accumulates across its journeys, not just
-     * the current journey's (review 2026-09, M-7) - never on the strength of the attestation
-     * alone. A mere attestation (e.g.
-     * `confirm-email`) is deliberately weaker than an identification - the glossary's own
-     * "unbescheinigtes/schwaches Identifizierungsmittel" distinction for email applies here
-     * directly - and must never by itself be enough to move a session onto another account.
-     *
-     * This is what makes REGISTER "Enrollment zuerst" safe: its very FIRST step is `confirm-email`,
-     * before any identification ever ran, so [hasIdentification] is false and this always rejects -
-     * closing the account-takeover gap where a brand-new session could re-confirm somebody else's
-     * already-established address and get silently bound to their account, credentials and all,
-     * without ever proving possession of any of them.
-     *
-     * Once an identification DID run this session (the eID-with-no-register-match case, ADR-18:
-     * `ident-eid` attests an identity but finds no KVNR, and `confirm-email` is then used to locate
-     * the durable account that identity belongs to), the extra condition an identification alone
-     * does not need still applies: the attested identity must FIT the account being resolved.
-     * Possession of an address says "this mailbox is mine", never "I am that person" - so where the
-     * target account has a register person, the identity this session attested is checked against
-     * that person's master data ([IdentityResolver.attestedIdentityMatches], the same guard ADR-18
-     * puts in front of the correlation step). Without it, whoever controls a mailbox could hang
-     * their own eID claims on a stranger's account.
-     */
+    /** An attested value that resolves to ANOTHER account - see [checkAttestationMove]. */
     private fun accountOfAttestation(
         journey: AuthJourney,
         channel: ChannelSession,
@@ -354,14 +255,8 @@ class JourneyActionExecutor(
     ): Long {
         val resolved = (identityResolver.resolve(action.outcome.claims.toSet()) as? Resolution.ExistingAccount)?.accountId
         if (resolved == null || resolved == inHand) return inHand
-        val hasIdentification = evidence.factors.any { it.axis == EvidenceAxis.IDENTITY }
-        if (!hasIdentification) {
-            throw IdentityConflictException(Text("Diese Adresse gehoert bereits zu einem anderen Konto"))
-        }
-        accountService.findAccount(resolved)?.personId?.let { personId ->
-            if (!identityResolver.attestedIdentityMatches(inHand, personId)) {
-                throw IdentityConflictException(Text("Diese Adresse gehoert zu einer anderen Person"))
-            }
+        checkAttestationMove(evidence, accountService.findAccount(resolved)?.personId) { personId ->
+            identityResolver.attestedIdentityMatches(inHand, personId)
         }
         return accountOf(journey, channel, inHand, resolved)
     }
@@ -396,23 +291,9 @@ class JourneyActionExecutor(
         // consolidates its anchor. Done here, before this
         // method returns, so the very next context rebuild (JourneyEvent.ActionCompleted) already
         // sees it.
-        // What the environment already established BEFORE this completion (recordToolCompletion
-        // for THIS one hasn't run yet). "none" only ever means literally nothing backs this
-        // session yet (REGISTER "Enrollment zuerst" with no identification at all,
-        // docs/04-orchestrierung.md) - falls back to the flat baseline floor, never to this
-        // tool's OWN declared strength: a self-registered credential with nothing else
-        // corroborating it (no identification, no other factor) is exactly the "self-
-        // asserted, unproofed" case, regardless of how strong the tool's own maxAcr
-        // theoretically is (e.g. enroll-device declares loa2 on its own - letting that
-        // stand unchallenged here would grant loa2 to a device nobody ever verified).
-        // Never allowed to override an already-positive base either way: doing that
-        // unconditionally (e.g. via a "projected" self-entry merged into the evidence
-        // before resolving) would let a tool with a higher maxAcr than the CURRENT session
-        // actually proved (that same enroll-device, enrolled from a loa1-only session)
-        // silently escalate past what was ever really established - exactly the
-        // self-escalation ADR-5 exists to prevent.
-        val environmentAcr = authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId))
-        val enrolledUnderAcr = if (environmentAcr == AcrLevel.NONE) AcrLevels.DEFAULT_REQUIRED_ACR else environmentAcr
+        // What the session had established BEFORE this completion (recordToolCompletion for this one
+        // has not run yet) - see levelToWriteUnder (ADR-5).
+        val enrolledUnderAcr = levelToWriteUnder(authPolicy.resolveAcr(coreEvidence, accountService.findAccount(accountId)))
         // Recorded AFTER the level is known, because an anchor write is priced against it
         // (AnchorRule.acrFloor) and the anchor row remembers it. Safe to order this way:
         // resolveAcr computes purely from the evidence - its `account` argument is not read - so
@@ -456,42 +337,15 @@ class JourneyActionExecutor(
         return demoNotice
     }
 
-    /**
-     * Whether the tool that just proved a credential may NAME the account it proved, derived here
-     * rather than taken from the caller (see [Action.AcceptProof]'s own doc for the flag this
-     * replaced):
-     *
-     * - Only [MethodRole.LOOKUP_AUTH] may name one at all. That role's entire contract is
-     *   "resolves the account itself from a submitted identifier"; every other role proves a
-     *   credential OF an account the channel already knows, so a named account from one of those
-     *   is a tool/handler bug, not a login path.
-     * - Even for a lookup tool, a named account must AGREE with one this journey/channel already
-     *   holds. Nothing legitimately re-resolves a different account mid-journey - that is the
-     *   silent switch this whole class of bug is made of - so a disagreement is a `409`.
-     */
-    private fun accountOfProof(journey: AuthJourney, channel: ChannelSession, action: Action.AcceptProof): Long {
-        val inHand = channel.accountId
-        val named = action.outcome.accountId?.takeIf { action.tool.role == MethodRole.LOOKUP_AUTH }
-        if (named != null && inHand != null && named != inHand) {
-            throw IdentityConflictException(Text("Der Nachweis gehoert zu einem anderen Konto als dieser Sitzung"))
-        }
-        return checkNotNull(named ?: inHand) { "Authenticated without a known account" }
-    }
-
     private fun performAcceptProof(journey: AuthJourney, channel: ChannelSession, action: Action.AcceptProof) {
         val authenticated = action.outcome
-        val accountId = accountOfProof(journey, channel, action)
+        val accountId = accountOfProof(action.tool.role, action.outcome.accountId, channel.accountId)
         bindAccount(journey, channel, accountId)
         linkDeviceIfIntentImplies(journey, channel, accountId)
-        // The instance that was used, not simply the first active one (review 2026-09, Phase F): for a
-        // method with several instances (devices, KOBIL installations) it is the one on the caller's
-        // key - the same rule the tool chose it by (ToolDescriptor.keyBinding). Should that still
-        // leave more than one, the lowest cap applies - an ACR is never granted on a guess.
-        val active = accountService.findActiveMethods(accountId, action.tool.method)
-        check(active.isNotEmpty()) { "No active method '${action.tool.method}' for account $accountId" }
-        val used = active.filter { action.tool.keyBinding?.livesOn(it.details, channel.bindingKeyRef) ?: true }.ifEmpty { active }
-        val cap: AcrLevel? = used.map { it.enrolledUnderAcr?.let(AcrLevel::of) }.reduce { a, b -> AcrLevel.min(a, b) }
-        val effectiveAcr = AcrLevel.min(authenticated.achievedAcr, cap)
+        // Capped by the instance that was used - see proofLevel (ADR-5).
+        val effectiveAcr = proofLevel(
+            accountService.findActiveMethods(accountId, action.tool.method), action.tool.keyBinding, channel.bindingKeyRef, authenticated.achievedAcr
+        )
         journeyRecorder.recordToolCompletion(journey, channel, action.tool, authenticated, effectiveAcr)
     }
 
@@ -502,23 +356,8 @@ class JourneyActionExecutor(
      */
     private fun linkDeviceIfIntentImplies(journey: AuthJourney, channel: ChannelSession, accountId: Long) {
         val intent = checkNotNull(journey.intent) { "Journey without an intent" }
-        if (!intent.bindsDeviceImplicitly) return
-        // Never REBIND implicitly. Succeeding at an ordinary flow is consent to be recognized by
-        // THIS account next time; it is not consent to take the device away from another one,
-        // which additionally revokes that account's device credentials (see [linkDeviceTo]).
-        // Rebinding is destructive, so it only ever happens down the explicit route, after the
-        // user answered a prompt that says so (RegisterState/LookupLoginState.ConfirmDeviceRebind).
-        //
-        // Checked here rather than left to each strategy to ask first: RegisterStrategy does ask,
-        // RegisterEnrollFirstStrategy has no such state at all - the same "every caller must
-        // remember" shape as the flags this replaced. A strategy that WANTS the rebind still gets
-        // it, by asking and then naming Action.LinkDevice.
-        val bindingKeyRef = channel.bindingKeyRef
-        if (bindingKeyRef != null) {
-            val linkedTo = sessionManagementService.findLinkedAccountId(bindingKeyRef)
-            if (linkedTo != null && linkedTo != accountId) return
-        }
-        linkDeviceTo(channel, accountId)
+        val linkedTo = channel.bindingKeyRef?.let { sessionManagementService.findLinkedAccountId(it) }
+        if (linksDeviceImplicitly(intent, linkedTo, accountId)) linkDeviceTo(channel, accountId)
     }
 
     /** The account this session currently holds - never one a strategy stored in its state earlier (see [Action.LinkDevice]). */
@@ -552,30 +391,11 @@ class JourneyActionExecutor(
         // keep working (docs/09-dpop.md); Phase 1's matching guard already hides them, this
         // additionally removes them outright.
         if (previousAccountId != null && previousAccountId != accountId) {
-            credentialsLivingOn(bindingKeyRef, previousAccountId).forEach {
+            credentialsLivingOn(accountService.findAccount(previousAccountId), bindingKeyRef, toolRegistry).forEach {
                 accountDeletionService.revokeMethod(previousAccountId, checkNotNull(it.id) { "Active method without an id" })
             }
         }
     }
-
-    /**
-     * The active methods of [accountId] whose credential physically lives on the key
-     * [bindingKeyRef] - i.e. exactly those that stop being usable when that key moves to another
-     * account. A method with no [ToolDescriptor.keyBinding] is not tied to a key at all and can
-     * never be in this list; one that has a binding answers, per instance, whether THIS one is the
-     * one on THIS key - a question only the owning module can answer.
-     *
-     * The descriptor is resolved by `(method, IDENTIFIED_AUTH)`, the pair that names one concrete
-     * procedure - never by method name alone, which would match this method's enrollment tool just
-     * as well and answer from the wrong declaration.
-     */
-    private fun credentialsLivingOn(bindingKeyRef: String, accountId: Long): List<AuthMethodView> =
-        accountService.findAccount(accountId)?.activeAuthenticationMethods.orEmpty().filter { method ->
-            val binding = toolRegistry.descriptors()
-                .firstOrNull { it.role == MethodRole.IDENTIFIED_AUTH && it.method == method.method }
-                ?.keyBinding
-            binding != null && binding.livesOn(method.details, bindingKeyRef)
-        }
 
     /**
      * The account is taken from the freshly derived context and NOTHING else - the same one the
@@ -605,14 +425,9 @@ class JourneyActionExecutor(
         val target = account.authenticationMethods.firstOrNull { it.active && it.id == methodInstanceId }
             ?: throw OrchestratorException.notFound(Text("No such active method for this account"), "methodInstanceId=${methodInstanceId}")
 
-        val dependents = dependentsOf(account, target)
-        val falling = (listOf(target) + dependents).map { it.id }.toSet()
-
-        val afterRemoval = account.copy(
-            authenticationMethods = account.authenticationMethods.map {
-                if (it.id in falling) it.copy(active = false) else it
-            }
-        )
+        val dependencies = methodDependencies(account)
+        val dependents = dependencies.dependentsOf(target)
+        val afterRemoval = dependencies.without(listOf(target) + dependents)
         if (authPolicy.reachability(afterRemoval, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
             val alsoFalling = dependents.map { it.method }.distinct()
             throw OrchestratorException.invalidState(
@@ -655,13 +470,9 @@ class JourneyActionExecutor(
             throw OrchestratorException.notFound(Text("'{attributeType}' ist fuer dieses Konto nicht bestaetigt", "attributeType" to attributeType.wireName))
         }
 
-        val falling = dependentsOfLostClaims(account, lost = setOf(attributeType), falling = emptyList())
-        val fallingIds = falling.mapNotNull { it.id }.toSet()
-        val afterRetraction = account.copy(
-            authenticationMethods = account.authenticationMethods.map {
-                if (it.id in fallingIds) it.copy(active = false) else it
-            }
-        )
+        val dependencies = methodDependencies(account)
+        val falling = dependencies.dependentsOfLostClaims(lost = setOf(attributeType), falling = emptyList())
+        val afterRetraction = dependencies.without(falling)
         if (authPolicy.reachability(afterRetraction, contextFactory.acrFloorOf(channel)) !is Reachability.Reachable) {
             val alsoFalling = falling.map { it.method }.distinct()
             throw OrchestratorException.invalidState(
@@ -674,69 +485,9 @@ class JourneyActionExecutor(
         accountService.retractAttribute(accountId, attributeType, RetractionAnchor.ACCOUNT_HOLDER, reason = "attribute withdrawn")
     }
 
-    /**
-     * The active credentials that cannot outlive [target] - transitively.
-     *
-     * Nobody declares this dependency as such: it is read off the `requires` gates that are
-     * already there. Revoking a method retracts the MethodModule claims it asserted
-     * (`AccountService.retractClaimsOf`), and any method whose `requires` named one of those
-     * loses its own precondition - so it cannot stand either, and its claims are then gone in
-     * turn. Hence the fixpoint rather than a single pass, even though the catalog today happens
-     * to hold only chains of length two.
-     *
-     * A requirement on a claim that no method instance asserted needs its own trigger, and has
-     * one: `enroll-password` requires a confirmed EMAIL, but `confirm-email` is an ATTESTATION -
-     * it writes its claim with no `authMethodId` (`performAdoptAttestation`), and EMAIL belongs to
-     * the account itself (`AttributeAuthority.Local`) besides, so no method revocation can ever
-     * reach it. That is why
-     * [performRetractAttribute] exists and calls this same fixpoint: losing an address takes the
-     * password and the email login with it (ADR-24).
-     *
-     * This is where `requires` stops being merely an offering gate and becomes a standing
-     * precondition (see [ToolDescriptor.requires]). A claim that survives the revocation - an
-     * account-owned anchor like EMAIL, or one another active method also asserts - keeps its
-     * dependents alive, which is why [stillClaimed] is subtracted rather than assumed empty.
-     */
-    private fun dependentsOf(account: AccountProfile, target: AuthMethodView): List<AuthMethodView> {
-        val lost = claimedTypes(account, listOf(target)) -
-            claimedTypes(account, account.activeAuthenticationMethods.filter { it.id != target.id })
-        return dependentsOfLostClaims(account, lost, falling = listOf(target))
-    }
-
-    private fun claimedTypes(account: AccountProfile, instances: List<AuthMethodView>): Set<AttributeType> =
-        instances.flatMap { accountService.claimedTypesOf(account.accountId, checkNotNull(it.id)) }.toSet()
-
-    /**
-     * The fixpoint itself, shared by both causes of a claim going away: a revoked credential that
-     * asserted it, or an attribute withdrawn outright. [falling] is what is already known to go
-     * (empty for a retraction, the revoked instance for a revocation); the result adds every
-     * active credential whose `requires` just stopped being satisfied, and keeps going while each
-     * new casualty takes its own claims with it.
-     */
-    private fun dependentsOfLostClaims(
-        account: AccountProfile,
-        lost: Set<AttributeType>,
-        falling: List<AuthMethodView>
-    ): List<AuthMethodView> {
-        val casualties = falling.toMutableList()
-        var lostSoFar = lost
-        while (true) {
-            val fallingIds = casualties.mapNotNull { it.id }.toSet()
-            val standing = account.activeAuthenticationMethods.filter { it.id !in fallingIds }
-            val next = standing.filter { instance ->
-                toolRegistry.descriptors()
-                    .filter { it.method == instance.method && it.role.category == ToolCategory.ENROLL }
-                    .any { descriptor -> descriptor.requires.any { it.attributeType in lostSoFar } }
-            }
-            if (next.isEmpty()) return casualties.drop(falling.size)
-            casualties += next
-            // A casualty takes its own MethodModule claims with it - unless something still
-            // standing asserts the same type, which is why this is recomputed rather than unioned.
-            val stillStanding = account.activeAuthenticationMethods
-                .filter { it.id !in casualties.mapNotNull { c -> c.id }.toSet() }
-            lostSoFar = lostSoFar + (claimedTypes(account, casualties) - claimedTypes(account, stillStanding))
-        }
-    }
+    /** What falls with a credential or an attribute - see [MethodDependencies]; the claim log answers what each instance asserted. */
+    private fun methodDependencies(account: AccountProfile) =
+        MethodDependencies(account, toolRegistry) { accountService.claimedTypesOf(account.accountId, checkNotNull(it.id)) }
 
     /**
      * Both channel types get an [com.example.dpop.orchestrator.session.EvidenceTrail] here - the
