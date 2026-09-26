@@ -1,6 +1,6 @@
 [versions]
 java = "21"
-kotlin = "2.4.0"
+kotlin = "2.4.20"
 spring-boot = "4.1.0"
 spring-modulith = "2.1.1"
 dependency-management = "1.1.7"
