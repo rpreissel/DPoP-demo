@@ -37,16 +37,15 @@ class SimulationBoundaryArchitectureTest : BehaviorSpec({
     /** Named edges from the core into a simulation: source package (or class) -> simulation, with the reason. */
     data class Edge(val from: String, val to: String, val why: String)
     val edges = listOf(
-        // A procedure talks to its foreign system directly, not through a second abstraction (ADR-31;
-        // docs/08-projektrahmen.md M-3).
+        // A procedure talks to its foreign system directly, not through a second abstraction
+        // (docs/08-projektrahmen.md M-3) - except the person register, which is reached over ports
+        // only (PersonDirectory, ActivationCodes, DemoPersonDirectory; ADR-31 addendum).
         Edge("com.example.dpop.auth_kobil", "com.example.dpop.kobil_mock", "KOBIL is the auth_kobil procedure's foreign system"),
-        Edge("com.example.dpop.id_fsc", "com.example.dpop.ext_personenverzeichnis", "the register issues and checks Freischaltcodes (ADR-31)"),
         Edge("com.example.dpop.id_nect", "com.example.dpop.nect_mock", "Nect is the id_nect procedure's foreign system"),
         Edge("com.example.dpop.auth_sms", "com.example.dpop.sms_mock", "the SMS provider (review 2026-09, M-11)"),
         Edge("com.example.dpop.auth_email", "com.example.dpop.mail_mock", "the mail server (review 2026-09, M-11)"),
         // Demo surfaces of the orchestrator - Vorführrahmen, hardened later (ADR-35).
         Edge("com.example.dpop.orchestrator.admin.AdminAccountsController", "com.example.dpop.demo_seed", "demo reset seeds the demo accounts again"),
-        Edge("com.example.dpop.orchestrator.channel.DemoPersonas", "com.example.dpop.ext_personenverzeichnis", "demo persona picker with their letters"),
     )
 
     fun simulationOf(target: JavaClass): String? =

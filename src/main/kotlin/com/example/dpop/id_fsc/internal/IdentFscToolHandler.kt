@@ -1,8 +1,8 @@
 package com.example.dpop.id_fsc.internal
 
 import com.example.dpop.texts.Text
-import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
+import com.example.dpop.tool_api.ActivationCodes
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim
@@ -22,9 +22,8 @@ import java.util.UUID
  * [patch]'s [personId] parameter arrives pre-resolved: IdentFscToolController looks it up over the
  * [PersonDirectory] port when a kvnr is supplied, and the name/birthdate check goes back out over the same
  * port, exactly as `ident-eid` verifies its Ausweisdaten - the master data itself never crosses.
- * The code check alone asks the register directly ([Freischaltcodes], ADR-31): the register issued
- * the code, so it is the one to say whether it is valid - the same edge `auth_kobil` has to
- * `kobil_mock`.
+ * The code check asks the register too, over its own port ([ActivationCodes], ADR-31): the
+ * register issued the code, so it is the one to say whether it is valid.
  *
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
@@ -35,7 +34,7 @@ private val PERSONAL_DETAILS_REJECTED = Text("Die Angaben passen zu keiner Perso
 class IdentFscToolHandler(
     private val descriptor: IdentFscDescriptor,
     private val repository: IdFscToolSessionRepository,
-    private val freischaltcodes: Freischaltcodes,
+    private val activationCodes: ActivationCodes,
     private val personDirectory: PersonDirectory
 ) {
 
@@ -67,7 +66,7 @@ class IdentFscToolHandler(
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-fsc tool session: $toolSessionId" }
 
         val input = IdentFscInput(kvnr, partnernr, familyName, givenNames, birthDate, fsc, personId)
-        val merged = IdentFscFlow.merge(data.toState(), input)
+        val merged = IdentFscFlow.merge(data.toState(), input, activationCodes::digest)
 
         // Every personal-data rejection answers alike, whether the KVNR is unknown or a
         // name/birthdate is off - anything finer would tell a caller which part was wrong.
@@ -107,7 +106,7 @@ class IdentFscToolHandler(
         fscHash: String,
         throttled: Boolean
     ): Pair<IdentFscState, ToolOutcome> {
-        if (throttled || !freischaltcodes.pruefe(personId, fscHash)) {
+        if (throttled || !activationCodes.isValid(personId, fscHash)) {
             return IdentFscFlow.rejectCode(state) to
                 ToolOutcome.Failed.Identification(Text("Freischaltcode ungueltig oder abgelaufen"), attemptedPersonId = personId)
         }

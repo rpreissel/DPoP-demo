@@ -1,7 +1,7 @@
 package com.example.dpop.id_fsc.internal
 
 import com.example.dpop.texts.Text
-import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
+import com.example.dpop.tool_api.ActivationCodes
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
@@ -29,9 +29,9 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
     val repository = mockk<IdFscToolSessionRepository>()
-    val freischaltcodes = mockk<Freischaltcodes>()
+    val activationCodes = mockk<ActivationCodes> { every { digest(any()) } answers { "digest:" + firstArg<String>() } }
     val personDirectory = mockk<PersonDirectory>()
-    val handler = IdentFscToolHandler(IdentFscDescriptor, repository, freischaltcodes, personDirectory)
+    val handler = IdentFscToolHandler(IdentFscDescriptor, repository, activationCodes, personDirectory)
 
     val birthdate = LocalDate.of(1985, 6, 15)
 
@@ -50,7 +50,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
     given("verified personal data and a valid code") {
         sessionWithVerifiedPersonalien()
-        every { freischaltcodes.pruefe("P000000007", any()) } returns true
+        every { activationCodes.isValid("P000000007", any()) } returns true
 
         `when`("the code is submitted") {
             then("it identifies, asserting the master-data attributes as claims under PERSON_DIRECTORY") {
@@ -71,14 +71,14 @@ class IdentFscToolHandlerTest : BehaviorSpec({
     given("personal data that does not match the register") {
         `when`("it is submitted") {
             then("it fails right away - no code asked for, none checked - and the data is dropped") {
-                clearMocks(freischaltcodes)
+                clearMocks(activationCodes, answers = false)
                 val data = sessionWithVerifiedPersonalien()
                 every { personDirectory.matchesPersonalDetails("P000000007", "Muster", "Max", birthdate.plusDays(1)) } returns false
 
                 val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, familyName = null, givenNames = null, birthDate = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
 
                 outcome shouldBe ToolOutcome.Failed.Identification(Text("Die Angaben passen zu keiner Person, die wir kennen"), attemptedPersonId = "P000000007")
-                verify(exactly = 0) { freischaltcodes.pruefe(any(), any()) }
+                verify(exactly = 0) { activationCodes.isValid(any(), any()) }
                 data.kvnr shouldBe null
                 data.birthDate shouldBe null
             }
@@ -94,7 +94,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
             every { repository.findById(toolSessionId) } returns Optional.of(data)
             every { repository.save(any()) } returns data
             every { personDirectory.insuranceNumberOf(any()) } returns null
-            every { freischaltcodes.pruefe("P000000004", any()) } returns true
+            every { activationCodes.isValid("P000000004", any()) } returns true
 
             val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, familyName = null, givenNames = null, birthDate = null, fsc = "PAULA2026", personId = null, throttled = false)
 

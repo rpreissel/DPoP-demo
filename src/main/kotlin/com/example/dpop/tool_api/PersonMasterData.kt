@@ -19,6 +19,8 @@ interface PersonMasterData {
 
 /** What the directory holds about a person, as the account mirror needs it. */
 data class PersonRecord(
+    /** The Partnernummer - the person id (ADR-34). */
+    val personId: String,
     val kvnr: String?,
     val familyName: String?,
     val givenNames: String?,

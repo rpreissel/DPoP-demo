@@ -58,7 +58,7 @@ class FreischaltcodesTest : BehaviorSpec({
             val brief = service.ausstellen("P000000007", Instant.now().plusSeconds(3600))
 
             brief.freischaltcodeId shouldBe 11L
-            storedCode.captured.codeHash shouldBe Freischaltcodes.digest(brief.code)
+            storedCode.captured.codeHash shouldBe Freischaltcodes.hash(brief.code)
             storedCode.captured.codeHash shouldNotBe brief.code
         }
     }
@@ -94,7 +94,7 @@ class FreischaltcodesTest : BehaviorSpec({
 
     given("digest") {
         then("it matches the SHA-256 the seed SQL computes for VALIDCODE") {
-            Freischaltcodes.digest("VALIDCODE") shouldBe "666b50c34a52330b8b7b8d1136514ca145af1061c99085edc03d643e1da1a714"
+            Freischaltcodes.hash("VALIDCODE") shouldBe "666b50c34a52330b8b7b8d1136514ca145af1061c99085edc03d643e1da1a714"
         }
     }
 })

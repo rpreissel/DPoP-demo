@@ -23,6 +23,7 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
     given("an account with a register person bound (PERSON_ID anchor)") {
         // The port hands out one street line; joining "Musterweg" and "1" is the directory's job.
         val person = PersonRecord(
+            personId = "P000000007",
             kvnr = "A123456789", familyName = "Mustermann", givenNames = "Max", birthDate = LocalDate.of(1990, 1, 1),
             streetAddress = "Musterweg 1", postalCode = "12345", locality = "Musterstadt", insuranceNumber = "10000001"
         )
@@ -78,7 +79,7 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
     }
 
     given("a register person with partial stammdaten (no kvnr, no address on record)") {
-        val person = PersonRecord(kvnr = null, familyName = "Knapp", givenNames = "Karl", birthDate = null, streetAddress = null, postalCode = null, locality = null, insuranceNumber = null)
+        val person = PersonRecord(personId = "P000000009", kvnr = null, familyName = "Knapp", givenNames = "Karl", birthDate = null, streetAddress = null, postalCode = null, locality = null, insuranceNumber = null)
 
         then("a gap in the Personenverzeichnis stays a gap - an old attested claim never resurfaces for a bound account (ADR-34)") {
             val mirror = kcUserMirror(

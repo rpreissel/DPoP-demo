@@ -1,5 +1,15 @@
 # ADR-31: Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt
 
+> **Nachtrag 2026-09-26: `id_fsc` fragt das Register jetzt über einen Port** (`tool_api.ActivationCodes`
+> mit `digest` und `isValid`, implementiert von `Freischaltcodes`). Der Grund für „direkt“ trug nicht:
+> `id_fsc` erreichte dasselbe Fremdsystem damit auf zwei Wegen, die Person über den Port
+> `PersonDirectory`, den Code über die Klasse `Freischaltcodes`. Über die Klasse kam zudem die Sprache
+> des Registers (`pruefe`, `juengsterGueltigerCode`) in unseren Code; am Port wird sie übersetzt, wie
+> bei `PersonDirectory`. Jetzt gilt je Fremdsystem ein Weg: das Personenverzeichnis nur über Ports,
+> die übrigen Mocks (`kobil_mock`, `nect_mock`, `sms_mock`, `mail_mock`) weiter direkt. Die Demo-Personen
+> liest der Orchestrator über den eigenen Port `DemoPersonDirectory` statt über `Personenverzeichnis`
+> und `Freischaltcodes`. Der Rest dieses ADR beschreibt den Stand vor dem Nachtrag.
+
 **Entscheidung** (**umgesetzt**): Die Freischaltcodes liegen in `ext_personenverzeichnis.freischaltcode`,
 nicht mehr in `id_fsc.code`. `ext_personenverzeichnis` stellt sie über die öffentliche Klasse
 `Freischaltcodes` aus, widerruft sie und prüft sie. `id_fsc` ruft `Freischaltcodes.pruefe` direkt

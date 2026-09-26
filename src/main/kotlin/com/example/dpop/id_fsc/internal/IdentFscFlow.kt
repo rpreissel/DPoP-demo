@@ -1,6 +1,5 @@
 package com.example.dpop.id_fsc.internal
 
-import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
 import java.security.MessageDigest
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.MissingFields
@@ -67,9 +66,10 @@ internal object IdentFscFlow {
      * field. The person travels with the identifier it was resolved from: a new KVNR or
      * Partnernummer that resolves no one must not leave the previous one's person standing. The
      * two identifiers exclude each other - the one this PATCH brings replaces the other, the KVNR
-     * first if it brings both (ADR-34; the controller resolves the same way). Blank clears.
+     * first if it brings both (ADR-34; the controller resolves the same way). Blank clears. A typed
+     * code is staged only as its [digest] - the register's rule (`ActivationCodes.digest`).
      */
-    fun merge(state: IdentFscState, input: IdentFscInput): IdentFscState {
+    fun merge(state: IdentFscState, input: IdentFscInput, digest: (String) -> String): IdentFscState {
         val kvnr = input.kvnr?.ifBlank { null }
         val partnernr = input.partnernr?.ifBlank { null }
         val (mergedKvnr, mergedPartnernr) = when {
@@ -83,7 +83,7 @@ internal object IdentFscFlow {
             familyName = input.familyName ?: state.familyName,
             givenNames = input.givenNames ?: state.givenNames,
             birthDate = input.birthDate ?: state.birthDate,
-            fscHash = input.fsc?.let { Freischaltcodes.digest(it.trim()) } ?: state.fscHash,
+            fscHash = input.fsc?.let { digest(it.trim()) } ?: state.fscHash,
             personId = if (input.kvnr != null || input.partnernr != null) input.personId else state.personId
         )
     }

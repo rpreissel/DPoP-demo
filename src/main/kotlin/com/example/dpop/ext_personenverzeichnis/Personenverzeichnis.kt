@@ -78,10 +78,15 @@ class Personenverzeichnis(
         personRepository.findByIdOrNull(personId)?.toPersonData()
 
     override fun masterDataOf(personId: String): PersonRecord? =
-        findPersonById(personId)?.let {
+        findPersonById(personId)?.toPersonRecord()
+
+    /** Where the register's own shape ([PersonData]) becomes the port's ([PersonRecord]). */
+    internal fun PersonData.toPersonRecord(): PersonRecord? =
+        id?.let {
             PersonRecord(
-                kvnr = it.kvnr, familyName = it.name, givenNames = it.vorname, birthDate = it.geburtsdatum,
-                streetAddress = it.strassenzeile, postalCode = it.plz, locality = it.ort, insuranceNumber = it.versnr
+                personId = it,
+                kvnr = kvnr, familyName = name, givenNames = vorname, birthDate = geburtsdatum,
+                streetAddress = strassenzeile, postalCode = plz, locality = ort, insuranceNumber = versnr
             )
         }
 

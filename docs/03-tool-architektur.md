@@ -468,11 +468,12 @@ das beide Seiten kennen dürfen:
   darüber ein Konto anhand der E-Mail-Adresse). Implementiert von `AccountService` (`account`),
   `Personenverzeichnis` (`ext_personenverzeichnis`) bzw. `DeviceProofValidator` (`orchestrator`),
   jeweils direkt im Domänenservice, ohne eigene Adapterklasse. Den Freischaltcode prüft `id_fsc`
-  dagegen nicht über einen Port, sondern direkt beim Personenverzeichnis
-  (`ext_personenverzeichnis.Freischaltcodes`, ADR-31) – genauso wie
-  `auth_kobil → kobil_mock.KobilSsms`. `PersonDirectory` löst eine KVNR (`findPersonIdByKvnr`) oder
-  eine Partnernummer (`findPersonIdByPartnernr`) zur PersonId auf, gleicht Personalien ab
-  (`matchesStammdaten`, `matchesPersonalien`) und gibt die Versicherungsnummer (`versnrOf`) und den
+  ebenfalls über einen Port, `ActivationCodes` (`digest`, `isValid`), den `Freischaltcodes`
+  implementiert (ADR-31, Nachtrag). Das Personenverzeichnis ist damit nur über Ports erreichbar; an
+  ihnen wechselt die Sprache vom Deutsch des Registers ins Englische unseres Codes.
+  `PersonDirectory` löst eine KVNR (`findPersonIdByKvnr`) oder eine Partnernummer
+  (`findPersonIdByPartnernr`) zur PersonId auf, gleicht Personalien ab (`matchesMasterData`,
+  `matchesPersonalDetails`) und gibt die Versicherungsnummer (`insuranceNumberOf`) und den
   Anzeigenamen (`displayName`) heraus – nie die übrigen Stammdaten.
 - **`IdentityResolver`** – beantwortet, ob bestätigte Claims zu einem bestehenden Konto gehören
   (`resolve`, `attestedIdentityMatches`). Implementiert von `IdentityMatchingService` (`account`).

@@ -1,8 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
-import com.example.dpop.ext_personenverzeichnis.Personenverzeichnis
-import com.example.dpop.ext_personenverzeichnis.Freischaltcodes
-import com.example.dpop.ext_personenverzeichnis.strassenzeile
+import com.example.dpop.tool_api.DemoPersonDirectory
 import com.example.dpop.tool_spi.DEMO_EMAIL
 import org.springframework.stereotype.Component
 
@@ -44,26 +42,22 @@ private val DEMO_PERSON_EXTRAS = mapOf(
     "P000000004" to DemoPersonExtras("paula.schulz@example.com", "T0405337C2D8R5H9F1QW3V61MZ"),
 )
 
-/** Reads the personas off the register - only [DisclosingDemoDisclosure] calls this. */
+/** Reads the personas off the register, over its demo port - only [DisclosingDemoDisclosure] calls this. */
 @Component
-class DemoPersonas(
-    private val register: Personenverzeichnis,
-    private val freischaltcodes: Freischaltcodes,
-) {
-    fun all(): List<DemoPerson> = register.allePersonen().mapNotNull { person ->
-        val personId = person.id ?: return@mapNotNull null
-        val extras = DEMO_PERSON_EXTRAS[personId]
+class DemoPersonas(private val register: DemoPersonDirectory) {
+    fun all(): List<DemoPerson> = register.allPersons().map { person ->
+        val extras = DEMO_PERSON_EXTRAS[person.personId]
         DemoPerson(
-            personId = personId,
+            personId = person.personId,
             kvnr = person.kvnr,
-            familyName = person.name,
-            givenNames = person.vorname,
+            familyName = person.familyName,
+            givenNames = person.givenNames,
             email = extras?.email,
-            streetAddress = person.strassenzeile,
-            postalCode = person.plz,
-            locality = person.ort,
-            birthDate = person.geburtsdatum?.toString(),
-            fscCode = freischaltcodes.juengsterGueltigerCode(personId),
+            streetAddress = person.streetAddress,
+            postalCode = person.postalCode,
+            locality = person.locality,
+            birthDate = person.birthDate?.toString(),
+            fscCode = register.latestValidActivationCode(person.personId),
             restrictedId = extras?.restrictedId
         )
     }

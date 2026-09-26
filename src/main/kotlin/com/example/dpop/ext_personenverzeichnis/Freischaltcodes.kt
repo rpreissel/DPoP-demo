@@ -7,6 +7,7 @@ import com.example.dpop.ext_personenverzeichnis.internal.FreischaltcodeRepositor
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import com.example.dpop.tool_api.ActivationCodes
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
@@ -42,11 +43,16 @@ data class BriefView(
 class Freischaltcodes(
     private val codes: FreischaltcodeRepository,
     private val briefe: BriefRepository,
-) {
+) : ActivationCodes {
 
     private val random = SecureRandom()
 
     // ------------------------------------------------------------------ verification side
+
+    /** The port's side ([ActivationCodes]) - the register's own words stay inside. */
+    override fun digest(code: String): String = hash(code)
+
+    override fun isValid(personId: String, codeDigest: String): Boolean = pruefe(personId, codeDigest)
 
     /** Whether [codeHash] (see [digest]) is a currently valid Freischaltcode of [personId]. */
     @Transactional(readOnly = true)
@@ -61,7 +67,7 @@ class Freischaltcodes(
     @Transactional
     fun ausstellen(personId: String, gueltigBis: Instant): BriefView {
         val code = (1..8).map { ALPHABET[random.nextInt(ALPHABET.length)] }.joinToString("")
-        val stored = codes.save(Freischaltcode(personId = personId, codeHash = digest(code), expiresAt = gueltigBis))
+        val stored = codes.save(Freischaltcode(personId = personId, codeHash = hash(code), expiresAt = gueltigBis))
         return briefe.save(
             Brief(personId = personId, freischaltcodeId = stored.id, code = code, versandtAm = Instant.now())
         ).toView()
@@ -106,7 +112,7 @@ class Freischaltcodes(
         private const val ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
         /** The one definition of how a Freischaltcode is digested - the seed SQL mirrors it. */
-        fun digest(code: String): String =
+        fun hash(code: String): String =
             MessageDigest.getInstance("SHA-256").digest(code.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 }
