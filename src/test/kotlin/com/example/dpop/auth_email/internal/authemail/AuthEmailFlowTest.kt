@@ -1,4 +1,4 @@
-package com.example.dpop.auth_email.internal.authemailuse
+package com.example.dpop.auth_email.internal.authemail
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 
 import io.kotest.core.spec.style.BehaviorSpec
@@ -6,28 +6,28 @@ import io.kotest.matchers.shouldBe
 import java.util.UUID
 import com.example.dpop.tool_spi.MissingFields
 
-class AuthEmailUseFlowTest : BehaviorSpec({
+class AuthEmailFlowTest : BehaviorSpec({
 
     val emailCodeGenerator = EmailCodeGenerator("test-pepper")
     val issued = emailCodeGenerator.issue()
-    val state = AuthEmailUseState(issued.hash, issued.expiresAt)
+    val state = AuthEmailState(issued.hash, issued.expiresAt)
 
     given("a pending code") {
         `when`("nothing was submitted") {
             then("the state is unchanged") {
-                AuthEmailUseFlow.decide(state, AuthEmailUseInput(), emailCodeGenerator) shouldBe AuthEmailUseDecision.Unchanged
+                AuthEmailFlow.decide(state, AuthEmailInput(), emailCodeGenerator) shouldBe AuthEmailDecision.Unchanged
             }
         }
 
         `when`("the wrong code was submitted") {
             then("it is rejected") {
-                AuthEmailUseFlow.decide(state, AuthEmailUseInput("000000"), emailCodeGenerator) shouldBe AuthEmailUseDecision.WrongCode
+                AuthEmailFlow.decide(state, AuthEmailInput("000000"), emailCodeGenerator) shouldBe AuthEmailDecision.WrongCode
             }
         }
 
         `when`("the correct code was submitted") {
             then("it completes") {
-                AuthEmailUseFlow.decide(state, AuthEmailUseInput(issued.plainCode), emailCodeGenerator) shouldBe AuthEmailUseDecision.Complete
+                AuthEmailFlow.decide(state, AuthEmailInput(issued.plainCode), emailCodeGenerator) shouldBe AuthEmailDecision.Complete
             }
         }
     }
@@ -40,7 +40,7 @@ class AuthEmailUseFlowTest : BehaviorSpec({
 
     given("toState()") {
         then("it reconstructs the pending code") {
-            AuthEmailUseState.of(UUID.randomUUID(), issued.hash, issued.expiresAt) shouldBe state
+            AuthEmailState.of(UUID.randomUUID(), issued.hash, issued.expiresAt) shouldBe state
         }
     }
 })

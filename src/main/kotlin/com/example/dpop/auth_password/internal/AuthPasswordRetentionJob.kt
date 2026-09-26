@@ -1,6 +1,6 @@
 package com.example.dpop.auth_password.internal
 import com.example.dpop.auth_password.internal.authpasswordlookup.AuthPasswordLookupToolSessionRepository
-import com.example.dpop.auth_password.internal.authpassworduse.AuthPasswordUseToolSessionRepository
+import com.example.dpop.auth_password.internal.authpassword.AuthPasswordToolSessionRepository
 import com.example.dpop.auth_password.internal.enrollpassword.EnrollPasswordToolSessionRepository
 
 import com.example.dpop.tool_api.ToolSessionSweeper
@@ -16,7 +16,7 @@ import java.time.Instant
 @Component
 class AuthPasswordRetentionJob(
     private val enrollToolSessionRepository: EnrollPasswordToolSessionRepository,
-    private val authUseToolSessionRepository: AuthPasswordUseToolSessionRepository,
+    private val authUseToolSessionRepository: AuthPasswordToolSessionRepository,
     private val authLookupToolSessionRepository: AuthPasswordLookupToolSessionRepository
 ) : ToolSessionSweeper {
 

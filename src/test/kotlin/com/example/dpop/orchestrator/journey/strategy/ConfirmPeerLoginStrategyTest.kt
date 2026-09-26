@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
@@ -130,7 +130,7 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, more than one offered candidate") {
         val state = ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"), ToolId("auth-password"))))
         then("abandoning one keeps the choice among the rest") {
-            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
+            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe
                 Transition.To(state.declining(ToolId("auth-sms")))
         }
     }
@@ -138,14 +138,14 @@ class ConfirmPeerLoginStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, the last offered candidate is abandoned") {
         val state = ConfirmPeerLoginState.ConfirmationRequired(false, Offer(listOf(ToolId("auth-sms"))))
         then("cancels - the peer login is never confirmed just because every re-proof option was declined") {
-            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.Cancel
+            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe Transition.Cancel
         }
     }
 
     given("ConfirmationRequired, any active factor is re-proven") {
         val state = ConfirmPeerLoginState.ConfirmationRequired(true, Offer(listOf(ToolId("auth-sms"))))
         then("moves on to Confirming - one proof, at any level, is always sufficient here") {
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
             strategy.transition(state, event, ctx()) shouldBe Transition.To(ConfirmPeerLoginState.Confirming(true))
         }
     }

@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
@@ -57,7 +57,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
             shouldThrow<IllegalStateException> {
                 strategy.transition(
                     state,
-                    JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref"))),
+                    JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = com.example.dpop.tool_spi.EnrollmentRef("sms", "ref"))),
                     ctx()
                 )
             }
@@ -171,7 +171,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, more than one offered candidate") {
         val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"), ToolId("auth-password"))))
         then("abandoning one keeps the choice among the rest") {
-            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
+            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe
                 Transition.To(state.declining(ToolId("auth-sms")))
         }
     }
@@ -179,7 +179,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
     given("ConfirmationRequired, the last offered candidate is abandoned") {
         val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
         then("cancels - the account is never deleted just because every option was declined") {
-            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.Cancel
+            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe Transition.Cancel
         }
     }
 
@@ -189,7 +189,7 @@ class DeleteAccountStrategyTest : BehaviorSpec({
         val state = DeleteAccountState.ConfirmationRequired(Offer(listOf(ToolId("auth-sms"))))
 
         then("goes straight to deleting - one proof, at any level, is always sufficient here, and is never itself recorded as MethodEvidence") {
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms")))
             strategy.transition(state, event, theCtx) shouldBe Transition.Perform(Action.DeleteAccount, resumeState = state)
         }
     }

@@ -8,18 +8,18 @@ import com.example.dpop.auth_device.EnrollDeviceDescriptor
 import com.example.dpop.auth_kobil.AuthKobilDescriptor
 import com.example.dpop.auth_kobil.EnrollKobilDescriptor
 import com.example.dpop.auth_email.AuthEmailLookupDescriptor
-import com.example.dpop.auth_email.AuthEmailUseDescriptor
+import com.example.dpop.auth_email.AuthEmailDescriptor
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_password.AuthPasswordLookupDescriptor
-import com.example.dpop.auth_password.AuthPasswordUseDescriptor
+import com.example.dpop.auth_password.AuthPasswordDescriptor
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.auth_qr.AuthQrDescriptor
 import com.example.dpop.auth_qr.AuthQrLookupDescriptor
 import com.example.dpop.auth_qr.ConfirmQrLoginDescriptor
 import com.example.dpop.auth_qr.EnrollQrDescriptor
 import com.example.dpop.auth_sms.AuthSmsLookupDescriptor
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.id_nect.IdentNectDescriptor
@@ -49,9 +49,9 @@ object StrategyTestFixtures {
     val catalog = ToolHandlerRegistry(
         listOf(
             IdentFscDescriptor, IdentEidDescriptor, IdentNectDescriptor, IdentKvnrDescriptor,
-            EnrollSmsDescriptor, AuthSmsUseDescriptor, AuthSmsLookupDescriptor,
-            ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailUseDescriptor, AuthEmailLookupDescriptor,
-            EnrollPasswordDescriptor, AuthPasswordUseDescriptor, AuthPasswordLookupDescriptor,
+            EnrollSmsDescriptor, AuthSmsDescriptor, AuthSmsLookupDescriptor,
+            ConfirmEmailDescriptor, EnrollEmailDescriptor, AuthEmailDescriptor, AuthEmailLookupDescriptor,
+            EnrollPasswordDescriptor, AuthPasswordDescriptor, AuthPasswordLookupDescriptor,
             EnrollDeviceDescriptor, AuthDeviceDescriptor,
             EnrollKobilDescriptor, AuthKobilDescriptor,
             EnrollQrDescriptor, AuthQrDescriptor, AuthQrLookupDescriptor, ConfirmQrLoginDescriptor

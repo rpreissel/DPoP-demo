@@ -1,4 +1,4 @@
-package com.example.dpop.auth_sms.internal.authsmsuse
+package com.example.dpop.auth_sms.internal.authsms
 
 import com.example.dpop.auth_sms.internal.TanGenerator
 import java.time.Instant
@@ -15,7 +15,7 @@ private const val FIELD_TAN = "tan"
  * (`start`'s `enrollmentRef` resolves it), so there is no earlier phase to model - unlike
  * `EnrollSmsFlow`, this never moves to a different state, only repeats or fails.
  */
-internal data class AuthSmsUseState(val issuedTanHash: String, val tanExpiresAt: Instant) {
+internal data class AuthSmsState(val issuedTanHash: String, val tanExpiresAt: Instant) {
     val step: String get() = STEP_AUTH
     val missingFields: List<String> get() = listOf(FIELD_TAN)
 
@@ -23,8 +23,8 @@ internal data class AuthSmsUseState(val issuedTanHash: String, val tanExpiresAt:
     fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     companion object {
-        /** Turns [AuthSmsUseToolSession]'s persisted columns back into a [AuthSmsUseState]. */
-        fun of(toolSessionId: UUID, issuedTanHash: String?, tanExpiresAt: Instant?): AuthSmsUseState = AuthSmsUseState(
+        /** Turns [AuthSmsToolSession]'s persisted columns back into a [AuthSmsState]. */
+        fun of(toolSessionId: UUID, issuedTanHash: String?, tanExpiresAt: Instant?): AuthSmsState = AuthSmsState(
             checkNotNull(issuedTanHash) { "auth-sms tool data $toolSessionId without issuedTanHash" },
             checkNotNull(tanExpiresAt) { "auth-sms tool data $toolSessionId without tanExpiresAt" }
         )
@@ -32,24 +32,24 @@ internal data class AuthSmsUseState(val issuedTanHash: String, val tanExpiresAt:
 }
 
 /** What one PATCH submitted. */
-internal data class AuthSmsUseInput(val tan: String? = null)
+internal data class AuthSmsInput(val tan: String? = null)
 
-/** What [AuthSmsUseFlow.decide] concluded should happen. */
-internal sealed interface AuthSmsUseDecision {
-    data object Complete : AuthSmsUseDecision
-    data object WrongTan : AuthSmsUseDecision
+/** What [AuthSmsFlow.decide] concluded should happen. */
+internal sealed interface AuthSmsDecision {
+    data object Complete : AuthSmsDecision
+    data object WrongTan : AuthSmsDecision
     /** Nothing usable was submitted - describe the (unique) state unchanged. */
-    data object Unchanged : AuthSmsUseDecision
+    data object Unchanged : AuthSmsDecision
 }
 
-internal object AuthSmsUseFlow {
+internal object AuthSmsFlow {
 
-    fun decide(state: AuthSmsUseState, input: AuthSmsUseInput, tanGenerator: TanGenerator): AuthSmsUseDecision {
-        val tan = input.tan ?: return AuthSmsUseDecision.Unchanged
+    fun decide(state: AuthSmsState, input: AuthSmsInput, tanGenerator: TanGenerator): AuthSmsDecision {
+        val tan = input.tan ?: return AuthSmsDecision.Unchanged
         return if (tanGenerator.matches(tan, state.issuedTanHash, state.tanExpiresAt)) {
-            AuthSmsUseDecision.Complete
+            AuthSmsDecision.Complete
         } else {
-            AuthSmsUseDecision.WrongTan
+            AuthSmsDecision.WrongTan
         }
     }
 

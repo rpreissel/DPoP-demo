@@ -26,10 +26,10 @@ import java.util.UUID
 class IdentKvnrToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
-    val repository = mockk<IdKvnrToolSessionRepository>()
+    val repository = mockk<IdentKvnrToolSessionRepository>()
     val personDirectory = mockk<PersonDirectory>()
     val handler = IdentKvnrToolHandler(IdentKvnrDescriptor, repository, personDirectory)
-    val data = IdKvnrToolSession(toolSessionId = toolSessionId)
+    val data = IdentKvnrToolSession(toolSessionId = toolSessionId)
 
     beforeTest {
         every { repository.findById(toolSessionId) } returns Optional.of(data)

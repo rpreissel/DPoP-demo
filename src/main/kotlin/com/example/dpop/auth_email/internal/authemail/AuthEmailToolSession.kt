@@ -1,4 +1,4 @@
-package com.example.dpop.auth_email.internal.authemailuse
+package com.example.dpop.auth_email.internal.authemail
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -15,7 +15,7 @@ import java.util.UUID
  */
 @Entity
 @Table(schema = "auth_email", name = "auth_tool_session")
-class AuthEmailUseToolSession(
+class AuthEmailToolSession(
     @Id
     @Column(name = "tool_session_id", nullable = false)
     var toolSessionId: UUID? = null,

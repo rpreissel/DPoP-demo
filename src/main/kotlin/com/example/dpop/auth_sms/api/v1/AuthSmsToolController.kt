@@ -1,8 +1,8 @@
 package com.example.dpop.auth_sms.api.v1
 
 import com.example.dpop.texts.Text
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
-import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolHandler
+import com.example.dpop.auth_sms.AuthSmsDescriptor
+import com.example.dpop.auth_sms.internal.authsms.AuthSmsToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -40,8 +40,8 @@ data class AuthSmsPatchRequest(@field:Schema(example = "123456") val tan: String
 @Tag(name = "Tool: SMS")
 @SecurityRequirement(name = "dpop")
 class AuthSmsToolController(
-    private val handler: AuthSmsUseToolHandler,
-    private val descriptor: AuthSmsUseDescriptor,
+    private val handler: AuthSmsToolHandler,
+    private val descriptor: AuthSmsDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {

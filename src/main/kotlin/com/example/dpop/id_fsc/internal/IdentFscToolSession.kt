@@ -11,7 +11,7 @@ import java.util.UUID
 /** Tool-session-scoped working data for toolId=ident-fsc (docs/06-ablaeufe.md #1). */
 @Entity
 @Table(schema = "id_fsc", name = "ident_tool_session")
-class IdFscToolSession(
+class IdentFscToolSession(
     @Id
     @Column(name = "tool_session_id", nullable = false)
     var toolSessionId: UUID? = null,

@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
@@ -49,9 +49,9 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("Enrolled binds the device - it's already known, so this is a harmless no-op that keeps it reachable") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
         }
 
         then("Identified is not offered by this intent") {
@@ -62,7 +62,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         then("Authenticated is not offered by this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.transition(state, JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))), ctx())
+                strategy.transition(state, JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Authenticated(amr = listOf("sms"))), ctx())
             }
         }
     }
@@ -177,7 +177,7 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
 
         `when`("a tool is abandoned") {
             then("stays in Enrolling with the full choice back - not a decline, just picking differently") {
-                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe
+                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe
                     Transition.To(state.withActive(null))
             }
         }
@@ -185,9 +185,9 @@ class ManageAuthMethodsStrategyTest : BehaviorSpec({
         `when`("a method is enrolled") {
             then("adopts the credential, then finishes once resumed - one successful enrollment is always enough here") {
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-                val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+                val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
                 strategy.transition(state, event, ctx()) shouldBe
-                    Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, ctx()) shouldBe Transition.Authenticated
             }
         }

@@ -10,7 +10,7 @@ import java.util.UUID
 /** Tool-session-scoped working data for toolId=ident-kvnr - what was typed, kept for the same resume-after-reload reason every other tool session exists. */
 @Entity
 @Table(schema = "id_kvnr", name = "ident_tool_session")
-class IdKvnrToolSession(
+class IdentKvnrToolSession(
     @Id
     @Column(name = "tool_session_id", nullable = false)
     var toolSessionId: UUID? = null,

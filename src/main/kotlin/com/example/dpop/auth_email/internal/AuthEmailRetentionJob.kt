@@ -1,6 +1,6 @@
 package com.example.dpop.auth_email.internal
 import com.example.dpop.auth_email.internal.authemaillookup.AuthEmailLookupToolSessionRepository
-import com.example.dpop.auth_email.internal.authemailuse.AuthEmailUseToolSessionRepository
+import com.example.dpop.auth_email.internal.authemail.AuthEmailToolSessionRepository
 import com.example.dpop.auth_email.internal.confirmemail.ConfirmEmailToolSessionRepository
 import com.example.dpop.auth_email.internal.enrollemail.EnrollEmailToolSessionRepository
 
@@ -14,7 +14,7 @@ import java.time.Instant
 class AuthEmailRetentionJob(
     private val confirmToolSessionRepository: ConfirmEmailToolSessionRepository,
     private val enrollToolSessionRepository: EnrollEmailToolSessionRepository,
-    private val authUseToolSessionRepository: AuthEmailUseToolSessionRepository,
+    private val authUseToolSessionRepository: AuthEmailToolSessionRepository,
     private val authLookupToolSessionRepository: AuthEmailLookupToolSessionRepository
 ) : ToolSessionSweeper {
 

@@ -1,4 +1,4 @@
-package com.example.dpop.auth_email.internal.authemailuse
+package com.example.dpop.auth_email.internal.authemail
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.repository.query.Param
@@ -9,8 +9,8 @@ import java.time.Instant
 import java.util.UUID
 
 @Repository
-interface AuthEmailUseToolSessionRepository : JpaRepository<AuthEmailUseToolSession, UUID> {
+interface AuthEmailToolSessionRepository : JpaRepository<AuthEmailToolSession, UUID> {
     @Modifying
-    @Query("delete from AuthEmailUseToolSession e where e.createdAt < :cutoff")
+    @Query("delete from AuthEmailToolSession e where e.createdAt < :cutoff")
     fun deleteByCreatedAtBefore(@Param("cutoff") cutoff: Instant): Int
 }

@@ -25,7 +25,6 @@ CREATE INDEX ix_enroll_tool_session_created_at ON auth_sms.enroll_tool_session (
 
 CREATE TABLE auth_sms.auth_tool_session (
     tool_session_id     UUID PRIMARY KEY,
-    enrollment_ref_type VARCHAR(50),
     enrollment_ref_id   VARCHAR(255),
     issued_tan_hash     VARCHAR(64),
     tan_expires_at      TIMESTAMP WITH TIME ZONE,

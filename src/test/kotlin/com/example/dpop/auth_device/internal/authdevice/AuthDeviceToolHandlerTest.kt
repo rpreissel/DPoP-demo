@@ -71,7 +71,7 @@ class AuthDeviceToolHandlerTest : BehaviorSpec({
     }
 
     given("an active auth-device tool session bound to an enrollment") {
-        val data = AuthDeviceToolSession(toolSessionId = toolSessionId, enrollmentRefType = DEVICE_ENROLLMENT_TYPE, enrollmentRefId = "1")
+        val data = AuthDeviceToolSession(toolSessionId = toolSessionId, enrollmentRefId = "1")
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
         every { enrollmentRepository.findById(1L) } returns Optional.of(DeviceEnrollment(thumbprint = "thumb-1").apply { id = 1L })
 

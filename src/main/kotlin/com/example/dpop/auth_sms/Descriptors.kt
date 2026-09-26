@@ -42,7 +42,7 @@ object EnrollSmsDescriptor : ToolDescriptor {
 }
 
 @Component
-object AuthSmsUseDescriptor : ToolDescriptor {
+object AuthSmsDescriptor : ToolDescriptor {
     override val toolId = ToolId("auth-sms")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = SMS_METHOD

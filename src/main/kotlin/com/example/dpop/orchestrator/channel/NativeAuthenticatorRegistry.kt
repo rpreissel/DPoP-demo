@@ -34,8 +34,8 @@ data class NativeAuthenticatorDescriptor(
  */
 @Component
 class NativeAuthenticatorRegistry {
-    // Same loa1 ceiling the orchestrator's own equivalent descriptors use (AuthPasswordUseDescriptor,
-    // AuthSmsUseDescriptor) - no reason for a native authenticator to claim more than its
+    // Same loa1 ceiling the orchestrator's own equivalent descriptors use (AuthPasswordDescriptor,
+    // AuthSmsDescriptor) - no reason for a native authenticator to claim more than its
     // orchestrator counterpart absent an actual, real difference in what it checks. This is each
     // method's own INDIVIDUAL ceiling only - two DISTINCT native methods (different factorTypes)
     // proven together still combine to loa2 via DefaultAuthPolicy's MFA bump exactly like two

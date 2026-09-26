@@ -11,7 +11,7 @@ import java.time.Instant
  * after the process has moved on.
  */
 @Component
-class IdFscRetentionJob(private val repository: IdFscToolSessionRepository) : ToolSessionSweeper {
+class IdFscRetentionJob(private val repository: IdentFscToolSessionRepository) : ToolSessionSweeper {
 
     @Transactional
     override fun sweep(cutoff: Instant) {

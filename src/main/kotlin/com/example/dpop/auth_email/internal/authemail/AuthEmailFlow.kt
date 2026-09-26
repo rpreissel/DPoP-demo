@@ -1,4 +1,4 @@
-package com.example.dpop.auth_email.internal.authemailuse
+package com.example.dpop.auth_email.internal.authemail
 
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
 import java.time.Instant
@@ -11,10 +11,10 @@ private const val FIELD_CODE = "code"
 
 /**
  * Pure state of the auth-email flow (docs/03-tool-architektur.md #3, the optional Flow pattern) -
- * never leaves this file. Mirrors `auth_sms`'s `AuthSmsUseFlow`: the account's confirmed address
+ * never leaves this file. Mirrors `auth_sms`'s `AuthSmsFlow`: the account's confirmed address
  * is resolved once at `start`, so there is only ever this one shape.
  */
-internal data class AuthEmailUseState(val issuedCodeHash: String, val codeExpiresAt: Instant) {
+internal data class AuthEmailState(val issuedCodeHash: String, val codeExpiresAt: Instant) {
     val step: String get() = STEP_AUTH
     val missingFields: List<String> get() = listOf(FIELD_CODE)
 
@@ -22,8 +22,8 @@ internal data class AuthEmailUseState(val issuedCodeHash: String, val codeExpire
     fun describe(): Pair<String, StepData> = step to MissingFields(missingFields)
 
     companion object {
-        /** Turns [AuthEmailUseToolSession]'s persisted columns back into a [AuthEmailUseState]. */
-        fun of(toolSessionId: UUID, issuedCodeHash: String?, codeExpiresAt: Instant?): AuthEmailUseState = AuthEmailUseState(
+        /** Turns [AuthEmailToolSession]'s persisted columns back into a [AuthEmailState]. */
+        fun of(toolSessionId: UUID, issuedCodeHash: String?, codeExpiresAt: Instant?): AuthEmailState = AuthEmailState(
             checkNotNull(issuedCodeHash) { "auth-email tool data $toolSessionId without issuedCodeHash" },
             checkNotNull(codeExpiresAt) { "auth-email tool data $toolSessionId without codeExpiresAt" }
         )
@@ -31,24 +31,24 @@ internal data class AuthEmailUseState(val issuedCodeHash: String, val codeExpire
 }
 
 /** What one PATCH submitted. */
-internal data class AuthEmailUseInput(val code: String? = null)
+internal data class AuthEmailInput(val code: String? = null)
 
-/** What [AuthEmailUseFlow.decide] concluded should happen. */
-internal sealed interface AuthEmailUseDecision {
-    data object Complete : AuthEmailUseDecision
-    data object WrongCode : AuthEmailUseDecision
+/** What [AuthEmailFlow.decide] concluded should happen. */
+internal sealed interface AuthEmailDecision {
+    data object Complete : AuthEmailDecision
+    data object WrongCode : AuthEmailDecision
     /** Nothing usable was submitted - describe the (unique) state unchanged. */
-    data object Unchanged : AuthEmailUseDecision
+    data object Unchanged : AuthEmailDecision
 }
 
-internal object AuthEmailUseFlow {
+internal object AuthEmailFlow {
 
-    fun decide(state: AuthEmailUseState, input: AuthEmailUseInput, emailCodeGenerator: EmailCodeGenerator): AuthEmailUseDecision {
-        val code = input.code ?: return AuthEmailUseDecision.Unchanged
+    fun decide(state: AuthEmailState, input: AuthEmailInput, emailCodeGenerator: EmailCodeGenerator): AuthEmailDecision {
+        val code = input.code ?: return AuthEmailDecision.Unchanged
         return if (emailCodeGenerator.matches(code, state.issuedCodeHash, state.codeExpiresAt)) {
-            AuthEmailUseDecision.Complete
+            AuthEmailDecision.Complete
         } else {
-            AuthEmailUseDecision.WrongCode
+            AuthEmailDecision.WrongCode
         }
     }
 

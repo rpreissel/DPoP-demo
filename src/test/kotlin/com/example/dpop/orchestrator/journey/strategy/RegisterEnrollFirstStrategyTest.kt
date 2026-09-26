@@ -3,7 +3,7 @@ package com.example.dpop.orchestrator.journey.strategy
 import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
@@ -103,9 +103,9 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
 
         then("adopts the credential, then falls into the normal obligation cascade - email is always obligatory here") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(listOf(ToolId("confirm-email")))))
         }
@@ -143,9 +143,9 @@ class RegisterEnrollFirstStrategyTest : BehaviorSpec({
 
         then("adopts the credential, then moves on to ConfirmingEmail - email is always obligatory here") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                 Transition.To(RegisterEnrollFirstState.EnrollFirstConfirmingEmail(Offer(listOf(ToolId("confirm-email")))))
         }

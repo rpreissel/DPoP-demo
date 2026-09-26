@@ -1,7 +1,7 @@
 package com.example.dpop.auth_email.api.v1
 
 import com.example.dpop.texts.Text
-import com.example.dpop.auth_email.internal.authemailuse.AuthEmailUseToolHandler
+import com.example.dpop.auth_email.internal.authemail.AuthEmailToolHandler
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.tool_api.ToolEndpoint
@@ -38,7 +38,7 @@ data class AuthEmailPatchRequest(@field:Schema(example = "123456") val code: Str
 @Tag(name = "Tool: E-Mail")
 @SecurityRequirement(name = "dpop")
 class AuthEmailToolController(
-    private val handler: AuthEmailUseToolHandler,
+    private val handler: AuthEmailToolHandler,
     private val toolEndpoint: ToolEndpoint
 ) {
 

@@ -14,7 +14,7 @@ import java.util.UUID
 
 /**
  * toolId=auth-password-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - single-step,
- * self-verifying like AuthPasswordUseToolHandler, but takes email+password together since the
+ * self-verifying like AuthPasswordToolHandler, but takes email+password together since the
  * account isn't known via the channel yet. This module cannot resolve email itself (auth_password
  * may only depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves it to an
  * accountId/EnrollmentRef via AccountService and passes the result into [patch].

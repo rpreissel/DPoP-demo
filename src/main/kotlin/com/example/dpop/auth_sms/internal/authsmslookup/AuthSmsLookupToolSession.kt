@@ -9,7 +9,7 @@ import java.util.UUID
 
 /**
  * Tool-session-scoped working data for toolId=auth-sms-lookup. [accountId] is only known once the
- * first PATCH (email) resolved it - unlike AuthSmsUseToolSession, which always knows the account
+ * first PATCH (email) resolved it - unlike AuthSmsToolSession, which always knows the account
  * up front via the device-bound channel.
  */
 @Entity

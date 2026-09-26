@@ -1,6 +1,6 @@
 package com.example.dpop.auth_sms.internal
 import com.example.dpop.auth_sms.internal.authsmslookup.AuthSmsLookupToolSessionRepository
-import com.example.dpop.auth_sms.internal.authsmsuse.AuthSmsUseToolSessionRepository
+import com.example.dpop.auth_sms.internal.authsms.AuthSmsToolSessionRepository
 import com.example.dpop.auth_sms.internal.enrollsms.EnrollSmsToolSessionRepository
 
 import com.example.dpop.tool_api.ToolSessionSweeper
@@ -16,7 +16,7 @@ import java.time.Instant
 @Component
 class AuthSmsRetentionJob(
     private val enrollToolSessionRepository: EnrollSmsToolSessionRepository,
-    private val authUseToolSessionRepository: AuthSmsUseToolSessionRepository,
+    private val authUseToolSessionRepository: AuthSmsToolSessionRepository,
     private val authLookupToolSessionRepository: AuthSmsLookupToolSessionRepository
 ) : ToolSessionSweeper {
 

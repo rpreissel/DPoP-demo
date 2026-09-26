@@ -27,7 +27,6 @@ CREATE INDEX ix_enroll_tool_session_created_at ON auth_device.enroll_tool_sessio
 
 CREATE TABLE auth_device.auth_tool_session (
     tool_session_id     UUID PRIMARY KEY,
-    enrollment_ref_type VARCHAR(50),
     enrollment_ref_id   VARCHAR(255),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL
 );

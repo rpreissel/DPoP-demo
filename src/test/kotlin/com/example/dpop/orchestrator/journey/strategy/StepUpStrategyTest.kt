@@ -1,8 +1,8 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.auth_password.AuthPasswordUseDescriptor
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_password.AuthPasswordDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyEvent
@@ -50,20 +50,20 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("Authenticated is accepted as proof, never adopting a different account, always binding the device") {
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsDescriptor, outcome), resumeState = state)
         }
 
         then("Identified is not offered by this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.transition(state, JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))), ctx())
+                strategy.transition(state, JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Identified(claims = listOf(com.example.dpop.tool_spi.Claim(com.example.dpop.tool_spi.AttributeType.PERSON_ID, "P000000001", com.example.dpop.tool_spi.ClaimSource.PERSON_DIRECTORY)))), ctx())
             }
         }
 
         then("Enrolled is not offered by this intent") {
             shouldThrow<IllegalStateException> {
-                strategy.transition(state, JourneyEvent.Completed(AuthSmsUseDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))), ctx())
+                strategy.transition(state, JourneyEvent.Completed(AuthSmsDescriptor, ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))), ctx())
             }
         }
     }
@@ -169,7 +169,7 @@ class StepUpStrategyTest : BehaviorSpec({
 
         `when`("one is abandoned, another remains") {
             then("advances, marking only that one declined") {
-                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
+                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), theCtx) shouldBe
                     Transition.To(state.declining(ToolId("auth-sms")))
             }
         }
@@ -182,7 +182,7 @@ class StepUpStrategyTest : BehaviorSpec({
         `when`("re-identification could still help") {
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("requires the shared RE_IDENTIFY sub-journey") {
-                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe
+                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,
                         seedWith = ReIdentifyState.forSubJourney(AcrLevel.LOA2, AcrLevel.LOA1),
@@ -194,7 +194,7 @@ class StepUpStrategyTest : BehaviorSpec({
         `when`("re-identification cannot help either") {
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms", "fsc", "eid", "nect-eid"), setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE), account = acc, amrSourceId = mapOf("nect-eid" to "ident-nect")))
             then("cancels - giving up here is not an error") {
-                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Transition.Cancel
+                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), theCtx) shouldBe Transition.Cancel
             }
         }
 
@@ -202,7 +202,7 @@ class StepUpStrategyTest : BehaviorSpec({
             val forbiddenState = state.copy(allowReIdentification = false)
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc))
             then("cancels instead of requiring RE_IDENTIFY") {
-                strategy.transition(forbiddenState, JourneyEvent.Abandoned(AuthSmsUseDescriptor), theCtx) shouldBe Transition.Cancel
+                strategy.transition(forbiddenState, JourneyEvent.Abandoned(AuthSmsDescriptor), theCtx) shouldBe Transition.Cancel
             }
         }
     }
@@ -216,9 +216,9 @@ class StepUpStrategyTest : BehaviorSpec({
 
         then("performs AcceptProof, then finishes once the combination satisfies the target") {
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("password"))
-            val event = JourneyEvent.Completed(AuthPasswordUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthPasswordDescriptor, outcome)
             strategy.transition(state, event, theCtx) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthPasswordUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthPasswordDescriptor, outcome), resumeState = state)
             strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
         }
     }

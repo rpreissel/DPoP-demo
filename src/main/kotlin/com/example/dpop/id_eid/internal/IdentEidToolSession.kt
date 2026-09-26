@@ -11,7 +11,7 @@ import java.util.UUID
 /** Tool-session-scoped working data for toolId=ident-eid. */
 @Entity
 @Table(schema = "id_eid", name = "ident_tool_session")
-class IdEidToolSession(
+class IdentEidToolSession(
     @Id
     @Column(name = "tool_session_id", nullable = false)
     var toolSessionId: UUID? = null,

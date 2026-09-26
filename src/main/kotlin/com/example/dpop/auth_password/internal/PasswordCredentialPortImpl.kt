@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 
 /**
  * Implements [PasswordCredentialPort] for callers outside a Channel/ToolSession (Keycloak's native
- * password credential) - reuses exactly the same hashing/storage as [AuthPasswordUseToolHandler]/
+ * password credential) - reuses exactly the same hashing/storage as [AuthPasswordToolHandler]/
  * [EnrollPasswordToolHandler][com.example.dpop.auth_password.internal.enrollpassword.EnrollPasswordToolHandler],
  * just without the ToolSession indirection.
  */

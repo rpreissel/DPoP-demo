@@ -15,9 +15,6 @@ class AuthDeviceToolSession(
     @Column(name = "tool_session_id", nullable = false)
     var toolSessionId: UUID? = null,
 
-    @Column(name = "enrollment_ref_type")
-    var enrollmentRefType: String? = null,
-
     @Column(name = "enrollment_ref_id")
     var enrollmentRefId: String? = null
 ) {

@@ -14,7 +14,7 @@ import java.time.Instant
  * anything - nothing could notice. `ToolSessionCoverageTest` now does.
  */
 @Component
-class IdKvnrRetentionJob(private val repository: IdKvnrToolSessionRepository) : ToolSessionSweeper {
+class IdKvnrRetentionJob(private val repository: IdentKvnrToolSessionRepository) : ToolSessionSweeper {
 
     @Transactional
     override fun sweep(cutoff: Instant) {

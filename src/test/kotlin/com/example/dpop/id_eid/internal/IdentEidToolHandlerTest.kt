@@ -28,11 +28,11 @@ import java.util.UUID
 class IdentEidToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
-    val repository = mockk<IdEidToolSessionRepository>()
+    val repository = mockk<IdentEidToolSessionRepository>()
     val handler = IdentEidToolHandler(IdentEidDescriptor, repository)
 
     given("an ident-eid session with the card read, waiting for the PIN") {
-        val data = IdEidToolSession(
+        val data = IdentEidToolSession(
             toolSessionId = toolSessionId,
             familyName = "Muster",
             givenNames = "Max",

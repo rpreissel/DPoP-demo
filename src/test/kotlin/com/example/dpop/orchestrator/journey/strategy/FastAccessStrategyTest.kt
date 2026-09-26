@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.auth_device.AuthDeviceDescriptor
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.orchestrator.journey.Action
 import com.example.dpop.orchestrator.kernel.AuthIntent
@@ -64,16 +64,16 @@ class FastAccessStrategyTest : BehaviorSpec({
 
         then("Enrolled binds the device - a fresh credential on this device is worth remembering") {
             val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
         }
 
         then("Authenticated is accepted as proof, never adopting a different account, always binding the device") {
             val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
-            val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+            val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
             strategy.transition(state, event, ctx()) shouldBe
-                Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome), resumeState = state)
+                Transition.Perform(Action.AcceptProof(AuthSmsDescriptor, outcome), resumeState = state)
         }
     }
 
@@ -149,7 +149,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         val state = AuthChoice(Offer(listOf(ToolId("auth-sms"), ToolId("auth-password"))))
         val acc = account(method("sms", AcrLevel.LOA2), method("password", AcrLevel.LOA2))
         then("abandoning one keeps the run in AuthChoice with the rest still offered") {
-            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx(account = acc)) shouldBe
+            strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx(account = acc)) shouldBe
                 Transition.To(state.declining(ToolId("auth-sms")))
         }
     }
@@ -157,7 +157,7 @@ class FastAccessStrategyTest : BehaviorSpec({
     given("AuthChoice, the last offered candidate is abandoned") {
         val acc = account(method("sms", AcrLevel.LOA2))
         then("hands off to REGISTER's own journey, same as an account with nothing usable at all") {
-            strategy.transition(AuthChoice(Offer(listOf(ToolId("auth-sms")))), JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx(account = acc)) shouldBe
+            strategy.transition(AuthChoice(Offer(listOf(ToolId("auth-sms")))), JourneyEvent.Abandoned(AuthSmsDescriptor), ctx(account = acc)) shouldBe
                 Transition.RequireSubJourney(AuthIntent.REGISTER, seedWith = RegisterState.Start, resumeWith = FastAccessState.Start)
         }
     }
@@ -166,7 +166,7 @@ class FastAccessStrategyTest : BehaviorSpec({
         `when`("abandoned") {
             val state = Enrolling(Offer(listOf(ToolId("enroll-sms"))), emailObligation = false)
             then("re-offers the same full choice, the tool just backed out of included") {
-                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsUseDescriptor), ctx()) shouldBe Transition.To(state.withActive(null))
+                strategy.transition(state, JourneyEvent.Abandoned(AuthSmsDescriptor), ctx()) shouldBe Transition.To(state.withActive(null))
             }
         }
 
@@ -176,9 +176,9 @@ class FastAccessStrategyTest : BehaviorSpec({
             val state = Enrolling(Offer(listOf(ToolId("enroll-sms"))), emailObligation = false)
             then("adopts the credential, then finishes directly - FAST_ACCESS never carries an email obligation") {
                 val outcome = ToolOutcome.Completed.Enrolled(enrollmentRef = EnrollmentRef("sms", "ref"))
-                val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+                val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AdoptCredential(AuthSmsUseDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.AdoptCredential(AuthSmsDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe Transition.Authenticated
             }
         }
@@ -193,9 +193,9 @@ class FastAccessStrategyTest : BehaviorSpec({
             val theCtx = ctx(account = acc, evidence = evidence(listOf("sms"), setOf(FactorType.POSSESSION), account = acc), acrFloor = AcrLevel.LOA2, availableTools = onlyAuthTools + setOf(ToolId("ident-fsc"), ToolId("ident-eid")))
             then("accepts the proof, then requires the shared RE_IDENTIFY sub-journey instead of aborting") {
                 val outcome = ToolOutcome.Completed.Authenticated(amr = listOf("sms"))
-                val event = JourneyEvent.Completed(AuthSmsUseDescriptor, outcome)
+                val event = JourneyEvent.Completed(AuthSmsDescriptor, outcome)
                 strategy.transition(state, event, theCtx) shouldBe
-                    Transition.Perform(Action.AcceptProof(AuthSmsUseDescriptor, outcome), resumeState = state)
+                    Transition.Perform(Action.AcceptProof(AuthSmsDescriptor, outcome), resumeState = state)
                 strategy.transition(state, JourneyEvent.ActionCompleted, theCtx) shouldBe
                     Transition.RequireSubJourney(
                         AuthIntent.RE_IDENTIFY,

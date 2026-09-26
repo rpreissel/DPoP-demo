@@ -48,7 +48,6 @@ class AuthDeviceToolHandler(
         toolDataRepository.save(
             AuthDeviceToolSession(
                 toolSessionId = toolSessionId,
-                enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id
             )
         )

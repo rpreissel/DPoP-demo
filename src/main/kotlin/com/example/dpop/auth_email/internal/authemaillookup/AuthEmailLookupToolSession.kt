@@ -9,7 +9,7 @@ import java.util.UUID
 
 /**
  * Tool-session-scoped working data for toolId=auth-email-lookup. [accountId] is only known once the
- * first PATCH (email) resolved it - unlike AuthEmailUseToolSession, which never needs it at all
+ * first PATCH (email) resolved it - unlike AuthEmailToolSession, which never needs it at all
  * (email lives directly on Account, resolved once at the call site by the controller).
  */
 @Entity

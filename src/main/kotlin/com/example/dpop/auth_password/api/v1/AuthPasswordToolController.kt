@@ -1,8 +1,8 @@
 package com.example.dpop.auth_password.api.v1
 
 import com.example.dpop.texts.Text
-import com.example.dpop.auth_password.AuthPasswordUseDescriptor
-import com.example.dpop.auth_password.internal.authpassworduse.AuthPasswordUseToolHandler
+import com.example.dpop.auth_password.AuthPasswordDescriptor
+import com.example.dpop.auth_password.internal.authpassword.AuthPasswordToolHandler
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.BindingKey
 import com.example.dpop.tool_api.ChannelResponse
@@ -42,8 +42,8 @@ data class AuthPasswordPatchRequest(
 @Tag(name = "Tool: Passwort")
 @SecurityRequirement(name = "dpop")
 class AuthPasswordToolController(
-    private val handler: AuthPasswordUseToolHandler,
-    private val descriptor: AuthPasswordUseDescriptor,
+    private val handler: AuthPasswordToolHandler,
+    private val descriptor: AuthPasswordDescriptor,
     private val accountDirectory: AccountDirectory,
     private val toolEndpoint: ToolEndpoint
 ) {

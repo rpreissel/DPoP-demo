@@ -57,7 +57,6 @@ class AuthKobilToolHandler(
         val session = toolDataRepository.save(
             AuthKobilToolSession(
                 toolSessionId = toolSessionId,
-                enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id,
             )
         )

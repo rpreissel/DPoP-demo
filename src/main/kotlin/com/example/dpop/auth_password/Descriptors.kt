@@ -53,7 +53,7 @@ object EnrollPasswordDescriptor : ToolDescriptor {
 }
 
 @Component
-object AuthPasswordUseDescriptor : ToolDescriptor {
+object AuthPasswordDescriptor : ToolDescriptor {
     override val toolId = ToolId("auth-password")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = PASSWORD_METHOD

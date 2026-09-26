@@ -16,7 +16,7 @@ import java.util.UUID
 /**
  * toolId=auth-sms-lookup: "login ohne DPoP" (docs/04-orchestrierung.md) - proves possession of
  * an enrolled phone number without the account already being known via the channel. Unlike
- * AuthSmsUseToolHandler, this module cannot resolve the account itself (auth_sms may only
+ * AuthSmsToolHandler, this module cannot resolve the account itself (auth_sms may only
  * depend on tool_spi, docs/08-projektrahmen.md A11) - the controller resolves [email] to an
  * accountId/EnrollmentRef via AccountService and passes the result into [submitEmail].
  *

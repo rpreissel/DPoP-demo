@@ -1,4 +1,4 @@
-package com.example.dpop.auth_sms.internal.authsmsuse
+package com.example.dpop.auth_sms.internal.authsms
 
 import com.example.dpop.auth_sms.internal.TanGenerator
 import io.kotest.core.spec.style.BehaviorSpec
@@ -6,28 +6,28 @@ import io.kotest.matchers.shouldBe
 import java.util.UUID
 import com.example.dpop.tool_spi.MissingFields
 
-class AuthSmsUseFlowTest : BehaviorSpec({
+class AuthSmsFlowTest : BehaviorSpec({
 
     val tanGenerator = TanGenerator("test-pepper")
     val issued = tanGenerator.issue()
-    val state = AuthSmsUseState(issued.hash, issued.expiresAt)
+    val state = AuthSmsState(issued.hash, issued.expiresAt)
 
     given("a pending TAN") {
         `when`("nothing was submitted") {
             then("the state is unchanged") {
-                AuthSmsUseFlow.decide(state, AuthSmsUseInput(), tanGenerator) shouldBe AuthSmsUseDecision.Unchanged
+                AuthSmsFlow.decide(state, AuthSmsInput(), tanGenerator) shouldBe AuthSmsDecision.Unchanged
             }
         }
 
         `when`("the wrong tan was submitted") {
             then("it is rejected") {
-                AuthSmsUseFlow.decide(state, AuthSmsUseInput("000000"), tanGenerator) shouldBe AuthSmsUseDecision.WrongTan
+                AuthSmsFlow.decide(state, AuthSmsInput("000000"), tanGenerator) shouldBe AuthSmsDecision.WrongTan
             }
         }
 
         `when`("the correct tan was submitted") {
             then("it completes") {
-                AuthSmsUseFlow.decide(state, AuthSmsUseInput(issued.plainTan), tanGenerator) shouldBe AuthSmsUseDecision.Complete
+                AuthSmsFlow.decide(state, AuthSmsInput(issued.plainTan), tanGenerator) shouldBe AuthSmsDecision.Complete
             }
         }
     }
@@ -40,7 +40,7 @@ class AuthSmsUseFlowTest : BehaviorSpec({
 
     given("toState()") {
         then("it reconstructs the pending TAN") {
-            AuthSmsUseState.of(UUID.randomUUID(), issued.hash, issued.expiresAt) shouldBe state
+            AuthSmsState.of(UUID.randomUUID(), issued.hash, issued.expiresAt) shouldBe state
         }
     }
 })

@@ -6,7 +6,7 @@ import com.example.dpop.auth_kobil.AuthKobilDescriptor
 import com.example.dpop.auth_kobil.EnrollKobilDescriptor
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.id_nect.IdentNectDescriptor
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.orchestrator.kernel.ChannelType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainAll
@@ -22,7 +22,7 @@ import java.util.Optional
  */
 class DemoOnlyToolAvailabilityTest : BehaviorSpec({
 
-    val registry = ToolHandlerRegistry(listOf(AuthDeviceDescriptor, EnrollDeviceDescriptor, AuthSmsUseDescriptor))
+    val registry = ToolHandlerRegistry(listOf(AuthDeviceDescriptor, EnrollDeviceDescriptor, AuthSmsDescriptor))
     val repository = mockk<ToolAvailabilityRepository>()
     // An operator row that explicitly switches auth-device ON - it must not matter outside demo mode.
     every { repository.findById(any()) } answers {
@@ -37,7 +37,7 @@ class DemoOnlyToolAvailabilityTest : BehaviorSpec({
         then("the device tools (claimed user verification), KOBIL, eID and Nect (simulated counterparts) declare themselves demo-only") {
             listOf(AuthDeviceDescriptor, EnrollDeviceDescriptor, AuthKobilDescriptor, EnrollKobilDescriptor, IdentEidDescriptor, IdentNectDescriptor)
                 .forEach { (it.demoOnly != null) shouldBe true }
-            AuthSmsUseDescriptor.demoOnly shouldBe null
+            AuthSmsDescriptor.demoOnly shouldBe null
         }
     }
 

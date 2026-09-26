@@ -70,7 +70,7 @@ object EnrollEmailDescriptor : ToolDescriptor {
 }
 
 @Component
-object AuthEmailUseDescriptor : ToolDescriptor {
+object AuthEmailDescriptor : ToolDescriptor {
     override val toolId = ToolId("auth-email")
     override val role = MethodRole.IDENTIFIED_AUTH
     override val method = EMAIL_METHOD

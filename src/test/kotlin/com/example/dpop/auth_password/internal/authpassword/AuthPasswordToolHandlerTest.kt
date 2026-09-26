@@ -1,10 +1,10 @@
-package com.example.dpop.auth_password.internal.authpassworduse
+package com.example.dpop.auth_password.internal.authpassword
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_password.internal.PasswordHasher
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollmentRepository
 import com.example.dpop.auth_password.internal.AuthPasswordEnrollment
 
-import com.example.dpop.auth_password.AuthPasswordUseDescriptor
+import com.example.dpop.auth_password.AuthPasswordDescriptor
 import com.example.dpop.auth_password.PASSWORD_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -20,13 +20,13 @@ import java.util.UUID
 
 /**
  * Pure unit test: no Spring context, repositories mocked with MockK. Covers persistence/outcome
- * wiring only - the input decision is covered by [AuthPasswordUseFlowTest].
+ * wiring only - the input decision is covered by [AuthPasswordFlowTest].
  */
-class AuthPasswordUseToolHandlerTest : BehaviorSpec({
+class AuthPasswordToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthPasswordUseToolSessionRepository>()
+    val toolDataRepository = mockk<AuthPasswordToolSessionRepository>()
     val enrollmentRepository = mockk<AuthPasswordEnrollmentRepository>()
-    val handler = AuthPasswordUseToolHandler(AuthPasswordUseDescriptor, toolDataRepository, enrollmentRepository)
+    val handler = AuthPasswordToolHandler(AuthPasswordDescriptor, toolDataRepository, enrollmentRepository)
     val toolSessionId = UUID.randomUUID()
 
     given("start()") {
@@ -53,7 +53,7 @@ class AuthPasswordUseToolHandlerTest : BehaviorSpec({
 
     given("an active auth-password tool session bound to an enrollment") {
         val enrollment = AuthPasswordEnrollment(passwordHash = PasswordHasher.hash("hunter2")).apply { id = 1L }
-        val data = AuthPasswordUseToolSession(toolSessionId = toolSessionId, enrollmentRefType = PASSWORD_ENROLLMENT_TYPE, enrollmentRefId = "1")
+        val data = AuthPasswordToolSession(toolSessionId = toolSessionId, enrollmentRefId = "1")
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
         every { enrollmentRepository.findById(1L) } returns Optional.of(enrollment)
 
@@ -64,7 +64,7 @@ class AuthPasswordUseToolHandlerTest : BehaviorSpec({
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Authenticated>()
                 val authenticated = outcome as ToolOutcome.Completed.Authenticated
                 authenticated.amr shouldBe listOf("password")
-                authenticated.achievedAcr shouldBe AuthPasswordUseDescriptor.maxAcr
+                authenticated.achievedAcr shouldBe AuthPasswordDescriptor.maxAcr
             }
         }
 

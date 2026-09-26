@@ -1,10 +1,10 @@
-package com.example.dpop.auth_sms.internal.authsmsuse
+package com.example.dpop.auth_sms.internal.authsms
 import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
 
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -22,14 +22,14 @@ import java.util.UUID
 
 /**
  * Pure unit test: no Spring context, repositories mocked with MockK. Covers persistence/outcome
- * wiring only - the tan-vs-state decision is covered by [AuthSmsUseFlowTest].
+ * wiring only - the tan-vs-state decision is covered by [AuthSmsFlowTest].
  */
-class AuthSmsUseToolHandlerTest : BehaviorSpec({
+class AuthSmsToolHandlerTest : BehaviorSpec({
 
-    val toolDataRepository = mockk<AuthSmsUseToolSessionRepository>()
+    val toolDataRepository = mockk<AuthSmsToolSessionRepository>()
     val enrollmentRepository = mockk<AuthSmsEnrollmentRepository>()
     val tanGenerator = TanGenerator("test-pepper")
-    val handler = AuthSmsUseToolHandler(AuthSmsUseDescriptor, toolDataRepository, enrollmentRepository, tanGenerator, SmsGateway())
+    val handler = AuthSmsToolHandler(AuthSmsDescriptor, toolDataRepository, enrollmentRepository, tanGenerator, SmsGateway())
     val toolSessionId = UUID.randomUUID()
 
     given("start()") {
@@ -54,7 +54,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
         `when`("the referenced enrollment exists") {
             val enrollment = AuthSmsEnrollment(phoneNumber = "+491701234567").apply { id = 1L }
             every { enrollmentRepository.findById(1L) } returns Optional.of(enrollment)
-            val saved = slot<AuthSmsUseToolSession>()
+            val saved = slot<AuthSmsToolSession>()
             every { toolDataRepository.save(capture(saved)) } answers { saved.captured }
 
             then("it persists a fresh TAN and asks for it at step auth") {
@@ -69,7 +69,7 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
 
     given("an active auth-sms tool session with a pending TAN") {
         val issued = tanGenerator.issue()
-        val data = AuthSmsUseToolSession(toolSessionId = toolSessionId, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
+        val data = AuthSmsToolSession(toolSessionId = toolSessionId, issuedTanHash = issued.hash, tanExpiresAt = issued.expiresAt)
         every { toolDataRepository.findById(toolSessionId) } returns Optional.of(data)
 
         `when`("confirming with the correct TAN") {
@@ -79,8 +79,8 @@ class AuthSmsUseToolHandlerTest : BehaviorSpec({
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Authenticated>()
                 val authenticated = outcome as ToolOutcome.Completed.Authenticated
                 authenticated.amr shouldBe listOf("sms")
-                authenticated.achievedAcr shouldBe AuthSmsUseDescriptor.maxAcr
-                authenticated.factorTypes shouldBe AuthSmsUseDescriptor.factorTypes
+                authenticated.achievedAcr shouldBe AuthSmsDescriptor.maxAcr
+                authenticated.factorTypes shouldBe AuthSmsDescriptor.factorTypes
             }
         }
     }

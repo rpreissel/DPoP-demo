@@ -28,13 +28,13 @@ import com.example.dpop.tool_spi.MissingFields
 @Component
 class IdentKvnrToolHandler(
     private val descriptor: IdentKvnrDescriptor,
-    private val repository: IdKvnrToolSessionRepository,
+    private val repository: IdentKvnrToolSessionRepository,
     private val personDirectory: PersonDirectory
 ) {
 
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        repository.save(IdKvnrToolSession(toolSessionId = toolSessionId))
+        repository.save(IdentKvnrToolSession(toolSessionId = toolSessionId))
         return inProgress()
     }
 

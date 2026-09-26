@@ -9,8 +9,8 @@ import java.time.Instant
 import java.util.UUID
 
 @Repository
-interface IdKvnrToolSessionRepository : JpaRepository<IdKvnrToolSession, UUID> {
+interface IdentKvnrToolSessionRepository : JpaRepository<IdentKvnrToolSession, UUID> {
     @Modifying
-    @Query("delete from IdKvnrToolSession e where e.createdAt < :cutoff")
+    @Query("delete from IdentKvnrToolSession e where e.createdAt < :cutoff")
     fun deleteByCreatedAtBefore(@Param("cutoff") cutoff: Instant): Int
 }

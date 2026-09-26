@@ -28,14 +28,14 @@ import java.util.UUID
 class IdentFscToolHandlerTest : BehaviorSpec({
 
     val toolSessionId = UUID.randomUUID()
-    val repository = mockk<IdFscToolSessionRepository>()
+    val repository = mockk<IdentFscToolSessionRepository>()
     val activationCodes = mockk<ActivationCodes> { every { digest(any()) } answers { "digest:" + firstArg<String>() } }
     val personDirectory = mockk<PersonDirectory>()
     val handler = IdentFscToolHandler(IdentFscDescriptor, repository, activationCodes, personDirectory)
 
     val birthdate = LocalDate.of(1985, 6, 15)
 
-    fun sessionWithVerifiedPersonalien() = IdFscToolSession(
+    fun sessionWithVerifiedPersonalien() = IdentFscToolSession(
         toolSessionId = toolSessionId,
         kvnr = "A123456789",
         personId = "P000000007",
@@ -87,7 +87,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
     given("a Partner - verified by Partnernummer, no KVNR (ADR-34)") {
         then("the code identifies, and no KVNR claim is asserted") {
-            val data = IdFscToolSession(
+            val data = IdentFscToolSession(
                 toolSessionId = toolSessionId, partnernr = "P000000004", personId = "P000000004",
                 familyName = "Schulz", givenNames = "Paula", birthDate = birthdate
             )

@@ -29,13 +29,13 @@ import java.util.UUID
 @Component
 class IdentEidToolHandler(
     private val descriptor: IdentEidDescriptor,
-    private val repository: IdEidToolSessionRepository
+    private val repository: IdentEidToolSessionRepository
 ) {
 
     /** Called directly by IdentEidToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        repository.save(IdEidToolSession(toolSessionId = toolSessionId))
+        repository.save(IdentEidToolSession(toolSessionId = toolSessionId))
         return outcomeFor(IdentEidState())
     }
 
@@ -110,10 +110,10 @@ class IdentEidToolHandler(
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun IdEidToolSession.toState(): IdentEidState =
+    private fun IdentEidToolSession.toState(): IdentEidState =
         IdentEidState(familyName, givenNames, birthDate, streetAddress, postalCode, locality, restrictedId, pinHash)
 
-    private fun IdEidToolSession.applyState(state: IdentEidState) {
+    private fun IdentEidToolSession.applyState(state: IdentEidState) {
         familyName = state.familyName
         givenNames = state.givenNames
         birthDate = state.birthDate

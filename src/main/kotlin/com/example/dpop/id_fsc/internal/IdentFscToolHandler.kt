@@ -33,7 +33,7 @@ private val PERSONAL_DETAILS_REJECTED = Text("Die Angaben passen zu keiner Perso
 @Component
 class IdentFscToolHandler(
     private val descriptor: IdentFscDescriptor,
-    private val repository: IdFscToolSessionRepository,
+    private val repository: IdentFscToolSessionRepository,
     private val activationCodes: ActivationCodes,
     private val personDirectory: PersonDirectory
 ) {
@@ -41,7 +41,7 @@ class IdentFscToolHandler(
     /** Called directly by IdentFscToolController; nothing needs resolving before this can start. */
     @Transactional
     fun start(toolSessionId: UUID): ToolOutcome {
-        repository.save(IdFscToolSession(toolSessionId = toolSessionId))
+        repository.save(IdentFscToolSession(toolSessionId = toolSessionId))
         return outcomeFor(IdentFscState())
     }
 
@@ -149,9 +149,9 @@ class IdentFscToolHandler(
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, partnernr, familyName, givenNames, birthDate, fscHash, personId)
+    private fun IdentFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, partnernr, familyName, givenNames, birthDate, fscHash, personId)
 
-    private fun IdFscToolSession.applyState(state: IdentFscState) {
+    private fun IdentFscToolSession.applyState(state: IdentFscState) {
         kvnr = state.kvnr
         partnernr = state.partnernr
         familyName = state.familyName

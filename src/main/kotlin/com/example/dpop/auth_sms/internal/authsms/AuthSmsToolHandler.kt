@@ -1,10 +1,10 @@
-package com.example.dpop.auth_sms.internal.authsmsuse
+package com.example.dpop.auth_sms.internal.authsms
 import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.TanGenerator
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollmentRepository
 
-import com.example.dpop.auth_sms.AuthSmsUseDescriptor
+import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.auth_sms.SMS_ENROLLMENT_TYPE
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.ToolOutcome
@@ -19,14 +19,14 @@ import java.util.UUID
  * active SMS enrollment reference - resolved and null-checked by AuthSmsToolController before
  * calling this (never null here), since this module never reads `account` itself.
  *
- * Pure business logic; self-description lives in [AuthSmsUseDescriptor]. Its
+ * Pure business logic; self-description lives in [AuthSmsDescriptor]. Its
  * only external caller is AuthSmsToolController, which lives in the same module.
- * Delegates the tan-vs-state decision to [AuthSmsUseFlow].
+ * Delegates the tan-vs-state decision to [AuthSmsFlow].
  */
 @Component
-class AuthSmsUseToolHandler(
-    private val descriptor: AuthSmsUseDescriptor,
-    private val toolDataRepository: AuthSmsUseToolSessionRepository,
+class AuthSmsToolHandler(
+    private val descriptor: AuthSmsDescriptor,
+    private val toolDataRepository: AuthSmsToolSessionRepository,
     private val enrollmentRepository: AuthSmsEnrollmentRepository,
     private val tanGenerator: TanGenerator,
     private val smsGateway: SmsGateway
@@ -44,9 +44,8 @@ class AuthSmsUseToolHandler(
 
         val issued = tanGenerator.issue()
         toolDataRepository.save(
-            AuthSmsUseToolSession(
+            AuthSmsToolSession(
                 toolSessionId = toolSessionId,
-                enrollmentRefType = enrollmentRef.type,
                 enrollmentRefId = enrollmentRef.id,
                 issuedTanHash = issued.hash,
                 tanExpiresAt = issued.expiresAt
@@ -56,7 +55,7 @@ class AuthSmsUseToolHandler(
 
         // demoTan: this is a demo, not a real SMS gateway - showing it in the UI means testers
         // don't need server-log access (docs/06-ablaeufe.md #3).
-        val (step, fields) = AuthSmsUseState(issued.hash, issued.expiresAt).describe()
+        val (step, fields) = AuthSmsState(issued.hash, issued.expiresAt).describe()
         return ToolOutcome.InProgress(nextStep = step, stepData = fields, demo = mapOf("tan" to issued.plainTan))
     }
 
@@ -66,10 +65,10 @@ class AuthSmsUseToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown auth-sms tool session: $toolSessionId" }
         val state = data.toState()
 
-        return when (AuthSmsUseFlow.decide(state, AuthSmsUseInput(tan), tanGenerator)) {
-            AuthSmsUseDecision.Unchanged -> outcomeFor(state)
-            AuthSmsUseDecision.WrongTan -> ToolOutcome.Failed.IdentifiedAuth(Text("TAN ungueltig oder abgelaufen"))
-            AuthSmsUseDecision.Complete -> ToolOutcome.Completed.Authenticated(
+        return when (AuthSmsFlow.decide(state, AuthSmsInput(tan), tanGenerator)) {
+            AuthSmsDecision.Unchanged -> outcomeFor(state)
+            AuthSmsDecision.WrongTan -> ToolOutcome.Failed.IdentifiedAuth(Text("TAN ungueltig oder abgelaufen"))
+            AuthSmsDecision.Complete -> ToolOutcome.Completed.Authenticated(
                 amr = listOf(descriptor.method),
                 achievedAcr = descriptor.maxAcr,
                 factorTypes = descriptor.factorTypes
@@ -83,12 +82,12 @@ class AuthSmsUseToolHandler(
         return outcomeFor(data.toState())
     }
 
-    private fun outcomeFor(state: AuthSmsUseState): ToolOutcome.InProgress {
+    private fun outcomeFor(state: AuthSmsState): ToolOutcome.InProgress {
         val (step, fields) = state.describe()
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun AuthSmsUseToolSession.toState(): AuthSmsUseState = AuthSmsUseState.of(
+    private fun AuthSmsToolSession.toState(): AuthSmsState = AuthSmsState.of(
         toolSessionId = checkNotNull(toolSessionId),
         issuedTanHash = issuedTanHash,
         tanExpiresAt = tanExpiresAt

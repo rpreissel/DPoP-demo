@@ -57,7 +57,6 @@ CREATE INDEX ix_kobil_enroll_tool_session_created_at ON auth_kobil.enroll_tool_s
 
 CREATE TABLE auth_kobil.auth_tool_session (
     tool_session_id        UUID PRIMARY KEY,
-    enrollment_ref_type    VARCHAR(50),
     enrollment_ref_id      VARCHAR(255),
     -- NULL = noch nicht freigegeben. Gesetzt traegt die Spalte zugleich das Zugangsmittel
     -- (pin | biometric), das der spaetere Completed als amr meldet: ein Feld, kein Flag daneben.

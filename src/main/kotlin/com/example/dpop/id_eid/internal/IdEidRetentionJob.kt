@@ -11,7 +11,7 @@ import java.time.Instant
  * after the process has moved on.
  */
 @Component
-class IdEidRetentionJob(private val repository: IdEidToolSessionRepository) : ToolSessionSweeper {
+class IdEidRetentionJob(private val repository: IdentEidToolSessionRepository) : ToolSessionSweeper {
 
     @Transactional
     override fun sweep(cutoff: Instant) {
