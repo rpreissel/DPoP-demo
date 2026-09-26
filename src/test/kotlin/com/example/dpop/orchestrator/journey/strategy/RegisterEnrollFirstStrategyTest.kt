@@ -1,17 +1,17 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.auth_email.ConfirmEmailDescriptor
 import com.example.dpop.auth_password.EnrollPasswordDescriptor
 import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
-import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.Offer
+import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterEnrollFirstState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence

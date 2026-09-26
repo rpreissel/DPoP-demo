@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

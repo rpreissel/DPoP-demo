@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.tool
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

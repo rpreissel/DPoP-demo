@@ -13,7 +13,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import org.springframework.stereotype.Repository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 /**
  * Locks in dependency directions the codebase relies on but that nothing mechanically enforced -
@@ -38,7 +38,8 @@ class OrchestratorArchitectureTest : BehaviorSpec({
             noClasses()
                 .that().resideInAnyPackage(
                     "com.example.dpop.orchestrator.journey",
-                    "com.example.dpop.orchestrator.journey.state"
+                    "com.example.dpop.orchestrator.domain.journey",
+                    "com.example.dpop.orchestrator.domain.journey.state"
                 )
                 .should().dependOnClassesThat().resideInAPackage("com.example.dpop.orchestrator.journey.strategy..")
                 .because(
@@ -47,6 +48,29 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                         "JourneyService referenced DeleteAccountStrategy.REQUIRED_ACR directly instead of a " +
                         "constant in the generic journey package)"
                 )
+                .check(classes)
+        }
+    }
+
+    given("the orchestrator's domain (docs/ideen/fachkern-und-technik-trennen.md)") {
+        then("it uses no framework - what it says can be read without knowing Spring, JPA or Jackson") {
+            noClasses()
+                .that().resideInAPackage("com.example.dpop.orchestrator.domain..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                    "jakarta..", "org.springframework..", "org.hibernate..", "tools.jackson..", "com.fasterxml..", "org.slf4j.."
+                )
+                .because("the domain is where a developer reads the rules; persistence, serialization and wiring live around it")
+                .check(classes)
+        }
+
+        then("it depends on nothing else in the orchestrator - everything else may depend on it") {
+            noClasses()
+                .that().resideInAPackage("com.example.dpop.orchestrator.domain..")
+                .should().dependOnClassesThat(
+                    JavaClass.Predicates.resideInAPackage("com.example.dpop.orchestrator..")
+                        .and(JavaClass.Predicates.resideOutsideOfPackage("com.example.dpop.orchestrator.domain.."))
+                )
+                .because("the domain is the bottom of the orchestrator: application and infrastructure use it, never the other way")
                 .check(classes)
         }
     }
@@ -114,7 +138,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 clazz.isAnnotatedWith(Service::class.java) || clazz.isAnnotatedWith(Repository::class.java)
             }
             noClasses()
-                .that().implement("com.example.dpop.orchestrator.journey.IntentStrategy")
+                .that().implement("com.example.dpop.orchestrator.domain.journey.IntentStrategy")
                 .should().dependOnClassesThat(isServiceOrRepository)
                 .because(
                     "a strategy DECIDES, it never ACTS (IntentStrategy's own class doc) - account creation, " +
@@ -328,7 +352,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
             // kc <-> dpop and session -> api.v1 had all grown into cycles.
             //
             // Almost every one was a NAME in the wrong package rather than a real entanglement -
-            // AuthIntent, AmrSource, AcrLevels and OrchestratorException now live in `kernel`,
+            // AuthIntent, AmrSource, AcrLevels and OrchestratorException now live in `domain` (once `kernel`),
             // which depends on nothing; the journey trace takes values instead of the entities it
             // traces; retention, which spans sessions and journeys alike, sits above both instead
             // of inside one.

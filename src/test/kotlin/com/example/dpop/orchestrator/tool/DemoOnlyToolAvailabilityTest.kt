@@ -7,7 +7,7 @@ import com.example.dpop.auth_kobil.EnrollKobilDescriptor
 import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.id_nect.IdentNectDescriptor
 import com.example.dpop.auth_sms.AuthSmsDescriptor
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldNotContain

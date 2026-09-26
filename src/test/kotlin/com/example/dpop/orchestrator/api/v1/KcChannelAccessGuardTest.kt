@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.channel.KcChannelAccessGuard
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -12,7 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.domain.OrchestratorException
 
 /** Pure unit test of [KcChannelAccessGuard] - the kc-anchor mismatch is the whole point of this class. */
 class KcChannelAccessGuardTest : BehaviorSpec({

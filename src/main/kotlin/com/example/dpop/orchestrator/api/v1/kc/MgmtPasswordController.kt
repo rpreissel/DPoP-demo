@@ -6,12 +6,12 @@ import com.example.dpop.tool_spi.PASSWORD_EXISTS_MARKER
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.Claim
 import com.example.dpop.tool_spi.AttributeType
-import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.domain.AcrLevels
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.orchestrator.kc.PeerAuthValidator
-import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.AccountDirectory

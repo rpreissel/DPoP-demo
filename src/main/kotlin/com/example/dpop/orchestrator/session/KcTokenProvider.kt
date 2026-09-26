@@ -4,7 +4,7 @@ import org.springframework.web.client.HttpClientErrorException
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
-import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
 import com.nimbusds.jwt.SignedJWT
 import org.springframework.context.annotation.Profile
 import org.springframework.data.repository.findByIdOrNull

@@ -1,21 +1,28 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.journey.DemoStepReason
+import com.example.dpop.orchestrator.domain.journey.IntentStrategy
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.JourneyLifecycle
+import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.journey.state.AnswerableState
-import com.example.dpop.orchestrator.journey.state.OfferingState
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.journey.state.ToolRef
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.journey.state.AnswerableState
+import com.example.dpop.orchestrator.domain.journey.state.OfferingState
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.StepUpState
+import com.example.dpop.orchestrator.domain.journey.state.ToolRef
 import com.example.dpop.tool_api.JourneyDebugStep
 import com.example.dpop.tool_api.Next
-import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.domain.ChannelState
 import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
@@ -31,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.session.forLog
 import com.example.dpop.tool_spi.StepData
 

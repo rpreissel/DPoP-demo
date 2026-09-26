@@ -1,24 +1,24 @@
 package com.example.dpop.orchestrator.journey
 
-import com.example.dpop.orchestrator.journey.state.ConfirmPeerLoginState
-import com.example.dpop.orchestrator.journey.state.DeleteAccountState
-import com.example.dpop.orchestrator.journey.state.FastAccessState
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.KcSelectMethodState
-import com.example.dpop.orchestrator.journey.state.LookupLoginState
-import com.example.dpop.orchestrator.journey.state.LogoutState
-import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
-import com.example.dpop.orchestrator.journey.state.RegisterState
-import com.example.dpop.orchestrator.journey.state.StepUpState
+import com.example.dpop.orchestrator.domain.journey.state.ConfirmPeerLoginState
+import com.example.dpop.orchestrator.domain.journey.state.DeleteAccountState
+import com.example.dpop.orchestrator.domain.journey.state.FastAccessState
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.KcSelectMethodState
+import com.example.dpop.orchestrator.domain.journey.state.LookupLoginState
+import com.example.dpop.orchestrator.domain.journey.state.LogoutState
+import com.example.dpop.orchestrator.domain.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterEnrollFirstState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterState
+import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import org.springframework.stereotype.Component
 import tools.jackson.databind.exc.InvalidTypeIdException
 import tools.jackson.module.kotlin.jacksonMapperBuilder
 import tools.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import kotlin.reflect.KClass
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 /**
  * Persists a [JourneyState] as `(stateType, state)` on the [AuthJourney] row.

@@ -2,9 +2,9 @@ package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.auth_email.EnrollEmailDescriptor
 import com.example.dpop.auth_sms.EnrollSmsDescriptor
-import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
-import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.domain.journey.state.Offer
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry

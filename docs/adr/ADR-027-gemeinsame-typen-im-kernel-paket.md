@@ -4,6 +4,11 @@
 `orchestrator.kernel`. Dieses Paket hat keine Abhängigkeiten innerhalb des Orchestrators. Ein
 ArchUnit-Test prüft, dass die Pakete des Orchestrators zyklenfrei bleiben.
 
+> **Nachtrag 2026-09-26:** Das Paket heißt jetzt `orchestrator.domain` und ist zum fachlichen Kern
+> gewachsen: Journey-Zustände, `IntentStrategy`, `AuthPolicy` und `AuthEvidence` liegen dort mit.
+> Zur Regel „keine Abhängigkeit innerhalb des Orchestrators“ kommt „kein Framework“
+> ([Idee: Fachkern und Technik trennen](../ideen/fachkern-und-technik-trennen.md)).
+
 ## Vorher
 
 Spring Modulith prüft die Grenzen zwischen den Modulen und schaut in keines hinein. Der Orchestrator

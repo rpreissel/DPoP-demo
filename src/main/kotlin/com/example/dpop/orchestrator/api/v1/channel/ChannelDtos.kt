@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.api.v1.channel
 
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotEmpty
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 @Schema(
     description = "requiredAcr is a lower bound only. Always creates a brand-new ChannelSession for this device " +

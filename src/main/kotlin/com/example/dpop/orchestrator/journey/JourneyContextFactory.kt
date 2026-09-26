@@ -1,9 +1,11 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.AcrLevels
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -11,7 +13,7 @@ import com.example.dpop.orchestrator.session.toCoreEvidence
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
 import org.springframework.stereotype.Component
-import com.example.dpop.orchestrator.kernel.FeatureFlagProvider
+import com.example.dpop.orchestrator.domain.FeatureFlagProvider
 
 /**
  * The reading phase of a transition: everything a strategy may look at, gathered from the durable
@@ -53,7 +55,7 @@ class JourneyContextFactory(
     fun acrFloorOf(channel: ChannelSession): AcrLevel =
         channel.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
 
-    /** Live, not cached (docs/orchestrator/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
+    /** Live, not cached (orchestrator/domain/policy/AuthEvidence.kt): `currentAcr` is never stored, only ever recomputed from the evidence that's actually there. */
     fun currentAcrOf(channel: ChannelSession): AcrLevel {
         val evidence = channel.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) } ?: return AcrLevel.NONE
         val account = channel.accountId?.let { accountService.findAccount(it) }

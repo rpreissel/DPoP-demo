@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.IntentStrategy
+import com.example.dpop.orchestrator.domain.journey.JourneyLifecycle
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -13,7 +15,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 /**
  * One run of one [AuthIntent]: a guided path with a goal (docs/04-orchestrierung.md #1). Belongs

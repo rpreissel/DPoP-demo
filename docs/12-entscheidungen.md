@@ -40,7 +40,7 @@ als Diff mitten im Fließtext.
 | [ADR-24](adr/ADR-024-eine-methode-haengt-von-einer-anderen-ab-indem.md) | Eine Methode hängt von einer anderen ab, indem sie deren Angabe verlangt |
 | [ADR-25](adr/ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md) | Die Keycloak-Konfiguration steht im Realm, nicht in der Container-Umgebung |
 | [ADR-26](adr/ADR-026-api-vertrag-wird-generiert.md) | Der API-Vertrag wird generiert, nicht dreimal von Hand gepflegt |
-| [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md) | Gemeinsame Typen liegen im Paket `orchestrator.kernel` |
+| [ADR-27](adr/ADR-027-gemeinsame-typen-im-kernel-paket.md) | Gemeinsame Typen liegen im Paket `orchestrator.kernel` *(heute `orchestrator.domain`)* |
 | [ADR-28](adr/ADR-028-demo-werte-abschaltbar.md) | Demo-Werte lassen sich abschalten |
 | [ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md) | Die Event Publication Registry von Spring Modulith statt einer eigenen Outbox-Tabelle |
 | [ADR-30](archiv/adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul *(aufgegangen in ADR-16)* |

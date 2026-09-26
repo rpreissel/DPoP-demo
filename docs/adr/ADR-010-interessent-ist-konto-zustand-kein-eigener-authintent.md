@@ -5,7 +5,7 @@
 **Erwogene Alternative**: Ein eigener `AuthIntent` mit eigener Journey, eigenen Zuständen und eigener Strategie. Das wäre begründet, wenn für Interessenten andere Regeln gälten.
 
 **Warum diese**: `AuthIntent` benennt nach eigener Definition
-([AuthIntent.kt](../../src/main/kotlin/com/example/dpop/orchestrator/kernel/AuthIntent.kt)) ein Ziel
+([AuthIntent.kt](../../src/main/kotlin/com/example/dpop/orchestrator/domain/AuthIntent.kt)) ein Ziel
 samt Strategie, nie eine Beschreibung dessen, was aus einem Durchlauf geworden ist. Der Ablauf der
 Journey ist für beide Ausgänge gleich aufgebaut; nur die Suche nach dem Konto unterscheidet sich.
 Die Behandlung von `Action.RecordIdentification` deckt den Fall `personId == null` schon heute als

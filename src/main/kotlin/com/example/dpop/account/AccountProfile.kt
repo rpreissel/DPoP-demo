@@ -27,7 +27,7 @@ data class AccountProfile(
     /**
      * Which attributes this account has established, each at the highest [TrustLevel] a
      * non-retracted claim carries (ADR-12). What `ToolDescriptor.requires` is checked against -
-     * see `DefaultAuthPolicy.requiresSatisfied`.
+     * see `requiresSatisfied` (orchestrator.domain.policy).
      */
     val establishedClaims: Map<AttributeType, TrustLevel> = emptyMap()
 ) {

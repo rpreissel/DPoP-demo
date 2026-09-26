@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.admin
 
 import com.example.dpop.orchestrator.kc.KeycloakRealmLoginTheme
 import com.example.dpop.orchestrator.kc.LoginTheme
-import com.example.dpop.orchestrator.kernel.FeatureFlags
+import com.example.dpop.orchestrator.domain.FeatureFlags
 import com.example.dpop.orchestrator.session.FeatureFlagService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments

@@ -1,9 +1,10 @@
 package com.example.dpop.orchestrator.journey
 
-import com.example.dpop.orchestrator.kernel.ChannelType
-import com.example.dpop.orchestrator.journey.state.AnswerableState
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.OfferingState
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.ChannelType
+import com.example.dpop.orchestrator.domain.journey.state.AnswerableState
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.OfferingState
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry

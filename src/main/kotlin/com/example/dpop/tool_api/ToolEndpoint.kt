@@ -30,7 +30,7 @@ interface ToolContext {
  * - [ToolEndpoint.beginActivation] creates the tool session it is about, so there is nothing older
  *   to be superseded by.
  * - [ToolEndpoint.loadCurrent] verifies an EXISTING session against the journey's active
- *   [com.example.dpop.orchestrator.journey.state.ToolRef] (toolId *and* toolSessionId) and throws
+ *   [com.example.dpop.orchestrator.domain.journey.state.ToolRef] (toolId *and* toolSessionId) and throws
  *   otherwise.
  *
  * [ToolEndpoint.loadContext] deliberately returns the weaker [ToolContext]: it is the read path,

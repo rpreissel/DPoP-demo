@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.api.v1
 
-import com.example.dpop.orchestrator.kernel.ErrorCode
+import com.example.dpop.orchestrator.domain.ErrorCode
 import io.swagger.v3.core.converter.ModelConverters
 import io.swagger.v3.oas.models.media.Content
 import io.swagger.v3.oas.models.media.MediaType

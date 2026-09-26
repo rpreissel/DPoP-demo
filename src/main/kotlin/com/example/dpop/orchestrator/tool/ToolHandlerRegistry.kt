@@ -1,7 +1,8 @@
 package com.example.dpop.orchestrator.tool
 
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.ToolCatalog
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.AttributeType
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Component
  * `ToolHandler` wrapper interface.
  */
 @Component
-class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
+class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) : ToolCatalog {
     private val descriptorsByToolId: Map<ToolId, ToolDescriptor> = descriptors.associateBy { it.toolId }
 
     init {
@@ -60,10 +61,10 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
         }
     }
 
-    fun descriptorOf(toolId: ToolId): ToolDescriptor =
+    override fun descriptorOf(toolId: ToolId): ToolDescriptor =
         descriptorsByToolId[toolId] ?: throw OrchestratorException.notFound(Text("Unknown tool"), "toolId=${toolId}")
 
-    fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()
+    override fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()
 
     private companion object {
         val FINDABLE_BY = setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)

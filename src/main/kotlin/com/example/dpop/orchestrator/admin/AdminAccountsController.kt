@@ -3,7 +3,7 @@ package com.example.dpop.orchestrator.admin
 import com.example.dpop.demo_mode.DemoSurface
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.LoginTheme
-import com.example.dpop.orchestrator.kernel.FeatureFlags
+import com.example.dpop.orchestrator.domain.FeatureFlags
 import com.example.dpop.orchestrator.session.AccountDeletionService
 import com.example.dpop.orchestrator.session.FeatureFlagService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService

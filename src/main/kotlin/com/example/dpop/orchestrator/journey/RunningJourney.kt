@@ -1,6 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.JourneyLifecycle
+import com.example.dpop.orchestrator.domain.AuthIntent
 import java.util.UUID
 
 /**

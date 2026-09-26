@@ -2,8 +2,8 @@ package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
 import com.nimbusds.jwt.JWTClaimsSet

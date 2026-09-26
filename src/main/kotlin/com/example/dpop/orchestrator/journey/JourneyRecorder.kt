@@ -1,13 +1,14 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.Action
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.SignInLog
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceService
-import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.policy.evidenceAxis
-import com.example.dpop.orchestrator.kernel.AmrSource
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodName
+import com.example.dpop.orchestrator.domain.policy.evidenceAxis
+import com.example.dpop.orchestrator.domain.AmrSource
+import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.AcrLevel

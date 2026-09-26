@@ -38,7 +38,7 @@ zulassen.
 
 ## Folgen
 
-- Der Kanaltyp ist dafür als `orchestrator.kernel.ChannelType` zu den gemeinsamen Begriffen gewandert
+- Der Kanaltyp ist dafür als `orchestrator.domain.ChannelType` (damals `kernel`) zu den gemeinsamen Begriffen gewandert
   (vorher `ChannelSession.Channel`). Sonst hätte `tool` von `session` abgehangen, und es wäre ein
   Zyklus zwischen den Paketen entstanden.
 - `V3__orchestrator.sql` wurde direkt geändert (ADR-16).

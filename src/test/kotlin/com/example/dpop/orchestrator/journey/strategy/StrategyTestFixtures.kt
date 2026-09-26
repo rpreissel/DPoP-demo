@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.auth_device.AuthDeviceDescriptor
@@ -25,8 +25,8 @@ import com.example.dpop.id_eid.IdentEidDescriptor
 import com.example.dpop.id_nect.IdentNectDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
 import com.example.dpop.id_kvnr.IdentKvnrDescriptor
-import com.example.dpop.orchestrator.journey.JourneyContext
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.DefaultAuthPolicy
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.EnrollmentRef

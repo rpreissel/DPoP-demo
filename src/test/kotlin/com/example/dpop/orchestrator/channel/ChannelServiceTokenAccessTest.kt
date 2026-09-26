@@ -1,10 +1,10 @@
 package com.example.dpop.orchestrator.channel
 
-import com.example.dpop.orchestrator.kernel.ChannelType
-import com.example.dpop.orchestrator.kernel.ErrorCode
-import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.domain.ChannelType
+import com.example.dpop.orchestrator.domain.ErrorCode
+import com.example.dpop.orchestrator.domain.OrchestratorException
 import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.domain.ChannelState
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

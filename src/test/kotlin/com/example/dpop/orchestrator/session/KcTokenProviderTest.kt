@@ -4,13 +4,13 @@ import org.springframework.web.client.HttpClientErrorException
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpHeaders
 import io.kotest.assertions.throwables.shouldThrow
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
-import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every

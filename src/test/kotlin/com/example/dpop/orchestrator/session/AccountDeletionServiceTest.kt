@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import com.example.dpop.orchestrator.domain.ChannelState
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
 import com.example.dpop.tool_api.EnrollmentCleanup

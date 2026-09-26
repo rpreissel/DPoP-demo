@@ -5,11 +5,11 @@ import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.journey.RunningJourney
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.journey.Step
-import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.policy.requiresSatisfied
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.policy.requiresSatisfied
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.LiveChannel
-import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.domain.ChannelState
 import com.example.dpop.orchestrator.session.IdentThrottleService
 import com.example.dpop.orchestrator.session.LoginThrottleService
 import com.example.dpop.orchestrator.session.SendThrottleService

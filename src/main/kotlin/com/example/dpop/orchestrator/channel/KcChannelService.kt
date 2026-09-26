@@ -2,16 +2,16 @@ package com.example.dpop.orchestrator.channel
 
 import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.AuthIntent
 import com.example.dpop.orchestrator.journey.JourneyService
 import com.example.dpop.orchestrator.kc.PeerAuthAssertion
-import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.policy.MethodName
-import com.example.dpop.orchestrator.kernel.AcrLevels
-import com.example.dpop.orchestrator.kernel.AmrSource
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodName
+import com.example.dpop.orchestrator.domain.AcrLevels
+import com.example.dpop.orchestrator.domain.AmrSource
 import com.example.dpop.orchestrator.session.LiveChannel
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.SessionManagementService
@@ -19,8 +19,8 @@ import com.example.dpop.orchestrator.session.toMethodEvidence
 import com.example.dpop.tool_api.ChannelResponse
 import com.example.dpop.account.SignInLog
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
-import com.example.dpop.orchestrator.kernel.ChannelType
-import com.example.dpop.orchestrator.session.ChannelState
+import com.example.dpop.orchestrator.domain.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelState
 import com.example.dpop.orchestrator.kc.PeerAuthValidationException
 import com.example.dpop.tool_spi.AcrLevel
 import java.time.Duration

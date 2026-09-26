@@ -14,8 +14,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import java.util.Locale
-import com.example.dpop.orchestrator.kernel.ErrorCode
-import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.domain.ErrorCode
+import com.example.dpop.orchestrator.domain.OrchestratorException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 /** Maps the error contract from docs/07-betrieb.md #1 onto exceptions raised anywhere in the call chain. */

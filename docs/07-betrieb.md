@@ -40,7 +40,7 @@ Die üblichen Fehlerantworten (heutiger Stand und Ziel):
 (`{"error": "<CODE>", "text": {"key": …, "args": …}}`; der Text ist eine Referenz wie in
 [05-api.md](05-api.md), Abschnitt „Texte“). So steht sie auch im Vertrag, als `default`-Antwort
 jeder Operation. Welcher Code zu welchem Status gehört, legt das Enum `ErrorCode` fest
-(`orchestrator/kernel`), und die Liste im Vertrag wird daraus erzeugt. Code und Status lassen sich
+(`orchestrator/domain`), und die Liste im Vertrag wird daraus erzeugt. Code und Status lassen sich
 deshalb nicht mehr unabhängig voneinander wählen. Clients entscheiden anhand von `error`, nie
 anhand des Textes, und müssen mit Codes rechnen, die sie noch nicht kennen.
 

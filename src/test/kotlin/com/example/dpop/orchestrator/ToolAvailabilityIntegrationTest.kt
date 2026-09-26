@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.dpop.JwkThumbprintService
 import com.example.dpop.orchestrator.tool.ToolAvailabilityService
 import com.ninjasquad.springmockk.MockkBean
@@ -16,7 +16,7 @@ import org.springframework.web.client.HttpClientErrorException
 /**
  * Tool availability (docs/03-tool-architektur.md): a client declares which toolIds it supports at
  * channel creation, and the backend can additionally kill-switch a tool at runtime - both axes
- * narrow [com.example.dpop.orchestrator.journey.state.JourneyState.activatable] live, on every
+ * narrow [com.example.dpop.orchestrator.domain.journey.state.JourneyState.activatable] live, on every
  * request, not just at the moment a candidate list was first computed.
  */
 class ToolAvailabilityIntegrationTest : IntegrationTestSupport() {

@@ -1,10 +1,13 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.state.StepUpState
-import com.example.dpop.orchestrator.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.domain.journey.state.StepUpState
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_api.Next

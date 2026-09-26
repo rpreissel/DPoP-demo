@@ -1,11 +1,11 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.JourneyContext
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.LogoutState
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.IntentStrategy
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.LogoutState
 import org.springframework.stereotype.Component
 
 /**

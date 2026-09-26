@@ -1,18 +1,22 @@
 package com.example.dpop.orchestrator.journey
 
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.journey.IntentStrategy
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
 import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.orchestrator.kernel.OrchestratorException
-import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.example.dpop.orchestrator.policy.EvidenceAxis
-import com.example.dpop.orchestrator.policy.Reachability
+import com.example.dpop.orchestrator.domain.OrchestratorException
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
+import com.example.dpop.orchestrator.domain.policy.Reachability
 import com.example.dpop.orchestrator.session.AccountDeletionService
-import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.domain.AcrLevels
 import com.example.dpop.orchestrator.session.AuthContextService
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
@@ -30,7 +34,7 @@ import com.example.dpop.tool_spi.assertClaimsCovered
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 /**
  * The acting phase of a transition: the [Action]s a [Transition.Perform] can carry, actually

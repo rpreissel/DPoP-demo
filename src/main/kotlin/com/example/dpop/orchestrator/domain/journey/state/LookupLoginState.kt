@@ -1,0 +1,93 @@
+package com.example.dpop.orchestrator.domain.journey.state
+
+import com.example.dpop.texts.Text
+import com.example.dpop.tool_spi.ToolId
+
+/**
+ * There is deliberately no `Identifying` here: without a known account, an identification is not
+ * a way to log in - it would create or adopt an account, which is not what this intent is for.
+ * The state that would permit it does not exist, so no activation check can be forgotten. Falling
+ * back to a fresh identification once the account IS known (no active method reaches the floor)
+ * runs as the shared `RE_IDENTIFY` sub-journey instead (docs/04-orchestrierung.md) - it only ever
+ * CONFIRMS this already-resolved account, never adopts a different one.
+ */
+sealed interface LookupLoginState : JourneyState {
+
+    data object Start : LookupLoginState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val selectionContext: String get() = "auth"
+    }
+
+    data class Credential(
+        override val offer: Offer
+    ) : LookupLoginState, OfferingState {
+        override fun withOffer(offer: Offer) = copy(offer = offer)
+        override val selectionContext: String get() = "auth"
+        override val selectionTitle: Text get() = Text("Anmeldung – Konto bestätigen")
+        override val selectionDescription: Text get() = Text("Geben Sie Ihre Zugangsdaten ein, um sich mit Ihrem bestehenden Konto anzumelden.")
+    }
+
+    /**
+     * One credential is proven but the channel's own acrFloor is not reached yet. Distinct from
+     * [Credential] because the offer is a different one: the account is now KNOWN, so the
+     * candidates come from `AuthPolicy.authCandidates` (the ordinary device-auth tools) rather
+     * than from the lookup-only set that had to resolve an account first.
+     *
+     * This state is how the intent represents "proven, but not enough": without it the flow
+     * would go straight from [Credential] to [OfferBinding], and the channel would reach
+     * AUTHENTICATED under its own required level.
+     */
+    data class AdditionalFactor(
+        override val offer: Offer
+    ) : LookupLoginState, OfferingState {
+        override fun withOffer(offer: Offer) = copy(offer = offer)
+        override val selectionContext: String get() = "auth"
+        override val selectionTitle: Text get() = Text("Zusätzlicher Faktor erforderlich")
+        override val selectionDescription: Text get() = Text("Ihre bisherige Anmeldung reicht für das geforderte Sicherheitsniveau nicht aus. Bitte bestätigen Sie einen weiteren Faktor.")
+    }
+
+    /**
+     * Explicit and optional: "recognize this device for future logins?". The device link is a
+     * durable device -> account assignment and must not arise as a side effect of a login the
+     * user chose precisely because they wanted no device binding.
+     *
+     * Carries no accountId: `Action.LinkDevice` reads the account from the live session. A
+     * persisted field nobody reads would still survive serialization looking authoritative, and
+     * invite exactly that stale-snapshot use.
+     */
+    data object OfferBinding : LookupLoginState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val question: Question get() = Question.Confirm(
+            title = Text("Dieses Gerät merken?"),
+            description = Text("Wenn Sie zustimmen, erkennt der Dienst dieses Gerät beim nächsten Mal wieder und Sie müssen Ihre E-Mail-Adresse nicht erneut eingeben. Sie können auch ohne Verknüpfung fortfahren – dann melden Sie sich künftig wieder über E-Mail und Passwort an."),
+            confirmLabel = Text("Gerät merken"),
+            cancelLabel = Text("Ohne Verknüpfung fortfahren")
+        )
+    }
+
+    /**
+     * A lookup login resolved a different account than the one this device is already bound to.
+     * Accepting here actively overwrites that durable link, so the prompt must make the impact
+     * explicit while still allowing a successful login without rebinding.
+     *
+     * Carries no accountId: `Action.LinkDevice` reads the account from the live session. A
+     * persisted field nobody reads would still survive serialization looking authoritative, and
+     * invite exactly that stale-snapshot use.
+     */
+    data object ConfirmDeviceRebind : LookupLoginState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val question: Question get() = Question.Confirm(
+            title = Text("Dieses Gerät ist bereits einem anderen Konto zugeordnet"),
+            description = Text("Wenn Sie fortfahren, wird dieses Gerät künftig nur noch diesem Konto zugeordnet. Das bisher verbundene Konto muss sich beim nächsten Mal auf diesem Gerät erneut identifizieren."),
+            confirmLabel = Text("Gerät neu zuordnen"),
+            cancelLabel = Text("Ohne Verknüpfung fortfahren"),
+            destructive = true
+        )
+    }
+}

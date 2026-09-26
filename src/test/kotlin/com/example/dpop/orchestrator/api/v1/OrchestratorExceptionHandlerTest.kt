@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_spi.InvalidInputException
-import com.example.dpop.orchestrator.kernel.ErrorCode
+import com.example.dpop.orchestrator.domain.ErrorCode
 import com.example.dpop.tool_api.IdentityConflictException
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.assertions.throwables.shouldThrow

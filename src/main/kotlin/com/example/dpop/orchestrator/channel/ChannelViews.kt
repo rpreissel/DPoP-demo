@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.channel
 
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.tool_api.ActiveMethodView
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant

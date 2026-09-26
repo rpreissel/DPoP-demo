@@ -1,9 +1,9 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.policy.AuthEvidence
-import com.example.dpop.orchestrator.policy.EvidenceAxis
-import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.policy.MethodName
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodName
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.FactorType
 import jakarta.persistence.Column
@@ -17,14 +17,14 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AmrSource
+import com.example.dpop.orchestrator.domain.AmrSource
 
 /**
  * The persistent, central evidence record, kept apart from the tokens issued from it
  * (docs/12-entscheidungen.md ADR-15) - one per channel, cleared at logout (not per account:
  * a step-up channel gets its own fresh row, evidence continuity across flow runs is the kc-facade's
  * own `RestoreData` mechanism, not a shared account-wide row). The persisted form of
- * [com.example.dpop.orchestrator.policy.AuthEvidence]; named apart from it (review 2026-09-26,
+ * [com.example.dpop.orchestrator.domain.policy.AuthEvidence]; named apart from it (review 2026-09-26,
  * A-6) so no file needs an import alias to hold both. `currentAcr` is deliberately NOT a field here:
  * it is always `AuthPolicy.resolveAcr(coreEvidence, account)`, recomputed live by every reader -
  * storing it would only ever duplicate what `amrEvidence` already determines, and combining more

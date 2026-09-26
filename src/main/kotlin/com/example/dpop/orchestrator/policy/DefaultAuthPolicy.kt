@@ -1,8 +1,17 @@
 package com.example.dpop.orchestrator.policy
 
+import com.example.dpop.orchestrator.domain.policy.requiresSatisfied
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.CandidateContext
+import com.example.dpop.orchestrator.domain.policy.EvidenceAxis
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodName
+import com.example.dpop.orchestrator.domain.policy.Reachability
+import com.example.dpop.orchestrator.domain.policy.UnreachableReason
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
-import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.domain.AcrLevels
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.TrustLevel
@@ -305,26 +314,4 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
         /** See [combinedAcr]'s doc: the highest level the generic two-factor-combination bump may ever produce. */
         private val NIST_COMBINATION_CEILING = AcrLevel.LOA2
     }
-}
-
-/**
- * The only requirement any tool currently declares is EMAIL at PROVEN, whose consolidated
- * value is the account's `emailConfirmed` boolean. Any other requirement (another attribute
- * type, or a trust level above PROVEN) cannot be satisfied and counts as unmet. Shared by
- * [DefaultAuthPolicy.enrollmentCandidates] (offering) and
- * `ToolControllerSupport.validatePreconditions` (direct-activation defense) so the two gates
- * cannot drift apart.
- */
-/**
- * Whether [account] already carries what a tool declares it needs: the attribute established at
- * no less than the required [TrustLevel], counted over assertions minus retractions
- * (`AccountProfile.establishedClaims`, ADR-12).
- *
- * Generic on purpose. `ClaimRequirement(EMAIL, PROVEN)` - `enroll-password`'s gate - is now one
- * case of this rule rather than its definition, which is what lets `ident-kvnr` require an
- * attested name/vorname/geburtsdatum without any tool knowing which procedure attested them.
- */
-internal fun requiresSatisfied(requirement: ClaimRequirement, account: AccountProfile?): Boolean {
-    val established = account?.establishedClaims?.get(requirement.attributeType) ?: return false
-    return established.rank >= requirement.minTrustLevel.rank
 }

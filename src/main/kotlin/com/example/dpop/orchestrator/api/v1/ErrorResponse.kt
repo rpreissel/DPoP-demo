@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.api.v1
 
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.kernel.ErrorCode
+import com.example.dpop.orchestrator.domain.ErrorCode
 import io.swagger.v3.oas.annotations.media.Schema
 
 /**

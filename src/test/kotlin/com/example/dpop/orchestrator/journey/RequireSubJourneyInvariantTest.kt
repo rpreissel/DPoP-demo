@@ -1,14 +1,15 @@
 package com.example.dpop.orchestrator.journey
 
-import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.orchestrator.journey.state.AuthChoice
-import com.example.dpop.orchestrator.journey.state.FastAccessState
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.Offer
+import com.example.dpop.orchestrator.domain.journey.state.AuthChoice
+import com.example.dpop.orchestrator.domain.journey.state.FastAccessState
 import com.example.dpop.tool_spi.ToolId
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.AuthIntent
 
 class RequireSubJourneyInvariantTest : BehaviorSpec({
     given("a sub-journey request") {

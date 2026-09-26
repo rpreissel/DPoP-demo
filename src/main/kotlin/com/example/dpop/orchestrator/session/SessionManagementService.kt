@@ -1,14 +1,15 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.kernel.ChannelType
-import com.example.dpop.orchestrator.kernel.AuthIntent
+import com.example.dpop.orchestrator.domain.ChannelState
+import com.example.dpop.orchestrator.domain.ChannelType
+import com.example.dpop.orchestrator.domain.AuthIntent
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AcrLevels
+import com.example.dpop.orchestrator.domain.AcrLevels
 
 @Service
 @Transactional

@@ -2,20 +2,20 @@ package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.texts.Text
 import com.example.dpop.account.AccountProfile
-import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.journey.CandidateTools
-import com.example.dpop.orchestrator.journey.JourneyContext
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.toEnrollAbortMessage
-import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.orchestrator.journey.state.AuthChoice
-import com.example.dpop.orchestrator.journey.state.Enrolling
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.state.RegisterState
-import com.example.dpop.orchestrator.policy.Reachability
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.CandidateTools
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.toEnrollAbortMessage
+import com.example.dpop.orchestrator.domain.journey.state.Offer
+import com.example.dpop.orchestrator.domain.journey.state.AuthChoice
+import com.example.dpop.orchestrator.domain.journey.state.Enrolling
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterState
+import com.example.dpop.orchestrator.domain.policy.Reachability
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.ToolOutcome
 

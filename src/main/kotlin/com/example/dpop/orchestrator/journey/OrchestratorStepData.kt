@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.journey
 
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.journey.state.Question
+import com.example.dpop.orchestrator.domain.journey.state.Question
 import com.example.dpop.tool_spi.StepData
 import com.example.dpop.tool_spi.StepDataTypes
 import com.fasterxml.jackson.annotation.JsonInclude

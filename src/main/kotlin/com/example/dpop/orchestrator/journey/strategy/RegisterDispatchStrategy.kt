@@ -1,14 +1,14 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.kernel.FeatureFlags
-import com.example.dpop.orchestrator.journey.IntentStrategy
-import com.example.dpop.orchestrator.journey.JourneyContext
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.JourneyState
-import com.example.dpop.orchestrator.journey.state.RegisterEnrollFirstState
-import com.example.dpop.orchestrator.journey.state.RegisterState
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.FeatureFlags
+import com.example.dpop.orchestrator.domain.journey.IntentStrategy
+import com.example.dpop.orchestrator.domain.journey.JourneyContext
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.JourneyState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterEnrollFirstState
+import com.example.dpop.orchestrator.domain.journey.state.RegisterState
 import org.springframework.stereotype.Component
 
 /**

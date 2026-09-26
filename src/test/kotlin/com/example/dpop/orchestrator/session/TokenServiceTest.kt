@@ -4,10 +4,10 @@ import io.kotest.assertions.throwables.shouldThrow
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
-import com.example.dpop.orchestrator.policy.AuthPolicy
+import com.example.dpop.orchestrator.domain.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
-import com.example.dpop.orchestrator.policy.MethodEvidence
-import com.example.dpop.orchestrator.policy.MethodName
+import com.example.dpop.orchestrator.domain.policy.MethodEvidence
+import com.example.dpop.orchestrator.domain.policy.MethodName
 import com.nimbusds.jwt.PlainJWT
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -18,7 +18,7 @@ import io.mockk.verify
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
-import com.example.dpop.orchestrator.kernel.AmrSource
+import com.example.dpop.orchestrator.domain.AmrSource
 
 /**
  * Pure unit test of [TokenService]'s mock token issuance - the three real branches of

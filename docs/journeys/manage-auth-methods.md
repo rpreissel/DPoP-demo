@@ -48,7 +48,7 @@ ursprünglich verlangt war.
 durch `enrolledUnderAcr` (Orchestrierung, Abschnitt 8): Niemand soll sich aus eigener Kraft mehr
 Rechte verschaffen. Wer eine Sitzung übernommen hat, darf deshalb keine Verfahren hinzufügen oder
 entfernen. Das geforderte Niveau liefert die gemeinsam genutzte Funktion `selfServiceAcrFloor`
-(`orchestrator/journey/IntentStrategy.kt`; `DeleteAccountStrategy` nutzt sie auch):
+(`orchestrator/domain/journey/IntentStrategy.kt`; `DeleteAccountStrategy` nutzt sie auch):
 
 - Für ein identifiziertes Konto ist es `loa2`.
 - Für ein Konto, das nie identifiziert wurde (`personId == null`, etwa aus dem Experiment „Erst

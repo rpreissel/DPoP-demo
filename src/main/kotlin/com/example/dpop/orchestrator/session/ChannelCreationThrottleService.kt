@@ -1,7 +1,7 @@
 package com.example.dpop.orchestrator.session
 
 import com.example.dpop.texts.Text
-import com.example.dpop.orchestrator.kernel.OrchestratorException
+import com.example.dpop.orchestrator.domain.OrchestratorException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration

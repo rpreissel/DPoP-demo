@@ -2,13 +2,13 @@ package com.example.dpop.orchestrator.journey.strategy
 
 import com.example.dpop.auth_sms.AuthSmsDescriptor
 import com.example.dpop.id_fsc.IdentFscDescriptor
-import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.Offer
-import com.example.dpop.orchestrator.journey.state.ManageAuthMethodsState
-import com.example.dpop.orchestrator.journey.state.StepUpState
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.Offer
+import com.example.dpop.orchestrator.domain.journey.state.ManageAuthMethodsState
+import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method

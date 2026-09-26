@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.tool
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.domain.ChannelType
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolId

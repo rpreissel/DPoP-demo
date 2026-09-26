@@ -1,0 +1,47 @@
+package com.example.dpop.orchestrator.domain.journey.state
+
+import com.example.dpop.texts.Text
+import com.example.dpop.tool_spi.ToolId
+
+/**
+ * [ConfirmPending] always comes first, unconditionally - see `DeleteAccountStrategy`'s class doc
+ * for why the loa2 GATE (same one as MANAGE_AUTH_METHODS) only applies AFTER accepting it, not
+ * before. [ConfirmationRequired]'s re-proof is likewise unconditional in a way an ordinary
+ * step-up is not: never skipped just because the channel happens to already carry loa2 - a
+ * hijacked but already-authenticated session must not be able to delete the account on its own
+ * say-so just because the level happens to already be high enough (unless that level was JUST
+ * freshly proven via the gate's own step-up, in which case `DeleteAccountStrategy` deletes right
+ * after that instead of demanding a second, redundant proof).
+ */
+sealed interface DeleteAccountState : JourneyState {
+
+    /** "Do you really want to delete your account?" - a plain yes/no, before anything else is checked. */
+    data object ConfirmPending : DeleteAccountState, AnswerableState {
+        override fun withActive(active: ToolRef?): JourneyState = this
+        override fun activatable(availableTools: Set<ToolId>): Set<ToolId> = emptySet()
+        override val active: ToolRef? get() = null
+        override val question: Question get() = Question.Confirm(
+            title = Text("Konto wirklich löschen?"),
+            description = Text("Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Anmeldemethoden und Kontodaten werden endgültig gelöscht."),
+            confirmLabel = Text("Konto löschen"),
+            cancelLabel = Text("Abbrechen"),
+            destructive = true
+        )
+    }
+
+    /**
+     * Re-prove any one active factor, fresh, right now - see [com.example.dpop.orchestrator.domain.journey.CandidateTools.forReconfirmation]
+     * for why this is not the ordinary step-up candidate set.
+     */
+    data class ConfirmationRequired(
+        override val offer: Offer
+    ) : DeleteAccountState, OfferingState {
+        override fun withOffer(offer: Offer) = copy(offer = offer)
+        // "auth" like every other state offering IDENTIFIED_AUTH candidates (AuthChoice,
+        // LookupLoginState.Credential, StepUpState.AuthChoice) - selectionContext names the KIND of
+        // offer, not the intent, so the client's existing select-method routing needs no new entry.
+        override val selectionContext: String get() = "auth"
+        override val selectionTitle: Text get() = Text("Kontolöschung – Identität bestätigen")
+        override val selectionDescription: Text? get() = Text("Bevor Ihr Konto gelöscht wird, müssen Sie Ihre Identität noch einmal nachweisen.")
+    }
+}

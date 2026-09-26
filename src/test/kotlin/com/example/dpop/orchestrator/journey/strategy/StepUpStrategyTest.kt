@@ -1,18 +1,18 @@
 package com.example.dpop.orchestrator.journey.strategy
 
-import com.example.dpop.orchestrator.journey.state.Offer
+import com.example.dpop.orchestrator.domain.journey.state.Offer
 import com.example.dpop.auth_password.AuthPasswordDescriptor
 import com.example.dpop.auth_sms.AuthSmsDescriptor
-import com.example.dpop.orchestrator.journey.Action
-import com.example.dpop.orchestrator.kernel.AuthIntent
-import com.example.dpop.orchestrator.journey.JourneyEvent
-import com.example.dpop.orchestrator.journey.Transition
-import com.example.dpop.orchestrator.journey.state.ReIdentifyState
-import com.example.dpop.orchestrator.journey.state.StepUpState
+import com.example.dpop.orchestrator.domain.journey.Action
+import com.example.dpop.orchestrator.domain.AuthIntent
+import com.example.dpop.orchestrator.domain.journey.JourneyEvent
+import com.example.dpop.orchestrator.domain.journey.Transition
+import com.example.dpop.orchestrator.domain.journey.state.ReIdentifyState
+import com.example.dpop.orchestrator.domain.journey.state.StepUpState
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.account
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.ctx
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.method
-import com.example.dpop.orchestrator.policy.AuthEvidence
+import com.example.dpop.orchestrator.domain.policy.AuthEvidence
 import com.example.dpop.orchestrator.journey.strategy.StrategyTestFixtures.evidence
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.EnrollmentRef

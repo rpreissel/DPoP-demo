@@ -47,7 +47,6 @@ kover {
                     "com.example.dpop.ext_personenverzeichnis.internal.*",
                     "com.example.dpop.id_eid.*",
                     "com.example.dpop.id_eid.internal.*",
-                    "com.example.dpop.orchestrator.journey.DemoAutoPickNote",
                     "com.example.dpop.tool_api.DemoInfo",
                     "com.example.dpop.tool_api.JourneyDebugStep"
                 )
