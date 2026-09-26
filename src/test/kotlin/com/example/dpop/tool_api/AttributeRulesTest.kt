@@ -37,7 +37,7 @@ class AttributeRulesTest : BehaviorSpec({
         then("the locally anchored attributes are exactly PERSON_ID, VERSNR, the two card pseudonyms and EMAIL") {
             AttributeType.entries.filter { it.isLocalAnchor } shouldBe
                 listOf(
-                    AttributeType.PERSON_ID, AttributeType.VERSNR, AttributeType.EID_RESTRICTED_ID,
+                    AttributeType.PERSON_ID, AttributeType.INSURANCE_NUMBER, AttributeType.EID_RESTRICTED_ID,
                     AttributeType.NECT_RESTRICTED_ID, AttributeType.EMAIL
                 )
         }
@@ -47,8 +47,8 @@ class AttributeRulesTest : BehaviorSpec({
         then("master data owns the identifying attributes it is the register for") {
             AttributeType.entries.filter { it.authority == AttributeAuthority.PersonDirectory } shouldBe
                 listOf(
-                    AttributeType.KVNR, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
-                    AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
+                    AttributeType.KVNR, AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE,
+                    AttributeType.STREET_ADDRESS, AttributeType.POSTAL_CODE, AttributeType.LOCALITY
                 )
         }
         then("a method module owns what it enrolled itself") {
@@ -71,9 +71,9 @@ class AttributeRulesTest : BehaviorSpec({
         then("a non-anchor attribute has no anchor rule at all") {
             AttributeType.KVNR.anchorRule.shouldBeNull()
             AttributeType.PHONE_NUMBER.anchorRule.shouldBeNull()
-            AttributeType.NAME.anchorRule.shouldBeNull()
-            AttributeType.VORNAME.anchorRule.shouldBeNull()
-            AttributeType.GEBURTSDATUM.anchorRule.shouldBeNull()
+            AttributeType.FAMILY_NAME.anchorRule.shouldBeNull()
+            AttributeType.GIVEN_NAMES.anchorRule.shouldBeNull()
+            AttributeType.BIRTH_DATE.anchorRule.shouldBeNull()
         }
     }
 
@@ -110,7 +110,7 @@ class AttributeRulesTest : BehaviorSpec({
         }
         `when`("normalizing a non-anchor attribute") {
             then("it fails explicitly instead of silently returning the raw value") {
-                shouldThrow<IllegalStateException> { AttributeType.NAME.normalizeAnchorValue("Muster") }
+                shouldThrow<IllegalStateException> { AttributeType.FAMILY_NAME.normalizeAnchorValue("Muster") }
             }
         }
     }

@@ -24,10 +24,10 @@ class IdentificationFindableRuleTest : BehaviorSpec({
 
     given("an identification procedure without a date of birth") {
         val withoutBirthDate = object : ToolDescriptor by IdentFscDescriptor {
-            override val claims = IdentFscDescriptor.claims.filterNot { it.attributeType == AttributeType.GEBURTSDATUM }.toSet()
+            override val claims = IdentFscDescriptor.claims.filterNot { it.attributeType == AttributeType.BIRTH_DATE }.toSet()
         }
         then("the registry refuses to start") {
-            shouldThrow<IllegalStateException> { ToolHandlerRegistry(listOf(withoutBirthDate)) }.message shouldContain "GEBURTSDATUM"
+            shouldThrow<IllegalStateException> { ToolHandlerRegistry(listOf(withoutBirthDate)) }.message shouldContain "BIRTH_DATE"
         }
     }
 })

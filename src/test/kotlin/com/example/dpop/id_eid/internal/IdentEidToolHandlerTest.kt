@@ -51,12 +51,12 @@ class IdentEidToolHandlerTest : BehaviorSpec({
             then("it attests every card attribute as a claim under its own tool anchor") {
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
                 outcome.claims shouldBe listOf(
-                    Claim(AttributeType.NAME, "Muster", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.VORNAME, "Max", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.GEBURTSDATUM, "1970-01-01", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.STRASSE, "Musterweg 1", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.PLZ, "12345", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
-                    Claim(AttributeType.ORT, "Musterstadt", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.GIVEN_NAMES, "Max", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.BIRTH_DATE, "1970-01-01", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.STREET_ADDRESS, "Musterweg 1", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.POSTAL_CODE, "12345", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
+                    Claim(AttributeType.LOCALITY, "Musterstadt", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr),
                     Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", ClaimSource.of(IdentEidDescriptor.toolId), IdentEidDescriptor.maxAcr)
                 )
             }

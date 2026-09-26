@@ -68,7 +68,7 @@ class PersonenverzeichnisAendernTest : BehaviorSpec({
 
             verzeichnis.aendern("P000000001", data(person).copy(kvnr = "a111111111", versnr = "20000002", hausnummer = "2"))
 
-            published.captured shouldBe PersonChanged("P000000001", setOf(AttributeType.KVNR, AttributeType.VERSNR, AttributeType.STRASSE), "A111111111", "20000002")
+            published.captured shouldBe PersonChanged("P000000001", setOf(AttributeType.KVNR, AttributeType.INSURANCE_NUMBER, AttributeType.STREET_ADDRESS), "A111111111", "20000002")
             person.kvnr shouldBe "A111111111"
         }
 
@@ -76,7 +76,7 @@ class PersonenverzeichnisAendernTest : BehaviorSpec({
             val person = max()
             val (verzeichnis, events) = fixture(person)
             verzeichnis.aendern("P000000001", data(person).copy(kvnr = "", versnr = ""))
-            verify { events.publishEvent(PersonChanged("P000000001", setOf(AttributeType.KVNR, AttributeType.VERSNR), null, null)) }
+            verify { events.publishEvent(PersonChanged("P000000001", setOf(AttributeType.KVNR, AttributeType.INSURANCE_NUMBER), null, null)) }
         }
 
         then("a KVNR may be missing for a while - the person stays insured") {

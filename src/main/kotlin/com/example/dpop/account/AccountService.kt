@@ -536,7 +536,7 @@ class AccountService(
             .filter { ClaimSource(it.claimSource.orEmpty()).trustLevel.rank >= TrustLevel.PROVEN.rank }
             .strongestEstablishedValues(PERSON_LOOKUP_ATTRIBUTES)
         val lookupKey = personLookupKey.of(
-            verified[AttributeType.NAME], verified[AttributeType.VORNAME], verified[AttributeType.GEBURTSDATUM]?.let(LocalDate::parse)
+            verified[AttributeType.FAMILY_NAME], verified[AttributeType.GIVEN_NAMES], verified[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
         )
         val personId = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, AttributeType.PERSON_ID)?.value
         changeLog.identified(accountId, method, loa, role, report, lookupKey, personId)
@@ -787,11 +787,11 @@ class AccountService(
                 recordClaims(accountId, listOf(Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
             }
         }
-        if (AttributeType.VERSNR in change.changed) {
-            retractAttribute(accountId, AttributeType.VERSNR, RetractionAnchor.PERSON_DIRECTORY, "Versicherungsnummer im Personenverzeichnis geändert")
+        if (AttributeType.INSURANCE_NUMBER in change.changed) {
+            retractAttribute(accountId, AttributeType.INSURANCE_NUMBER, RetractionAnchor.PERSON_DIRECTORY, "Versicherungsnummer im Personenverzeichnis geändert")
             change.versnr?.let {
-                releaseFromOtherAccount(AttributeType.VERSNR, it, keeper = accountId)
-                recordClaims(accountId, listOf(Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
+                releaseFromOtherAccount(AttributeType.INSURANCE_NUMBER, it, keeper = accountId)
+                recordClaims(accountId, listOf(Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
             }
         }
         return accountId
@@ -864,7 +864,7 @@ class AccountService(
         val DIRECTORY_ACR = AcrLevel.LOA2
 
         /** What a person can still tell us years later - the input of [PersonLookupKey]. */
-        val PERSON_LOOKUP_ATTRIBUTES = setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+        val PERSON_LOOKUP_ATTRIBUTES = setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
     }
 }
 

@@ -31,8 +31,8 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
             val mirror = kcUserMirror(
                 profile(personId = "P000000007"), person,
                 mapOf(
-                    AttributeType.NAME to "Anderer", AttributeType.VORNAME to "Falscher", AttributeType.GEBURTSDATUM to "2000-01-01",
-                    AttributeType.STRASSE to "Andere Gasse 9", AttributeType.PLZ to "99999", AttributeType.ORT to "Nirgendwo"
+                    AttributeType.FAMILY_NAME to "Anderer", AttributeType.GIVEN_NAMES to "Falscher", AttributeType.BIRTH_DATE to "2000-01-01",
+                    AttributeType.STREET_ADDRESS to "Andere Gasse 9", AttributeType.POSTAL_CODE to "99999", AttributeType.LOCALITY to "Nirgendwo"
                 )
             )
 
@@ -47,12 +47,12 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
 
     given("a full-attested Interessent (no register person, but identity claims on the account)") {
         val attested = mapOf(
-            AttributeType.NAME to "Musterfrau",
-            AttributeType.VORNAME to "Erika",
-            AttributeType.GEBURTSDATUM to "1985-05-05",
-            AttributeType.STRASSE to "Musterweg 1",
-            AttributeType.PLZ to "12345",
-            AttributeType.ORT to "Musterstadt"
+            AttributeType.FAMILY_NAME to "Musterfrau",
+            AttributeType.GIVEN_NAMES to "Erika",
+            AttributeType.BIRTH_DATE to "1985-05-05",
+            AttributeType.STREET_ADDRESS to "Musterweg 1",
+            AttributeType.POSTAL_CODE to "12345",
+            AttributeType.LOCALITY to "Musterstadt"
         )
 
         then("names, geburtsdatum and address fall back to the attested claims; personId/kvnr stay absent") {
@@ -84,8 +84,8 @@ class KeycloakAccountMirrorTest : BehaviorSpec({
             val mirror = kcUserMirror(
                 profile(personId = "P000000009"), person,
                 mapOf(
-                    AttributeType.GEBURTSDATUM to "1970-01-01",
-                    AttributeType.STRASSE to "Lückenweg 2", AttributeType.PLZ to "54321", AttributeType.ORT to "Lückendorf"
+                    AttributeType.BIRTH_DATE to "1970-01-01",
+                    AttributeType.STREET_ADDRESS to "Lückenweg 2", AttributeType.POSTAL_CODE to "54321", AttributeType.LOCALITY to "Lückendorf"
                 )
             )
 

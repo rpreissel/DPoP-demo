@@ -85,15 +85,15 @@ internal const val UNIDENTIFIED_LAST_NAME = "(nicht identifiziert)"
  * attributes an eID attestation can carry.
  */
 internal val MIRRORED_CLAIM_TYPES = setOf(
-    AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM,
-    AttributeType.STRASSE, AttributeType.PLZ, AttributeType.ORT
+    AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE,
+    AttributeType.STREET_ADDRESS, AttributeType.POSTAL_CODE, AttributeType.LOCALITY
 )
 
 /**
  * Every kind of attribute that ends up on the Keycloak user: the mirrored claims plus the
  * identifiers read from the Personenverzeichnis ([stammdatenAttributes]).
  */
-internal val KEYCLOAK_ATTRIBUTE_TYPES: Set<AttributeType> = MIRRORED_CLAIM_TYPES + setOf(AttributeType.KVNR, AttributeType.VERSNR)
+internal val KEYCLOAK_ATTRIBUTE_TYPES: Set<AttributeType> = MIRRORED_CLAIM_TYPES + setOf(AttributeType.KVNR, AttributeType.INSURANCE_NUMBER)
 
 /** Names and attributes of one account as Keycloak shows them. */
 internal data class KcUserMirror(
@@ -113,8 +113,8 @@ internal data class KcUserMirror(
  */
 internal fun kcUserMirror(profile: AccountProfile, person: PersonRecord?, attested: Map<AttributeType, String>): KcUserMirror =
     KcUserMirror(
-        firstName = (if (person != null) person.vorname else attested[AttributeType.VORNAME]) ?: UNIDENTIFIED_FIRST_NAME,
-        lastName = (if (person != null) person.name else attested[AttributeType.NAME]) ?: UNIDENTIFIED_LAST_NAME,
+        firstName = (if (person != null) person.vorname else attested[AttributeType.GIVEN_NAMES]) ?: UNIDENTIFIED_FIRST_NAME,
+        lastName = (if (person != null) person.name else attested[AttributeType.FAMILY_NAME]) ?: UNIDENTIFIED_LAST_NAME,
         attributes = stammdatenAttributes(profile.personId, person, attested)
     )
 
@@ -134,9 +134,9 @@ internal fun stammdatenAttributes(personId: String?, person: PersonRecord?, atte
         person.plz?.let { put("plz", it) }
         person.ort?.let { put("ort", it) }
     } else {
-        attested[AttributeType.GEBURTSDATUM]?.let { put("geburtsdatum", it) }
-        attested[AttributeType.STRASSE]?.let { put("strasse", it) }
-        attested[AttributeType.PLZ]?.let { put("plz", it) }
-        attested[AttributeType.ORT]?.let { put("ort", it) }
+        attested[AttributeType.BIRTH_DATE]?.let { put("geburtsdatum", it) }
+        attested[AttributeType.STREET_ADDRESS]?.let { put("strasse", it) }
+        attested[AttributeType.POSTAL_CODE]?.let { put("plz", it) }
+        attested[AttributeType.LOCALITY]?.let { put("ort", it) }
     }
 }

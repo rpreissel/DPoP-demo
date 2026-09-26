@@ -118,8 +118,8 @@ class AccountFixtures(
             listOf(
                 Claim(AttributeType.PERSON_ID, personId.toString(), ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
                 Claim(AttributeType.KVNR, kvnr, ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
-                Claim(AttributeType.NAME, name, ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
-                Claim(AttributeType.VORNAME, vorname, ClaimSource.PERSON_DIRECTORY, IDENT_ACR)
+                Claim(AttributeType.FAMILY_NAME, name, ClaimSource.PERSON_DIRECTORY, IDENT_ACR),
+                Claim(AttributeType.GIVEN_NAMES, vorname, ClaimSource.PERSON_DIRECTORY, IDENT_ACR)
             ),
             provenAcr = IDENT_ACR
         )

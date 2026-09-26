@@ -12,7 +12,7 @@ fun AccountDirectory.resolveAccountByPersonId(personId: String): Long? =
 
 /** The account anchored to Versicherungsnummer [versnr], or `null`. */
 fun AccountDirectory.resolveAccountByVersnr(versnr: String): Long? =
-    resolveByAnchor(AttributeType.VERSNR, Versnr.of(versnr).value)
+    resolveByAnchor(AttributeType.INSURANCE_NUMBER, Versnr.of(versnr).value)
 
 /** KVNR is resolved from current master data, never a locally stored KVNR anchor. */
 fun AccountDirectory.resolveAccountByKvnr(kvnr: String, personDirectory: PersonDirectory): Long? =

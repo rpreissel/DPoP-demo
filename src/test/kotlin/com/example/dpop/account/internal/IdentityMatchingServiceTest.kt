@@ -46,9 +46,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val claims = setOf(
             Claim(AttributeType.PERSON_ID, "P000000007", anchor),
             Claim(AttributeType.KVNR, "A123456789", anchor),
-            Claim(AttributeType.NAME, "Muster", anchor),
-            Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+            Claim(AttributeType.FAMILY_NAME, "Muster", anchor),
+            Claim(AttributeType.GIVEN_NAMES, "Max", anchor),
+            Claim(AttributeType.BIRTH_DATE, "1970-01-01", anchor)
         )
         every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
         every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
@@ -70,7 +70,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val claims = setOf(
             Claim(AttributeType.PERSON_ID, "P000000042", ClaimSource.PERSON_DIRECTORY),
             Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY),
-            Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY)
+            Claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.PERSON_DIRECTORY)
         )
         every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns
             AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000042", accountId = 42L, establishedAt = Instant.now())
@@ -92,7 +92,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
             Claim(AttributeType.KVNR, "A123456789", anchor),
-            Claim(AttributeType.NAME, "Muster", anchor)
+            Claim(AttributeType.FAMILY_NAME, "Muster", anchor)
         )
         every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
         every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
@@ -154,9 +154,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
-            Claim(AttributeType.NAME, "Muster", anchor),
-            Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor),
+            Claim(AttributeType.FAMILY_NAME, "Muster", anchor),
+            Claim(AttributeType.GIVEN_NAMES, "Max", anchor),
+            Claim(AttributeType.BIRTH_DATE, "1970-01-01", anchor),
             Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", anchor)
         )
         every {
@@ -185,9 +185,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
-            Claim(AttributeType.NAME, "Niemand", anchor),
-            Claim(AttributeType.VORNAME, "Niemals", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor),
+            Claim(AttributeType.FAMILY_NAME, "Niemand", anchor),
+            Claim(AttributeType.GIVEN_NAMES, "Niemals", anchor),
+            Claim(AttributeType.BIRTH_DATE, "1970-01-01", anchor),
             Claim(AttributeType.EID_RESTRICTED_ID, "T0909090Z9X8Y7W6V5U4T3S2R1", anchor)
         )
         every {
@@ -208,9 +208,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
         val resolver = service(anchorRepository, claimRepository, personDirectory)
         val anchor = ClaimSource.of(ToolId("ident-eid"))
         val claims = setOf(
-            Claim(AttributeType.NAME, "Muster", anchor),
-            Claim(AttributeType.VORNAME, "Max", anchor),
-            Claim(AttributeType.GEBURTSDATUM, "1970-01-01", anchor)
+            Claim(AttributeType.FAMILY_NAME, "Muster", anchor),
+            Claim(AttributeType.GIVEN_NAMES, "Max", anchor),
+            Claim(AttributeType.BIRTH_DATE, "1970-01-01", anchor)
         )
 
         `when`("resolve is called") {
@@ -239,9 +239,9 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             accountId = 1L, attributeType = type, value = value, claimSource = source.value, establishedAt = Instant.now()
         )
         val attested = listOf(
-            claim(AttributeType.NAME, "Muster", ClaimSource.of(ToolId("ident-eid"))),
-            claim(AttributeType.VORNAME, "Max", ClaimSource.of(ToolId("ident-eid"))),
-            claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.of(ToolId("ident-eid")))
+            claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.GIVEN_NAMES, "Max", ClaimSource.of(ToolId("ident-eid"))),
+            claim(AttributeType.BIRTH_DATE, "1985-06-15", ClaimSource.of(ToolId("ident-eid")))
         )
 
         `when`("the register's person matches what the account attested") {
@@ -297,24 +297,24 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
         then("an account that attested nothing yet takes any identity") {
             every { claimRepository.findEstablished(1L) } returns emptyList()
-            resolver.attestationFits(1L, setOf(Claim(AttributeType.NAME, "Anders", eid))) shouldBe true
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.FAMILY_NAME, "Anders", eid))) shouldBe true
         }
 
         then("the same person in another spelling fits - case, umlauts and diacritics do not count") {
             every { claimRepository.findEstablished(1L) } returns listOf(
-                claim(AttributeType.NAME, "Müller"), claim(AttributeType.VORNAME, "José"), claim(AttributeType.GEBURTSDATUM, "1985-06-15")
+                claim(AttributeType.FAMILY_NAME, "Müller"), claim(AttributeType.GIVEN_NAMES, "José"), claim(AttributeType.BIRTH_DATE, "1985-06-15")
             )
             resolver.attestationFits(1L, setOf(
-                Claim(AttributeType.NAME, "MUELLER", eid), Claim(AttributeType.VORNAME, "Jose", eid), Claim(AttributeType.GEBURTSDATUM, "1985-06-15", eid)
+                Claim(AttributeType.FAMILY_NAME, "MUELLER", eid), Claim(AttributeType.GIVEN_NAMES, "Jose", eid), Claim(AttributeType.BIRTH_DATE, "1985-06-15", eid)
             )) shouldBe true
         }
 
         then("somebody else does not - a different birthdate or name is a second identity") {
             every { claimRepository.findEstablished(1L) } returns listOf(
-                claim(AttributeType.NAME, "Müller"), claim(AttributeType.GEBURTSDATUM, "1985-06-15")
+                claim(AttributeType.FAMILY_NAME, "Müller"), claim(AttributeType.BIRTH_DATE, "1985-06-15")
             )
-            resolver.attestationFits(1L, setOf(Claim(AttributeType.GEBURTSDATUM, "1990-01-01", eid))) shouldBe false
-            resolver.attestationFits(1L, setOf(Claim(AttributeType.NAME, "Schmidt", eid))) shouldBe false
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.BIRTH_DATE, "1990-01-01", eid))) shouldBe false
+            resolver.attestationFits(1L, setOf(Claim(AttributeType.FAMILY_NAME, "Schmidt", eid))) shouldBe false
         }
     }
 })

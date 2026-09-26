@@ -115,8 +115,8 @@ class TokenService(
     private fun displayName(account: AccountProfile?): String? {
         account ?: return null
         account.personId?.let { return personDirectory.displayName(it) }
-        val attested = accountService.establishedClaimValues(account.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME))
-        return listOfNotNull(attested[AttributeType.VORNAME], attested[AttributeType.NAME])
+        val attested = accountService.establishedClaimValues(account.accountId, setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES))
+        return listOfNotNull(attested[AttributeType.GIVEN_NAMES], attested[AttributeType.FAMILY_NAME])
             .takeIf { it.isNotEmpty() }
             ?.joinToString(" ")
     }

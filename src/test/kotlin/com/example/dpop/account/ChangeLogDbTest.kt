@@ -101,9 +101,9 @@ class ChangeLogDbTest(
             accountService.recordClaims(
                 accountId,
                 listOfNotNull(
-                    Claim(AttributeType.NAME, "Müller", source, AcrLevel.LOA2),
-                    Claim(AttributeType.VORNAME, "Max", source, AcrLevel.LOA2),
-                    Claim(AttributeType.GEBURTSDATUM, "1985-06-15", source, AcrLevel.LOA2),
+                    Claim(AttributeType.FAMILY_NAME, "Müller", source, AcrLevel.LOA2),
+                    Claim(AttributeType.GIVEN_NAMES, "Max", source, AcrLevel.LOA2),
+                    Claim(AttributeType.BIRTH_DATE, "1985-06-15", source, AcrLevel.LOA2),
                     personId?.let { Claim(AttributeType.PERSON_ID, it, ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2) },
                 ),
                 provenAcr = AcrLevel.LOA2

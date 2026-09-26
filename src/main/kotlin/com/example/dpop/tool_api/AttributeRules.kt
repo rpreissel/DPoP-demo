@@ -84,7 +84,7 @@ val AttributeType.authority: AttributeAuthority
         )
         // Set when a person with a Versicherungsnummer is bound, replaced/released when the
         // Personenverzeichnis reports a change (ADR-34) - can change value, never account.
-        AttributeType.VERSNR -> AttributeAuthority.Local(
+        AttributeType.INSURANCE_NUMBER -> AttributeAuthority.Local(
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA2, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = false)
         )
         AttributeType.EID_RESTRICTED_ID,
@@ -95,12 +95,12 @@ val AttributeType.authority: AttributeAuthority
             AnchorRule(AnchorAcrFloor(AcrLevel.LOA1, AcrLevel.LOA2), allowsReplacement = true, retractableByHolder = true)
         )
         AttributeType.KVNR,
-        AttributeType.NAME,
-        AttributeType.VORNAME,
-        AttributeType.GEBURTSDATUM,
-        AttributeType.STRASSE,
-        AttributeType.PLZ,
-        AttributeType.ORT -> AttributeAuthority.PersonDirectory
+        AttributeType.FAMILY_NAME,
+        AttributeType.GIVEN_NAMES,
+        AttributeType.BIRTH_DATE,
+        AttributeType.STREET_ADDRESS,
+        AttributeType.POSTAL_CODE,
+        AttributeType.LOCALITY -> AttributeAuthority.PersonDirectory
         AttributeType.PHONE_NUMBER,
         // MethodModule is what makes the dependency work: retractClaimsOf retracts exactly these
         // when the owning method instance is revoked, so "the account has a password" stops being
@@ -131,7 +131,7 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> Partnernr.of(value).value
     AttributeType.EID_RESTRICTED_ID,
     AttributeType.NECT_RESTRICTED_ID -> value.trim()
-    AttributeType.VERSNR -> Versnr.of(value).value
+    AttributeType.INSURANCE_NUMBER -> Versnr.of(value).value
     AttributeType.EMAIL -> Email.of(value).value
     AttributeType.KVNR -> {
         // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,
@@ -141,12 +141,12 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
         Kvnr.of(value)
         error("$this is not a local account anchor - authority is $authority, resolved live via PersonDirectory")
     }
-    AttributeType.NAME,
-    AttributeType.VORNAME,
-    AttributeType.GEBURTSDATUM,
-    AttributeType.STRASSE,
-    AttributeType.PLZ,
-    AttributeType.ORT,
+    AttributeType.FAMILY_NAME,
+    AttributeType.GIVEN_NAMES,
+    AttributeType.BIRTH_DATE,
+    AttributeType.STREET_ADDRESS,
+    AttributeType.POSTAL_CODE,
+    AttributeType.LOCALITY,
     AttributeType.PHONE_NUMBER,
     AttributeType.PASSWORD_EXISTS ->
         error("$this is not an anchor attribute (authority: $authority), has no normalized anchor value")

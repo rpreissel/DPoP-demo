@@ -14,5 +14,7 @@ import jakarta.persistence.Converter
 @Converter
 class AttributeTypeConverter : AttributeConverter<AttributeType, String> {
     override fun convertToDatabaseColumn(attribute: AttributeType?): String? = attribute?.wireName
-    override fun convertToEntityAttribute(dbData: String?): AttributeType? = dbData?.let(AttributeType::fromWireName)
+    override fun convertToEntityAttribute(dbData: String?): AttributeType? =
+        // A stored name that is no AttributeType is corrupt data, not input to refuse politely.
+        dbData?.let { checkNotNull(AttributeType.fromWireName(it)) { "Unknown attribute type in the database: $it" } }
 }

@@ -37,7 +37,7 @@ kein Verfahren, sondern ein Attribut wegfällt.
 - `requires` bedeutet mehr als früher, und jede Anforderung hat diese Bedeutung. Für `EMAIL` ist das
   unkritisch, weil die Adresse nur über den ausdrücklichen Endpunkt verloren gehen kann. Das Ersetzen
   eines Ankers behauptet im selben Schritt den neuen Wert und löst deshalb nichts aus. Die Anforderung
-  von `ident-kvnr` (`NAME`/`VORNAME`/`GEBURTSDATUM`, [ADR-18](ADR-018-bestaetigen-und-zuordnen-sind-zwei-akte.md))
+  von `ident-kvnr` (`FAMILY_NAME`/`GIVEN_NAMES`/`BIRTH_DATE`, [ADR-18](ADR-018-bestaetigen-und-zuordnen-sind-zwei-akte.md))
   betrifft nur das Angebot, kein Credential.
 - Ein Attribut zurückzunehmen hat weite Folgen. Das ist gewollt und wird vorher geprüft: Die Prüfung
   des Mindestniveaus rechnet mit allem, was mit entfällt, und eine Ablehnung nennt es beim Namen.

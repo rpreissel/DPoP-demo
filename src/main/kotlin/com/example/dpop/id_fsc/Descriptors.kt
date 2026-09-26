@@ -34,9 +34,9 @@ object IdentFscDescriptor : ToolDescriptor {
     override val claims = setOf(
         ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.PERSON_DIRECTORY),
         ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.VERSNR, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.NAME, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.PERSON_DIRECTORY)
+        ClaimDeclaration(AttributeType.INSURANCE_NUMBER, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.FAMILY_NAME, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.GIVEN_NAMES, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.BIRTH_DATE, ClaimSource.PERSON_DIRECTORY)
     )
 }

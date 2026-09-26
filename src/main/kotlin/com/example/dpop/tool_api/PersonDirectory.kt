@@ -71,7 +71,7 @@ data class ClaimedIdentity(
     val name: String? = null,
     val vorname: String? = null,
     val geburtsdatum: LocalDate? = null,
-    /** Street and house number in one line, as a document attests it (`AttributeType.STRASSE`). */
+    /** Street and house number in one line, as a document attests it (`AttributeType.STREET_ADDRESS`). */
     val strasse: String? = null,
     val plz: String? = null,
     val ort: String? = null

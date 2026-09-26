@@ -20,7 +20,7 @@ enum class AttributeType(val wireName: String) {
      * Personenverzeichnis (changeable there); when it exists it is also a local account anchor,
      * replaced whenever the Personenverzeichnis reports a new one (ADR-34).
      */
-    VERSNR("versnr"),
+    INSURANCE_NUMBER("insurance_number"),
     /**
      * Card-bound pseudonym from the eID read - this demo's stand-in for the real "Restricted
      * Identifier": fixed per physical card, it changes when a new card is issued, but is never
@@ -37,25 +37,25 @@ enum class AttributeType(val wireName: String) {
      */
     NECT_RESTRICTED_ID("nect_restricted_id"),
     /** Family name. Master-data field for a bound account, attested history in the claim log. */
-    NAME("name"),
-    /** Given name(s). Master-data field, same rule as [NAME]. */
-    VORNAME("vorname"),
+    FAMILY_NAME("family_name"),
+    /** Given name(s). Master-data field, same rule as [FAMILY_NAME]. */
+    GIVEN_NAMES("given_names"),
     /** ISO date, e.g. `1970-01-01`. Master-data field: delegated, never projected (ADR notes in
      *  docs/archiv/claims-modell-und-vertrauensanker.md). */
-    GEBURTSDATUM("geburtsdatum"),
+    BIRTH_DATE("birth_date"),
     /**
-     * Street AND house number in one line, first of the three address fields ([STRASSE], [PLZ],
-     * [ORT]) - the way documents attest it: the eID card's `Street` (`HEIDESTRASSE 17`, BSI
+     * Street AND house number in one line, first of the three address fields ([STREET_ADDRESS], [POSTAL_CODE],
+     * [LOCALITY]) - the way documents attest it: the eID card's `Street` (`HEIDESTRASSE 17`, BSI
      * TR-03130) and the EUDI PID's `address.street_address` both carry the number inside. The
      * register keeps the two apart (docs/08-projektrahmen.md P-4) and joins them at its own
-     * boundary. All three are master-data fields like [GEBURTSDATUM]: register-owned for bound
+     * boundary. All three are master-data fields like [BIRTH_DATE]: register-owned for bound
      * accounts, claim-log rows are attestation history.
      */
-    STRASSE("strasse"),
+    STREET_ADDRESS("street_address"),
     /** Postal code. */
-    PLZ("plz"),
+    POSTAL_CODE("postal_code"),
     /** City/town. */
-    ORT("ort"),
+    LOCALITY("locality"),
     /**
      * E-mail address. Unlike every other attribute here, a value the account owns itself
      * (`AttributeAuthority.Local`) rather than a master-data field: `confirm-email` establishes it, three lookup tools resolve an
@@ -82,8 +82,11 @@ enum class AttributeType(val wireName: String) {
     PASSWORD_EXISTS("password_exists");
 
     companion object {
-        /** Reverse of [wireName] - the JPA persistence converter's only caller (C2, account.internal.AttributeTypeConverter). */
-        fun fromWireName(wireName: String): AttributeType = entries.first { it.wireName == wireName }
+        /**
+         * Reverse of [wireName], `null` for a name that is none - a caller facing outside input
+         * (`ChannelService.retractAttribute`) must be able to refuse it as such, not fail with a 500.
+         */
+        fun fromWireName(wireName: String): AttributeType? = entries.firstOrNull { it.wireName == wireName }
     }
 }
 
@@ -179,7 +182,7 @@ fun Claim.validateValue() {
         AttributeType.PERSON_ID -> check(Partnernr.ofOrNull(value) != null) {
             "person_id claim must be a Partnernummer (P and nine digits)"
         }
-        AttributeType.GEBURTSDATUM -> check(runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
+        AttributeType.BIRTH_DATE -> check(runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
             "geburtsdatum claim must be an ISO date"
         }
         else -> Unit

@@ -7,8 +7,8 @@
 Eine Identifizierung mit einem Ausweisdokument besteht aus zwei Schritten mit zwei Tools.
 
 **Bestätigen.** `ident-eid` (und ebenso `ident-nect`) bestätigt nur, was auf dem Dokument steht,
-aus eigener Autorität (`ClaimSource.of(toolId)`). Bei `ident-eid` sind das sieben Claims: `NAME`,
-`VORNAME`, `GEBURTSDATUM`, `STRASSE` (die ganze Straßenzeile mit Hausnummer), `PLZ`, `ORT` und das
+aus eigener Autorität (`ClaimSource.of(toolId)`). Bei `ident-eid` sind das sieben Claims: `FAMILY_NAME`,
+`GIVEN_NAMES`, `BIRTH_DATE`, `STREET_ADDRESS` (die ganze Straßenzeile mit Hausnummer), `POSTAL_CODE`, `LOCALITY` und das
 Kartenpseudonym `EID_RESTRICTED_ID`. Eine Person im Personenverzeichnis findet dieser Schritt nicht,
 denn ein Ausweis trägt weder KVNR noch Partnernummer.
 
@@ -19,7 +19,7 @@ Person und behauptet erst dann:
 
 - `PERSON_ID` (die Partnernummer),
 - `KVNR`, wenn eine KVNR angegeben wurde,
-- `VERSNR`, wenn die Person bei uns versichert ist.
+- `INSURANCE_NUMBER`, wenn die Person bei uns versichert ist.
 
 Alle drei tragen `ClaimSource.PERSON_DIRECTORY`, denn für diese Werte steht das Personenverzeichnis
 ein.
@@ -42,7 +42,7 @@ angeboten.
 
 Eine eingetippte Nummer ist kein Nachweis. `ident-kvnr` wird von zwei Dingen getragen:
 
-- `requires`: `NAME`, `VORNAME` und `GEBURTSDATUM` müssen am Konto bestätigt vorliegen, sonst lässt
+- `requires`: `FAMILY_NAME`, `GIVEN_NAMES` und `BIRTH_DATE` müssen am Konto bestätigt vorliegen, sonst lässt
   sich das Tool nicht einmal starten.
 - `IdentityResolver.attestedIdentityMatches`: Bevor ein Anker geschrieben wird, prüft der Abgleich,
   ob die Stammdaten hinter der Nummer zu der bereits bestätigten Identität passen.
@@ -89,6 +89,6 @@ unterschiedlich schnell (Umzug) und schreiben Straßen verschieden. Review 2026-
   Widerrufe, [ADR-12](ADR-012-ein-widerruf-ist-eine-eigene-zeile-mit-eigenem.md)).
 - Die erste Fassung sagte, `ident-kvnr` trage zum IAL bei, und `evidenceAxis()` werfe bei `ATTEST`
   einen Fehler. Beides stimmte nicht; beide Rollen liefern `null`.
-- Die Hausnummer war anfangs ein eigener Claim. Seit 2026-09-24 steht sie in `STRASSE`, so wie eID und
+- Die Hausnummer war anfangs ein eigener Claim. Seit 2026-09-24 steht sie in `STREET_ADDRESS`, so wie eID und
   PID die Straßenzeile liefern.
 - Seit ADR-34 ordnet `ident-kvnr` auch über die Partnernummer zu; dann entsteht kein KVNR-Claim.

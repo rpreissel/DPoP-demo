@@ -303,7 +303,8 @@ class ManageMethodsIntegrationTest : IntegrationTestSupport() {
                 )
                 personAnchors() shouldBe 1
 
-                listOf("person_id", "versnr", "restricted_id", "nect_restricted_id").forEach { attribute ->
+                // "versnr" is no attribute name (anymore) - refused like the anchors, never a 500.
+                listOf("person_id", "insurance_number", "restricted_id", "nect_restricted_id", "versnr").forEach { attribute ->
                     val refused = assertThrows<HttpClientErrorException> {
                         delete("/orchestrator/api/v1/channels/$channelSessionId/attributes/$attribute")
                     }

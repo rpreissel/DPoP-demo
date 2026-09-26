@@ -249,31 +249,31 @@ class AccountServiceDbTest(
         then("it stops counting although its log row stays") {
             val account = accountService.createUnidentifiedAccount()
             accountService.recordClaims(account.accountId, listOf(
-                Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY),
-                Claim(AttributeType.VORNAME, "Max", ClaimSource.PERSON_DIRECTORY),
-                Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.PERSON_DIRECTORY)
+                Claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.PERSON_DIRECTORY),
+                Claim(AttributeType.GIVEN_NAMES, "Max", ClaimSource.PERSON_DIRECTORY),
+                Claim(AttributeType.BIRTH_DATE, "1985-06-15", ClaimSource.PERSON_DIRECTORY)
             ), provenAcr = AcrLevel.LOA2)
             fun establishedValues() = accountService.establishedClaimValues(
-                account.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                account.accountId, setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
             )
             establishedValues() shouldBe mapOf(
-                AttributeType.NAME to "Muster",
-                AttributeType.VORNAME to "Max",
-                AttributeType.GEBURTSDATUM to "1985-06-15"
+                AttributeType.FAMILY_NAME to "Muster",
+                AttributeType.GIVEN_NAMES to "Max",
+                AttributeType.BIRTH_DATE to "1985-06-15"
             )
 
             jdbcTemplate.update(
                 """INSERT INTO account.retraction (account_id, attribute_type, normalized_value, trust_anchor, retracted_at)
-                   VALUES (?, 'name', 'muster', 'OPERATOR', CURRENT_TIMESTAMP)""",
+                   VALUES (?, 'family_name', 'muster', 'OPERATOR', CURRENT_TIMESTAMP)""",
                 account.accountId
             )
 
             establishedValues() shouldBe mapOf(
-                AttributeType.VORNAME to "Max",
-                AttributeType.GEBURTSDATUM to "1985-06-15"
+                AttributeType.GIVEN_NAMES to "Max",
+                AttributeType.BIRTH_DATE to "1985-06-15"
             )
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'name'",
+                "SELECT COUNT(*) FROM account.claim WHERE account_id = ? AND attribute_type = 'family_name'",
                 Int::class.java, account.accountId
             ) shouldBe 1
         }
@@ -320,27 +320,27 @@ class AccountServiceDbTest(
                     account.accountId,
                     listOf(
                         Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY),
-                        Claim(AttributeType.VERSNR, versnr, ClaimSource.PERSON_DIRECTORY)
+                        Claim(AttributeType.INSURANCE_NUMBER, versnr, ClaimSource.PERSON_DIRECTORY)
                     ),
                     provenAcr = AcrLevel.LOA2
                 )
                 return account.accountId
             }
             fun versnrOf(accountId: Long): String? = jdbcTemplate.queryForList(
-                "SELECT normalized_value FROM account.anchor WHERE account_id = ? AND attribute_type = 'versnr'",
+                "SELECT normalized_value FROM account.anchor WHERE account_id = ? AND attribute_type = 'insurance_number'",
                 String::class.java, accountId
             ).firstOrNull()
             val stale = bound("P000000001", "10000001")
             val receiver = bound("P000000002", "10000002")
 
             accountService.applyDirectoryChange(
-                com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.VERSNR), kvnr = null, versnr = "10000001")
+                com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.INSURANCE_NUMBER), kvnr = null, versnr = "10000001")
             )
 
             versnrOf(receiver) shouldBe "10000001"
             versnrOf(stale).shouldBeNull()
             jdbcTemplate.queryForObject(
-                "SELECT trust_anchor FROM account.retraction WHERE account_id = ? AND attribute_type = 'versnr'",
+                "SELECT trust_anchor FROM account.retraction WHERE account_id = ? AND attribute_type = 'insurance_number'",
                 String::class.java, stale
             ) shouldBe "PERSON_DIRECTORY"
         }
@@ -494,8 +494,8 @@ class AccountServiceDbTest(
             val account = accountService.createUnidentifiedAccount()
             val eid = ClaimSource.of(ToolId("ident-eid"))
             val card = listOf(
-                Claim(AttributeType.NAME, "Mustermann", eid, AcrLevel.LOA3),
-                Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
+                Claim(AttributeType.FAMILY_NAME, "Mustermann", eid, AcrLevel.LOA3),
+                Claim(AttributeType.GIVEN_NAMES, "Max", eid, AcrLevel.LOA3),
                 Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
             )
             repeat(2) { accountService.recordClaims(account.accountId, card, provenAcr = AcrLevel.LOA2) }
@@ -518,8 +518,8 @@ class AccountServiceDbTest(
             val eid = ClaimSource.of(ToolId("ident-eid"))
             val provisional = accountService.createUnidentifiedAccount()
             accountService.recordClaims(provisional.accountId, listOf(
-                Claim(AttributeType.NAME, "Muster", eid, AcrLevel.LOA3),
-                Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
+                Claim(AttributeType.FAMILY_NAME, "Muster", eid, AcrLevel.LOA3),
+                Claim(AttributeType.GIVEN_NAMES, "Max", eid, AcrLevel.LOA3),
                 Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
             ), provenAcr = AcrLevel.LOA2)
             accountService.addIdentification(provisional.accountId, "eid", "loa3", role = "IDENTIFICATION", report = mapOf("provider" to "eid-mock-service"))
@@ -534,8 +534,8 @@ class AccountServiceDbTest(
             accountService.findAccount(target.accountId)!!.personId shouldBe "P000000001"
             anchorRepository.findByAccountIdAndAttributeType(target.accountId, AttributeType.EID_RESTRICTED_ID)!!.value shouldBe
                 "T0103005K1D5S0V8T9W6UM2RTX"
-            accountService.establishedClaimValues(target.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME)) shouldBe
-                mapOf(AttributeType.NAME to "Muster", AttributeType.VORNAME to "Max")
+            accountService.establishedClaimValues(target.accountId, setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES)) shouldBe
+                mapOf(AttributeType.FAMILY_NAME to "Muster", AttributeType.GIVEN_NAMES to "Max")
             // The proof of identity is the absorbing account's now (ADR-39): carried over, naming its origin.
             val carried = changeLogRepository.findByAccountIdAndChangeTypeOrderByOccurredAt(target.accountId, ChangeType.IDENTIFIED)
                 .single { it.subject == "eid" }.details!!

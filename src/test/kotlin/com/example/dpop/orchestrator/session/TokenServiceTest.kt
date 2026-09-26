@@ -227,7 +227,7 @@ class TokenServiceTest : BehaviorSpec({
             val claims = service(
                 repository,
                 evidenceService(ctx.authEvidenceId, evidence(accountId = 8L)),
-                accountService = accountService(mapOf(AttributeType.VORNAME to "Erika", AttributeType.NAME to "Musterfrau")),
+                accountService = accountService(mapOf(AttributeType.GIVEN_NAMES to "Erika", AttributeType.FAMILY_NAME to "Musterfrau")),
                 personDirectory = personDirectory
             ).idClaims(authContextId)
 

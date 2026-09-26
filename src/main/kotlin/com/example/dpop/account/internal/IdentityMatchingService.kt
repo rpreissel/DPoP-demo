@@ -45,7 +45,7 @@ class IdentityMatchingService(
     companion object {
         /** What an attestation can establish and the register can be checked against. */
         private val ATTESTABLE_IDENTITY_ATTRIBUTES =
-            setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+            setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
     }
 
     override fun resolve(claims: Set<Claim>): Resolution {
@@ -76,9 +76,9 @@ class IdentityMatchingService(
         return personDirectory.matchesStammdaten(
             personId,
             ClaimedIdentity(
-                name = attested[AttributeType.NAME],
-                vorname = attested[AttributeType.VORNAME],
-                geburtsdatum = attested[AttributeType.GEBURTSDATUM]?.let(LocalDate::parse)
+                name = attested[AttributeType.FAMILY_NAME],
+                vorname = attested[AttributeType.GIVEN_NAMES],
+                geburtsdatum = attested[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
             )
         )
     }

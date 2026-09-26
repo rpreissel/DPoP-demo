@@ -56,7 +56,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
             val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = true)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
-            outcome.claims.last() shouldBe Claim(AttributeType.VERSNR, "10000001", ClaimSource.PERSON_DIRECTORY, IdentKvnrDescriptor.maxAcr)
+            outcome.claims.last() shouldBe Claim(AttributeType.INSURANCE_NUMBER, "10000001", ClaimSource.PERSON_DIRECTORY, IdentKvnrDescriptor.maxAcr)
         }
     }
 
@@ -114,7 +114,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
 
         then("it is only offerable once an attestation established the identity to match against") {
             IdentKvnrDescriptor.requires.map { it.attributeType } shouldBe
-                listOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                listOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
         }
     }
 })

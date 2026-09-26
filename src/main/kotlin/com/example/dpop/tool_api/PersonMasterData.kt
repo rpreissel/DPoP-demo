@@ -23,7 +23,7 @@ data class PersonRecord(
     val name: String?,
     val vorname: String?,
     val geburtsdatum: LocalDate?,
-    /** Street and house number as one line - the form documents attest it (`AttributeType.STRASSE`). */
+    /** Street and house number as one line - the form documents attest it (`AttributeType.STREET_ADDRESS`). */
     val strasse: String?,
     val plz: String?,
     val ort: String?,

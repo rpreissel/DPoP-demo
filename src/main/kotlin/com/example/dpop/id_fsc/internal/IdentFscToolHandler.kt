@@ -122,13 +122,13 @@ class IdentFscToolHandler(
                 Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // A Partner identifies by Partnernummer and has no KVNR (ADR-34).
                 state.kvnr?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
-                Claim(AttributeType.NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
-                Claim(AttributeType.VORNAME, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.FAMILY_NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.GIVEN_NAMES, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Checked against the register like the name (matchesPersonalien) - and one of the
                 // three things that find this identification in the change log (ADR-39).
-                Claim(AttributeType.GEBURTSDATUM, checkNotNull(state.geburtsdatum).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.BIRTH_DATE, checkNotNull(state.geburtsdatum).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
-                personDirectory.versnrOf(personId)?.let { Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
+                personDirectory.versnrOf(personId)?.let { Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),
             auditDetails = mapOf(
                 "provider" to "fsc-service",

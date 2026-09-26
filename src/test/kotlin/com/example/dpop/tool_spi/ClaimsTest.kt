@@ -18,9 +18,9 @@ class ClaimsTest : BehaviorSpec({
             AttributeType.PERSON_ID.wireName shouldBe "person_id"
             AttributeType.KVNR.wireName shouldBe "kvnr"
             AttributeType.EID_RESTRICTED_ID.wireName shouldBe "restricted_id"
-            AttributeType.NAME.wireName shouldBe "name"
-            AttributeType.VORNAME.wireName shouldBe "vorname"
-            AttributeType.GEBURTSDATUM.wireName shouldBe "geburtsdatum"
+            AttributeType.FAMILY_NAME.wireName shouldBe "family_name"
+            AttributeType.GIVEN_NAMES.wireName shouldBe "given_names"
+            AttributeType.BIRTH_DATE.wireName shouldBe "birth_date"
             AttributeType.EMAIL.wireName shouldBe "email"
             AttributeType.PHONE_NUMBER.wireName shouldBe "phone_number"
         }
@@ -69,7 +69,7 @@ class ClaimsTest : BehaviorSpec({
                 Claim(AttributeType.PERSON_ID, "not-a-number", ClaimSource.PERSON_DIRECTORY).validateValue()
             }
             shouldThrow<IllegalStateException> {
-                Claim(AttributeType.GEBURTSDATUM, "31.12.1970", ClaimSource.PERSON_DIRECTORY).validateValue()
+                Claim(AttributeType.BIRTH_DATE, "31.12.1970", ClaimSource.PERSON_DIRECTORY).validateValue()
             }
             shouldThrow<IllegalStateException> {
                 Claim(AttributeType.EMAIL, " ", ClaimSource.SELF_REPORTED).validateValue()
@@ -119,7 +119,7 @@ class ClaimsTest : BehaviorSpec({
         }
         then("rejects an undeclared attribute type") {
             shouldThrow<IllegalStateException> {
-                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY)))
+                assertClaimsCovered(descriptor, listOf(Claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.PERSON_DIRECTORY)))
             }.message shouldContain "declares none"
         }
         then("rejects a claim source that differs from the declaration") {

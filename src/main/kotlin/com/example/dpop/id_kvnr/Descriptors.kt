@@ -43,7 +43,7 @@ object IdentKvnrDescriptor : ToolDescriptor {
     override val claims = setOf(
         ClaimDeclaration(AttributeType.PERSON_ID, ClaimSource.PERSON_DIRECTORY),
         ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.VERSNR, ClaimSource.PERSON_DIRECTORY)
+        ClaimDeclaration(AttributeType.INSURANCE_NUMBER, ClaimSource.PERSON_DIRECTORY)
     )
 
     // Only offerable once an attestation established who the subject is - there must be
@@ -51,8 +51,8 @@ object IdentKvnrDescriptor : ToolDescriptor {
     // KVNR and own that person". Deliberately expressed as the attributes themselves, not as
     // "ident-eid must have run": an EUDI wallet attesting the same three satisfies it unchanged.
     override val requires = setOf(
-        ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
-        ClaimRequirement(AttributeType.VORNAME, TrustLevel.PROVEN),
-        ClaimRequirement(AttributeType.GEBURTSDATUM, TrustLevel.PROVEN)
+        ClaimRequirement(AttributeType.FAMILY_NAME, TrustLevel.PROVEN),
+        ClaimRequirement(AttributeType.GIVEN_NAMES, TrustLevel.PROVEN),
+        ClaimRequirement(AttributeType.BIRTH_DATE, TrustLevel.PROVEN)
     )
 }

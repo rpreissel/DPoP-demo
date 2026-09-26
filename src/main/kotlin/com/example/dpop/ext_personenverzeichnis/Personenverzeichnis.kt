@@ -169,13 +169,13 @@ class Personenverzeichnis(
     /** The kinds of attributes that differ - the street line (street + number) is one kind. */
     private fun changedAttributes(before: PersonData, after: PersonData): Set<AttributeType> = buildSet {
         if (before.kvnr != after.kvnr) add(AttributeType.KVNR)
-        if (before.versnr != after.versnr) add(AttributeType.VERSNR)
-        if (before.name != after.name) add(AttributeType.NAME)
-        if (before.vorname != after.vorname) add(AttributeType.VORNAME)
-        if (before.geburtsdatum != after.geburtsdatum) add(AttributeType.GEBURTSDATUM)
-        if (before.strassenzeile != after.strassenzeile) add(AttributeType.STRASSE)
-        if (before.plz != after.plz) add(AttributeType.PLZ)
-        if (before.ort != after.ort) add(AttributeType.ORT)
+        if (before.versnr != after.versnr) add(AttributeType.INSURANCE_NUMBER)
+        if (before.name != after.name) add(AttributeType.FAMILY_NAME)
+        if (before.vorname != after.vorname) add(AttributeType.GIVEN_NAMES)
+        if (before.geburtsdatum != after.geburtsdatum) add(AttributeType.BIRTH_DATE)
+        if (before.strassenzeile != after.strassenzeile) add(AttributeType.STREET_ADDRESS)
+        if (before.plz != after.plz) add(AttributeType.POSTAL_CODE)
+        if (before.ort != after.ort) add(AttributeType.LOCALITY)
     }
 
     private fun Person.applyFrom(input: PersonData) {

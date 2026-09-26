@@ -121,8 +121,8 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
 
                 evidenceJsonOf(run.channelSessionId) shouldContain "nect-epass"
                 val claimed = claimedAttributesOf(run.channelSessionId).joinToString()
-                claimed shouldContain "name"
-                claimed shouldNotContain "strasse"
+                claimed shouldContain "family_name"
+                claimed shouldNotContain "street_address"
             }
         }
 

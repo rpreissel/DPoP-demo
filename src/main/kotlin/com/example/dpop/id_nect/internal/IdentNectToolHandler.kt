@@ -109,12 +109,12 @@ class IdentNectToolHandler(
         val a = result.attributes
         val source = ClaimSource.of(descriptor.toolId)
         val values = listOfNotNull(
-            a.name?.let { AttributeType.NAME to it },
-            a.vorname?.let { AttributeType.VORNAME to it },
-            a.geburtsdatum?.let { AttributeType.GEBURTSDATUM to it.toString() },
-            a.strasse?.let { AttributeType.STRASSE to it },
-            a.plz?.let { AttributeType.PLZ to it },
-            a.ort?.let { AttributeType.ORT to it },
+            a.name?.let { AttributeType.FAMILY_NAME to it },
+            a.vorname?.let { AttributeType.GIVEN_NAMES to it },
+            a.geburtsdatum?.let { AttributeType.BIRTH_DATE to it.toString() },
+            a.strasse?.let { AttributeType.STREET_ADDRESS to it },
+            a.plz?.let { AttributeType.POSTAL_CODE to it },
+            a.ort?.let { AttributeType.LOCALITY to it },
             // Only the eID chip carries a card pseudonym, and read by Nect it is Nect's own
             // (§18 PAuswG) - its own anchor, never the one ident-eid writes (ADR-19).
             a.restrictedId?.takeIf { result.procedure == NectProcedure.EID }?.let { AttributeType.NECT_RESTRICTED_ID to it }

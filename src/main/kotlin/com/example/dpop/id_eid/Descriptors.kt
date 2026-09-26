@@ -43,12 +43,12 @@ object IdentEidDescriptor : ToolDescriptor {
     // restricted_id is the card's person-unique pseudonym - a replaceable local anchor (ADR-19),
     // so a later eid run recognizes the Interessent it already created.
     override val claims = setOf(
-        ClaimDeclaration(AttributeType.NAME, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.STRASSE, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.PLZ, ClaimSource.of(toolId)),
-        ClaimDeclaration(AttributeType.ORT, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.FAMILY_NAME, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.GIVEN_NAMES, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.BIRTH_DATE, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.STREET_ADDRESS, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.POSTAL_CODE, ClaimSource.of(toolId)),
+        ClaimDeclaration(AttributeType.LOCALITY, ClaimSource.of(toolId)),
         ClaimDeclaration(AttributeType.EID_RESTRICTED_ID, ClaimSource.of(toolId))
     )
 }

@@ -66,6 +66,6 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
     fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()
 
     private companion object {
-        val FINDABLE_BY = setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+        val FINDABLE_BY = setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
     }
 }

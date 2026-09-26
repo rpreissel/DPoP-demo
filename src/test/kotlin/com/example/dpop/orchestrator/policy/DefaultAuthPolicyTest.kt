@@ -38,7 +38,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             override val maxAcr = maxAcr
             // What the catalog demands of every identification (ToolHandlerRegistry, ADR-39).
             override val claims =
-                if (role == MethodRole.IDENTIFICATION) setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                if (role == MethodRole.IDENTIFICATION) setOf(AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
                     .map { ClaimDeclaration(it, ClaimSource.of(toolId)) }.toSet()
                 else emptySet()
         }
@@ -445,29 +445,29 @@ class DefaultAuthPolicyTest : BehaviorSpec({
 
         then("an attribute established at the required level satisfies it") {
             requiresSatisfied(
-                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
-                profile(AttributeType.NAME to TrustLevel.PROVEN)
+                ClaimRequirement(AttributeType.FAMILY_NAME, TrustLevel.PROVEN),
+                profile(AttributeType.FAMILY_NAME to TrustLevel.PROVEN)
             ) shouldBe true
         }
 
         then("a stronger source satisfies a weaker requirement") {
             requiresSatisfied(
-                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
-                profile(AttributeType.NAME to TrustLevel.STAMMDATEN)
+                ClaimRequirement(AttributeType.FAMILY_NAME, TrustLevel.PROVEN),
+                profile(AttributeType.FAMILY_NAME to TrustLevel.STAMMDATEN)
             ) shouldBe true
         }
 
         then("a weaker source does not satisfy a stronger requirement") {
             requiresSatisfied(
-                ClaimRequirement(AttributeType.NAME, TrustLevel.PROVEN),
-                profile(AttributeType.NAME to TrustLevel.SELF_REPORTED)
+                ClaimRequirement(AttributeType.FAMILY_NAME, TrustLevel.PROVEN),
+                profile(AttributeType.FAMILY_NAME to TrustLevel.SELF_REPORTED)
             ) shouldBe false
         }
 
         then("an attribute the account never established does not satisfy it") {
             requiresSatisfied(
-                ClaimRequirement(AttributeType.GEBURTSDATUM, TrustLevel.PROVEN),
-                profile(AttributeType.NAME to TrustLevel.PROVEN)
+                ClaimRequirement(AttributeType.BIRTH_DATE, TrustLevel.PROVEN),
+                profile(AttributeType.FAMILY_NAME to TrustLevel.PROVEN)
             ) shouldBe false
         }
 

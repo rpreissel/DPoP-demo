@@ -142,7 +142,7 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
                     HttpMethod.PUT, "/personen/$personId",
                     """{"kvnr":"$newKvnr","versnr":"$versnr","name":"Register","vorname":"Rita","geburtsdatum":"1970-01-01"}"""
                 )
-                eventually { anchor("versnr") == versnr }
+                eventually { anchor("insurance_number") == versnr }
                 jdbcTemplate.queryForList(
                     """
                     SELECT c.normalized_value FROM account.claim c
@@ -155,11 +155,11 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
 
                 val replaced = randomVersnr()
                 registerCall(HttpMethod.PUT, "/personen/$personId", """{"kvnr":"$newKvnr","versnr":"$replaced","name":"Register","vorname":"Rita","geburtsdatum":"1970-01-01"}""")
-                eventually { anchor("versnr") == replaced }
+                eventually { anchor("insurance_number") == replaced }
 
                 // No longer insured with us: both numbers go, the person stays as a Partner.
                 registerCall(HttpMethod.PUT, "/personen/$personId", """{"kvnr":"","versnr":"","name":"Register","vorname":"Rita","geburtsdatum":"1970-01-01"}""")
-                eventually { anchor("versnr") == null }
+                eventually { anchor("insurance_number") == null }
                 anchor("person_id") shouldBe personId
             }
         }

@@ -3,7 +3,7 @@ package com.example.dpop.tool_api
 /**
  * A validated Versicherungsnummer: exactly eight digits. Only a person insured with us has one
  * (the Personenverzeichnis keeps it optional and changeable); when it exists it is also an account
- * anchor (`AttributeType.VERSNR`). One place for the format, used by the Personenverzeichnis on
+ * anchor (`AttributeType.INSURANCE_NUMBER`). One place for the format, used by the Personenverzeichnis on
  * write and by the account on [normalizeAnchorValue].
  */
 @JvmInline

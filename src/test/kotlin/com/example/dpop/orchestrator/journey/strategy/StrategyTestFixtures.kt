@@ -82,9 +82,9 @@ object StrategyTestFixtures {
             // A confirmed address IS an EMAIL claim at PROVEN - the anchor is only its projection.
             if (emailConfirmed) put(AttributeType.EMAIL, TrustLevel.PROVEN)
             if (attestedIdentity) {
-                put(AttributeType.NAME, TrustLevel.PROVEN)
-                put(AttributeType.VORNAME, TrustLevel.PROVEN)
-                put(AttributeType.GEBURTSDATUM, TrustLevel.PROVEN)
+                put(AttributeType.FAMILY_NAME, TrustLevel.PROVEN)
+                put(AttributeType.GIVEN_NAMES, TrustLevel.PROVEN)
+                put(AttributeType.BIRTH_DATE, TrustLevel.PROVEN)
             }
         }
     )

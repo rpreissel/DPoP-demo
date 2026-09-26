@@ -60,9 +60,9 @@ class IdentFscToolHandlerTest : BehaviorSpec({
                 (outcome as ToolOutcome.Completed.Identified).claims shouldBe listOf(
                     Claim(AttributeType.PERSON_ID, "P000000007", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
                     Claim(AttributeType.KVNR, "A123456789", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
-                    Claim(AttributeType.NAME, "Muster", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
-                    Claim(AttributeType.VORNAME, "Max", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
-                    Claim(AttributeType.GEBURTSDATUM, "1985-06-15", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr)
+                    Claim(AttributeType.FAMILY_NAME, "Muster", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
+                    Claim(AttributeType.GIVEN_NAMES, "Max", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr),
+                    Claim(AttributeType.BIRTH_DATE, "1985-06-15", ClaimSource.PERSON_DIRECTORY, IdentFscDescriptor.maxAcr)
                 )
             }
         }
@@ -100,7 +100,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
             (outcome as ToolOutcome.Completed.Identified).claims.map { it.attributeType } shouldBe
-                listOf(AttributeType.PERSON_ID, AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                listOf(AttributeType.PERSON_ID, AttributeType.FAMILY_NAME, AttributeType.GIVEN_NAMES, AttributeType.BIRTH_DATE)
         }
     }
 })

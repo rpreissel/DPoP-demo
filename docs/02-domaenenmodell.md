@@ -210,11 +210,11 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   - **Partnernummer**: `P` und neun Ziffern, zufällig vergeben, unveränderlich; im Konto der Anker
     `PERSON_ID`.
   - **Versicherungsnummer**: acht Ziffern, nur für Versicherte, änderbar und entfernbar; im Konto
-    der Anker `VERSNR`.
+    der Anker `INSURANCE_NUMBER`.
   - **KVNR**: nur zusammen mit einer Versicherungsnummer, änderbar, darf zeitweise fehlen; im Konto
     ein Claim, der jüngste gilt.
 - **Drei Rollen** ergeben sich aus den Ankern, ohne eigenes Statusfeld (ADR-34):
-  - **Versicherter**: Das Konto gehört zu einer Person mit Versicherungsnummer (`VERSNR`-Anker).
+  - **Versicherter**: Das Konto gehört zu einer Person mit Versicherungsnummer (`INSURANCE_NUMBER`-Anker).
   - **Partner**: Eine Person ist zugeordnet (`PERSON_ID`, die Partnernummer), aber ohne
     Versicherungsnummer.
   - **Interessent**: Es ist keine Person zugeordnet.
@@ -271,10 +271,10 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   einen Wert, entscheidet zuerst der Rang, dann die Zeit.
 - Wem ein Attribut gehört, steht deklariert im Code: `AttributeType.authority`
   (`tool_api/AttributeRules.kt`) kennt drei Fälle:
-  - `Local` (`PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`): Der Wert liegt im Konto in
+  - `Local` (`PERSON_ID`, `INSURANCE_NUMBER`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`): Der Wert liegt im Konto in
     `account.anchor`; dieser Fall bringt die Regeln für Anker gleich mit.
-  - `PersonDirectory` (`KVNR`, `NAME`, `VORNAME`, `GEBURTSDATUM`, `STRASSE` (Straße mit
-    Hausnummer), `PLZ`, `ORT`): Der Wert wird live über `PersonDirectory` gelesen; im Konto steht
+  - `PersonDirectory` (`KVNR`, `FAMILY_NAME`, `GIVEN_NAMES`, `BIRTH_DATE`, `STREET_ADDRESS` (Straße mit
+    Hausnummer), `POSTAL_CODE`, `LOCALITY`): Der Wert wird live über `PersonDirectory` gelesen; im Konto steht
     nur die Historie der Claims.
   - `MethodModule` (`PHONE_NUMBER`, `PASSWORD_EXISTS`): Der Wert steht in der Enrollment-Zeile des
     Methodenmoduls.
@@ -285,7 +285,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   Attributtyp fest, welches Niveau die *erste Bindung* (`establish`) und welches das *Ersetzen*
   (`replace`) mindestens voraussetzt. `EMAIL` lässt sich schon bei `loa1` binden, aber erst ab
   `loa2` ersetzen. `PERSON_ID` verlangt schon für die erste Bindung `loa2`; daneben gilt vorrangig
-  `allowsReplacement = false`. `VERSNR` und die beiden Kartenpseudonyme lassen sich ab `loa2` binden und
+  `allowsReplacement = false`. `INSURANCE_NUMBER` und die beiden Kartenpseudonyme lassen sich ab `loa2` binden und
   ersetzen (eine neue Versicherungsnummer, eine neue Karte). Das Pseudonym des Online-Ausweises ist je
   Diensteanbieter verschieden (§ 18 PAuswG): Liest `ident-eid` die Karte, entsteht unseres
   (`EID_RESTRICTED_ID`); liest Nect sie, entsteht Nects (`NECT_RESTRICTED_ID`). Deshalb sind es zwei
@@ -295,7 +295,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
 - `account.anchor.established_acr` ist das Gegenstück zu `account.auth_method.enrolled_under_acr`:
   das **tatsächlich nachgewiesene** Niveau, begrenzt nach ADR-5.
 - `AccountAnchor` ordnet die lokal geführten Attribute (`AttributeAuthority.Local`: `PERSON_ID`,
-  `VERSNR`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`) einem Konto zu, hält sie eindeutig und ist zugleich ihr
+  `INSURANCE_NUMBER`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID`, `EMAIL`) einem Konto zu, hält sie eindeutig und ist zugleich ihr
   einziger Speicherort. `UNIQUE(attribute_type, normalized_value)` macht `resolveByAnchor` zu einem
   einfachen Nachschlagen; `UNIQUE(account_id, attribute_type)` erzwingt höchstens einen aktuellen
   Wert je Konto und Attributtyp. KVNR und Partnernummer werden ausschließlich live über
@@ -303,7 +303,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   zum lokalen PersonId-Anker aufgelöst. Ein Anker, der schon einem anderen Konto gehört, wird
   abgewiesen ([12-entscheidungen.md](12-entscheidungen.md) ADR-11). Ändert das
   Personenverzeichnis KVNR oder Versicherungsnummer, zieht das Konto den Claim bzw. den
-  `VERSNR`-Anker per Event nach (ADR-34).
+  `INSURANCE_NUMBER`-Anker per Event nach (ADR-34).
 - `IdentityMatchingService.resolve` beantwortet die Frage „Gehört diese bestätigte Identität zu
   einem bestehenden Konto?" **ausschließlich über Anker** (ADR-19). `resolveByAnchor` prüft die
   Anker-Claims in der Reihenfolge ihrer `AnchorRule.bindingStrength`; ohne Treffer bleibt nur
