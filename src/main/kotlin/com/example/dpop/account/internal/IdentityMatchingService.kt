@@ -73,12 +73,12 @@ class IdentityMatchingService(
     override fun attestedIdentityMatches(accountId: Long, personId: String): Boolean {
         val attested = accountClaimRepository.findEstablished(accountId).strongestEstablishedValues(ATTESTABLE_IDENTITY_ATTRIBUTES)
         if (attested.isEmpty()) return false
-        return personDirectory.matchesStammdaten(
+        return personDirectory.matchesMasterData(
             personId,
             ClaimedIdentity(
-                name = attested[AttributeType.FAMILY_NAME],
-                vorname = attested[AttributeType.GIVEN_NAMES],
-                geburtsdatum = attested[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
+                familyName = attested[AttributeType.FAMILY_NAME],
+                givenNames = attested[AttributeType.GIVEN_NAMES],
+                birthDate = attested[AttributeType.BIRTH_DATE]?.let(LocalDate::parse)
             )
         )
     }

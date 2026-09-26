@@ -7,16 +7,16 @@ package com.example.dpop.tool_api
  * write and by the account on [normalizeAnchorValue].
  */
 @JvmInline
-value class Versnr private constructor(val value: String) {
+value class InsuranceNumber private constructor(val value: String) {
     override fun toString(): String = value
 
     companion object {
         private val PATTERN = "^\\d{8}$".toRegex()
 
         /** Trims, then validates [raw] - `null` if it is not eight digits. */
-        fun ofOrNull(raw: String): Versnr? = raw.trim().let { if (PATTERN.matches(it)) Versnr(it) else null }
+        fun ofOrNull(raw: String): InsuranceNumber? = raw.trim().let { if (PATTERN.matches(it)) InsuranceNumber(it) else null }
 
         /** Same as [ofOrNull], but throws for a malformed value. */
-        fun of(raw: String): Versnr = requireNotNull(ofOrNull(raw)) { "Invalid Versnr: '$raw'" }
+        fun of(raw: String): InsuranceNumber = requireNotNull(ofOrNull(raw)) { "Invalid Versicherungsnummer: '$raw'" }
     }
 }

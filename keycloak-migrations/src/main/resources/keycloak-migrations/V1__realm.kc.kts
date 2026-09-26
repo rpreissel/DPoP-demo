@@ -984,7 +984,7 @@ step("browser-qr-test default scopes setzen") {
 
 // ===================== V12__stammdaten_claim_mappers =====================
 
-// Die Stammdaten-Attribute, die KeycloakAccountSyncListener.stammdatenAttributes() seit jeher in
+// Die Stammdaten-Attribute, die masterDataAttributes() seit jeher in
 // den Keycloak-User schreibt, als Token-Claims sichtbar machen.
 //
 // Bis hierher wurden sie gepflegt und nie gelesen: der orchestrator-claims-Scope (V3) trug nur
@@ -996,7 +996,7 @@ step("browser-qr-test default scopes setzen") {
 // Im orchestrator-claims-Scope und nicht am Client, aus demselben Grund wie V3: jeder spaetere
 // Client bekommt dasselbe Verhalten, indem er den Scope aufnimmt (V4, V5, V8, V11 tun das bereits).
 //
-// Die Attributnamen sind woertlich die Schluessel aus stammdatenAttributes() - die eine Quelle
+// Die Attributnamen sind woertlich die Schluessel aus masterDataAttributes() - die eine Quelle
 // dafuer, was ein Account nach Keycloak spiegelt. Weicht einer ab, bleibt der Claim leer, ohne
 // dass etwas fehlschlaegt; deshalb steht hier dieselbe Liste und nicht eine "aehnliche".
 //
@@ -1004,17 +1004,17 @@ step("browser-qr-test default scopes setzen") {
 // uebrigen fuellt ein attestierter Interessent aus eigenen Claims. Fehlende Werte laesst der
 // Mapper weg, statt sie als leeren String zu setzen.
 
-// Attribut (stammdatenAttributes()) to Claim-Name im Token.
-val stammdatenClaims = listOf(
+// Attribut (masterDataAttributes()) to Claim-Name im Token.
+val masterDataClaims = listOf(
     "personId" to "person_id",
     "kvnr" to "kvnr",
     // Versicherungsnummer - nur fuer bei uns Versicherte (ADR-34).
     "versnr" to "versnr",
-    "geburtsdatum" to "geburtsdatum",
-    // Strasse und Hausnummer in einer Zeile, wie eID und PID sie bezeugen (AttributeType.STRASSE).
-    "strasse" to "strasse",
-    "plz" to "plz",
-    "ort" to "ort",
+    "birthDate" to "birth_date",
+    // Strasse und Hausnummer in einer Zeile, wie eID und PID sie bezeugen (AttributeType.STREET_ADDRESS).
+    "streetAddress" to "street_address",
+    "postalCode" to "postal_code",
+    "locality" to "locality",
 )
 
 // Ohne diesen Schritt waeren die Mapper unten wirkungslos: Keycloaks deklaratives User Profile
@@ -1034,7 +1034,7 @@ step("stammdaten im user profile deklarieren") {
     up {
         users().userProfile().update(
             upConfig(
-                *(listOf("orchestratorAccountId") + stammdatenClaims.map { it.first })
+                *(listOf("orchestratorAccountId") + masterDataClaims.map { it.first })
                     .map { it to setOf("admin") }
                     .toTypedArray()
             )
@@ -1048,9 +1048,9 @@ step("stammdaten im user profile deklarieren") {
 step("stammdaten mapper anlegen") {
     up {
         val mappers = clientScopes().get(scopeDbId("orchestrator-claims")).protocolMappers
-        stammdatenClaims.forEach { (attribute, claim) ->
+        masterDataClaims.forEach { (attribute, claim) ->
             mappers.createMapper(ProtocolMapperRepresentation().apply {
-                name = "orchestrator-stammdaten-$attribute"
+                name = "orchestrator-master-data-$attribute"
                 protocol = "openid-connect"
                 protocolMapper = "oidc-usermodel-attribute-mapper"
                 config = mapOf(
@@ -1066,8 +1066,8 @@ step("stammdaten mapper anlegen") {
     }
     down {
         val mappers = clientScopes().get(scopeDbId("orchestrator-claims")).protocolMappers
-        stammdatenClaims.forEach { (attribute, _) ->
-            mappers.getMappers().first { it.name == "orchestrator-stammdaten-$attribute" }.let { mappers.delete(it.id) }
+        masterDataClaims.forEach { (attribute, _) ->
+            mappers.getMappers().first { it.name == "orchestrator-master-data-$attribute" }.let { mappers.delete(it.id) }
         }
     }
 }

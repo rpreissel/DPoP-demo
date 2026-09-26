@@ -128,7 +128,7 @@ value class ClaimSource(val value: String) {
  */
 enum class TrustLevel(val rank: Int) {
     /** Backed by the master-data backend, e.g. ext_personenverzeichnis. */
-    STAMMDATEN(3),
+    AUTHORITATIVE(3),
     /** Proven by a tool run, e.g. an eID procedure or a confirmed email-code exchange. */
     PROVEN(2),
     /** The user vouched for it, nothing else. */
@@ -138,7 +138,7 @@ enum class TrustLevel(val rank: Int) {
 /** The [TrustLevel] this [ClaimSource] belongs to. */
 val ClaimSource.trustLevel: TrustLevel
     get() = when (this) {
-        ClaimSource.PERSON_DIRECTORY -> TrustLevel.STAMMDATEN
+        ClaimSource.PERSON_DIRECTORY -> TrustLevel.AUTHORITATIVE
         ClaimSource.SELF_REPORTED -> TrustLevel.SELF_REPORTED
         else -> TrustLevel.PROVEN
     }

@@ -34,7 +34,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
     beforeTest {
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
-        every { personDirectory.versnrOf(any()) } returns null
+        every { personDirectory.insuranceNumberOf(any()) } returns null
     }
 
     given("a KVNR the register resolves") {
@@ -51,7 +51,7 @@ class IdentKvnrToolHandlerTest : BehaviorSpec({
 
     given("a person insured with us") {
         then("the Versicherungsnummer comes along as an anchor claim (ADR-34)") {
-            every { personDirectory.versnrOf("P000000042") } returns "10000001"
+            every { personDirectory.insuranceNumberOf("P000000042") } returns "10000001"
 
             val outcome = handler.patch(toolSessionId, "A123456789", partnernr = null, personId = "P000000042", matchesAttestedIdentity = true)
 

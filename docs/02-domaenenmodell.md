@@ -267,7 +267,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   Die Quelle sagt, wer für einen Wert einsteht: das Personenverzeichnis (`PERSON_DIRECTORY`, in der
   Datenbank `person_directory`), ein Verfahren selbst (`ClaimSource.of(toolId)`, z. B. `ident-eid`),
   der Nutzer (`SELF_REPORTED`) oder die Demo-Startdaten (`DEMO_BOOTSTRAP`). Daraus folgt ihr Rang
-  (`TrustLevel`: `STAMMDATEN` vor `PROVEN` vor `SELF_REPORTED`). Gibt es für ein Attribut mehr als
+  (`TrustLevel`: `AUTHORITATIVE` vor `PROVEN` vor `SELF_REPORTED`). Gibt es für ein Attribut mehr als
   einen Wert, entscheidet zuerst der Rang, dann die Zeit.
 - Wem ein Attribut gehört, steht deklariert im Code: `AttributeType.authority`
   (`tool_api/AttributeRules.kt`) kennt drei Fälle:

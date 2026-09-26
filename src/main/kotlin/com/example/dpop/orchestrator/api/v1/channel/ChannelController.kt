@@ -455,7 +455,7 @@ class ChannelController(
 
     @GetMapping("/{channelSessionId}/idclaims")
     @Operation(
-        summary = "Get the fachliche ID-token claims",
+        summary = "Get the business ID-token claims",
         description = "Business-facing claims (accountId/personId/versnr/name/email/acr/amr/auth_time) - a separate " +
             "resource from the AccessToken's own claims, not encoded into it. name is the one place the client " +
             "learns who is logged in (docs/05-api.md); personId and versnr give the role (ADR-34): Versicherter " +

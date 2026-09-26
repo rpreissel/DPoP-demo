@@ -453,7 +453,7 @@ class DefaultAuthPolicyTest : BehaviorSpec({
         then("a stronger source satisfies a weaker requirement") {
             requiresSatisfied(
                 ClaimRequirement(AttributeType.FAMILY_NAME, TrustLevel.PROVEN),
-                profile(AttributeType.FAMILY_NAME to TrustLevel.STAMMDATEN)
+                profile(AttributeType.FAMILY_NAME to TrustLevel.AUTHORITATIVE)
             ) shouldBe true
         }
 

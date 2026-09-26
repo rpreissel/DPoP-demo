@@ -20,13 +20,13 @@ interface PersonMasterData {
 /** What the directory holds about a person, as the account mirror needs it. */
 data class PersonRecord(
     val kvnr: String?,
-    val name: String?,
-    val vorname: String?,
-    val geburtsdatum: LocalDate?,
+    val familyName: String?,
+    val givenNames: String?,
+    val birthDate: LocalDate?,
     /** Street and house number as one line - the form documents attest it (`AttributeType.STREET_ADDRESS`). */
-    val strasse: String?,
-    val plz: String?,
-    val ort: String?,
-    /** Versicherungsnummer, only for a person insured with us. */
-    val versnr: String?
+    val streetAddress: String?,
+    val postalCode: String?,
+    val locality: String?,
+    /** The Versicherungsnummer, only for a person insured with us. */
+    val insuranceNumber: String?
 )

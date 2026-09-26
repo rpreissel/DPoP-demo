@@ -223,8 +223,8 @@ oder den eindeutigen E-Mail-Anker. Eine Liste aller Konten gibt es nicht; die Su
 findet nur exakte Treffer ([ADR-38](adr/ADR-038-keycloak-liest-konten.md), Review 2026-09 P-3).
 
 - **Was Keycloak zeigt:** Benutzername (die bestätigte E-Mail, sonst `account-<id>`), E-Mail, Vor- und
-  Nachname und die Attribute hinter den Token-Claims (`personId`, `kvnr`, `versnr`, `geburtsdatum`,
-  `strasse`, `plz`, `ort`). Für ein Konto mit Person gelten nur die Werte des Personenverzeichnisses,
+  Nachname und die Attribute hinter den Token-Claims (`personId`, `kvnr`, `versnr`, `birthDate`,
+  `streetAddress`, `postalCode`, `locality`; im Token `birth_date`, `street_address`, `postal_code`, `locality`). Für ein Konto mit Person gelten nur die Werte des Personenverzeichnisses,
   für einen Interessenten der stärkste bestätigte Wert aus dem Konto; ein Konto ohne beides zeigt
   Platzhalternamen. Alles davon ist in Keycloak schreibgeschützt.
 - **Frische:** Keycloak cacht einen föderierten Nutzer höchstens 60 Sekunden (Migration V2). Eine

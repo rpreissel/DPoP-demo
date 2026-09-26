@@ -99,7 +99,7 @@ class TokenService(
             // Together with personId the account's role (ADR-34): Versicherter with, Partner
             // without a Versicherungsnummer, Interessent without a person at all. Read live - the
             // Personenverzeichnis is its authority.
-            "versnr" to account?.personId?.let(personDirectory::versnrOf),
+            "versnr" to account?.personId?.let(personDirectory::insuranceNumberOf),
             "name" to displayName(account),
             "email" to account?.email,
             "email_verified" to (account?.emailConfirmed ?: false)

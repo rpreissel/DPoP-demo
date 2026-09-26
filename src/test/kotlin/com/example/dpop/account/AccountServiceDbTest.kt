@@ -326,7 +326,7 @@ class AccountServiceDbTest(
                 )
                 return account.accountId
             }
-            fun versnrOf(accountId: Long): String? = jdbcTemplate.queryForList(
+            fun insuranceNumberOf(accountId: Long): String? = jdbcTemplate.queryForList(
                 "SELECT normalized_value FROM account.anchor WHERE account_id = ? AND attribute_type = 'insurance_number'",
                 String::class.java, accountId
             ).firstOrNull()
@@ -337,8 +337,8 @@ class AccountServiceDbTest(
                 com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.INSURANCE_NUMBER), kvnr = null, versnr = "10000001")
             )
 
-            versnrOf(receiver) shouldBe "10000001"
-            versnrOf(stale).shouldBeNull()
+            insuranceNumberOf(receiver) shouldBe "10000001"
+            insuranceNumberOf(stale).shouldBeNull()
             jdbcTemplate.queryForObject(
                 "SELECT trust_anchor FROM account.retraction WHERE account_id = ? AND attribute_type = 'insurance_number'",
                 String::class.java, stale

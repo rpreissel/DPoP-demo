@@ -75,12 +75,12 @@ class IdentEidToolHandler(
                         // The auditDetails blob keeps only what no claim can carry (provider,
                         // transaction ids, evidence hash). geburtsdatum is an ISO date string
                         // via LocalDate.toString().
-                        Claim(AttributeType.FAMILY_NAME, checkNotNull(decision.claimed.name), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.GIVEN_NAMES, checkNotNull(decision.claimed.vorname), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.BIRTH_DATE, checkNotNull(decision.claimed.geburtsdatum).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.STREET_ADDRESS, checkNotNull(decision.claimed.strasse), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.POSTAL_CODE, checkNotNull(decision.claimed.plz), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
-                        Claim(AttributeType.LOCALITY, checkNotNull(decision.claimed.ort), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.FAMILY_NAME, checkNotNull(decision.claimed.familyName), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.GIVEN_NAMES, checkNotNull(decision.claimed.givenNames), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.BIRTH_DATE, checkNotNull(decision.claimed.birthDate).toString(), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.STREET_ADDRESS, checkNotNull(decision.claimed.streetAddress), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.POSTAL_CODE, checkNotNull(decision.claimed.postalCode), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
+                        Claim(AttributeType.LOCALITY, checkNotNull(decision.claimed.locality), ClaimSource.of(descriptor.toolId), descriptor.maxAcr),
                         Claim(AttributeType.EID_RESTRICTED_ID, decision.restrictedId, ClaimSource.of(descriptor.toolId), descriptor.maxAcr)
                     ),
                     auditDetails = mapOf(
@@ -89,8 +89,8 @@ class IdentEidToolHandler(
                         "methodVersion" to "1.0",
                         "evidenceHash" to IdentEidFlow.evidenceHash(
                             listOf(
-                                decision.restrictedId, decision.claimed.name, decision.claimed.vorname,
-                                decision.claimed.geburtsdatum?.toString(), decision.claimed.strasse, decision.claimed.plz, decision.claimed.ort,
+                                decision.restrictedId, decision.claimed.familyName, decision.claimed.givenNames,
+                                decision.claimed.birthDate?.toString(), decision.claimed.streetAddress, decision.claimed.postalCode, decision.claimed.locality,
                             )
                         )
                     )

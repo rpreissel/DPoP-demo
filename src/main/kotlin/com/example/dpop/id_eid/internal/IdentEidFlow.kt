@@ -53,12 +53,12 @@ internal object IdentEidFlow {
     fun decide(state: IdentEidState): IdentEidDecision {
         if (!hasCardFields(state) || state.pinHash.isNullOrBlank()) return IdentEidDecision.Incomplete
         val claimed = ClaimedIdentity(
-            name = state.name.orEmpty(),
-            vorname = state.vorname.orEmpty(),
-            geburtsdatum = checkNotNull(state.geburtsdatum),
-            strasse = state.strasse.orEmpty(),
-            plz = state.plz.orEmpty(),
-            ort = state.ort.orEmpty()
+            familyName = state.name.orEmpty(),
+            givenNames = state.vorname.orEmpty(),
+            birthDate = checkNotNull(state.geburtsdatum),
+            streetAddress = state.strasse.orEmpty(),
+            postalCode = state.plz.orEmpty(),
+            locality = state.ort.orEmpty()
         )
         return IdentEidDecision.Verify(claimed, checkNotNull(state.restrictedId), checkNotNull(state.pinHash))
     }

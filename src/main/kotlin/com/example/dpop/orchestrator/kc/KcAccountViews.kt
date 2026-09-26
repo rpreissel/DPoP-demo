@@ -91,7 +91,7 @@ internal val MIRRORED_CLAIM_TYPES = setOf(
 
 /**
  * Every kind of attribute that ends up on the Keycloak user: the mirrored claims plus the
- * identifiers read from the Personenverzeichnis ([stammdatenAttributes]).
+ * identifiers read from the Personenverzeichnis ([masterDataAttributes]).
  */
 internal val KEYCLOAK_ATTRIBUTE_TYPES: Set<AttributeType> = MIRRORED_CLAIM_TYPES + setOf(AttributeType.KVNR, AttributeType.INSURANCE_NUMBER)
 
@@ -113,9 +113,9 @@ internal data class KcUserMirror(
  */
 internal fun kcUserMirror(profile: AccountProfile, person: PersonRecord?, attested: Map<AttributeType, String>): KcUserMirror =
     KcUserMirror(
-        firstName = (if (person != null) person.vorname else attested[AttributeType.GIVEN_NAMES]) ?: UNIDENTIFIED_FIRST_NAME,
-        lastName = (if (person != null) person.name else attested[AttributeType.FAMILY_NAME]) ?: UNIDENTIFIED_LAST_NAME,
-        attributes = stammdatenAttributes(profile.personId, person, attested)
+        firstName = (if (person != null) person.givenNames else attested[AttributeType.GIVEN_NAMES]) ?: UNIDENTIFIED_FIRST_NAME,
+        lastName = (if (person != null) person.familyName else attested[AttributeType.FAMILY_NAME]) ?: UNIDENTIFIED_LAST_NAME,
+        attributes = masterDataAttributes(profile.personId, person, attested)
     )
 
 /**
@@ -123,20 +123,20 @@ internal fun kcUserMirror(profile: AccountProfile, person: PersonRecord?, attest
  * bound account (live, never cached, never topped up from claims), from the account's own
  * attested claims for an Interessent.
  */
-internal fun stammdatenAttributes(personId: String?, person: PersonRecord?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
+internal fun masterDataAttributes(personId: String?, person: PersonRecord?, attested: Map<AttributeType, String>): Map<String, String> = buildMap {
     personId?.let { put("personId", it.toString()) }
     if (person != null) {
         person.kvnr?.let { put("kvnr", it) }
-        person.versnr?.let { put("versnr", it) }
-        person.geburtsdatum?.let { put("geburtsdatum", it.toString()) }
+        person.insuranceNumber?.let { put("versnr", it) }
+        person.birthDate?.let { put("birthDate", it.toString()) }
         // One street line - the port already joins the Personenverzeichnis' two fields.
-        person.strasse?.let { put("strasse", it) }
-        person.plz?.let { put("plz", it) }
-        person.ort?.let { put("ort", it) }
+        person.streetAddress?.let { put("streetAddress", it) }
+        person.postalCode?.let { put("postalCode", it) }
+        person.locality?.let { put("locality", it) }
     } else {
-        attested[AttributeType.BIRTH_DATE]?.let { put("geburtsdatum", it) }
-        attested[AttributeType.STREET_ADDRESS]?.let { put("strasse", it) }
-        attested[AttributeType.POSTAL_CODE]?.let { put("plz", it) }
-        attested[AttributeType.LOCALITY]?.let { put("ort", it) }
+        attested[AttributeType.BIRTH_DATE]?.let { put("birthDate", it) }
+        attested[AttributeType.STREET_ADDRESS]?.let { put("streetAddress", it) }
+        attested[AttributeType.POSTAL_CODE]?.let { put("postalCode", it) }
+        attested[AttributeType.LOCALITY]?.let { put("locality", it) }
     }
 }

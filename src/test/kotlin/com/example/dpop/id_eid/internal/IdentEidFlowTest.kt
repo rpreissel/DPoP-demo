@@ -49,9 +49,9 @@ class IdentEidFlowTest : BehaviorSpec({
         then("decide() asks the handler to verify it, carrying only what the card showed") {
             val decision = IdentEidFlow.decide(state)
             decision.shouldBeInstanceOf<IdentEidDecision.Verify>()
-            decision.claimed.name shouldBe "Muster"
-            decision.claimed.vorname shouldBe "Max"
-            decision.claimed.geburtsdatum shouldBe LocalDate.of(1990, 1, 1)
+            decision.claimed.familyName shouldBe "Muster"
+            decision.claimed.givenNames shouldBe "Max"
+            decision.claimed.birthDate shouldBe LocalDate.of(1990, 1, 1)
         }
     }
 

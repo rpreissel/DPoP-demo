@@ -123,7 +123,7 @@ val AttributeType.isLocalAnchor: Boolean
 /**
  * Canonical form of [value] for storage and lookup, applied identically on write
  * (`AccountService` stores the normalized form) and on read (`AccountDirectory.resolveByAnchor`).
- * `PERSON_ID`/`VERSNR`/`EMAIL`/`KVNR` go through [Partnernr]/[Versnr]/[Email]/[Kvnr] - an invalid value throws rather than falling back to a
+ * `PERSON_ID`/`INSURANCE_NUMBER`/`EMAIL`/`KVNR` go through [Partnernr]/[InsuranceNumber]/[Email]/[Kvnr] - an invalid value throws rather than falling back to a
  * weaker match. Calling this for a non-anchor attribute type is a contract error: it throws
  * instead of silently handing back the raw value.
  */
@@ -131,7 +131,7 @@ fun AttributeType.normalizeAnchorValue(value: String): String = when (this) {
     AttributeType.PERSON_ID -> Partnernr.of(value).value
     AttributeType.EID_RESTRICTED_ID,
     AttributeType.NECT_RESTRICTED_ID -> value.trim()
-    AttributeType.INSURANCE_NUMBER -> Versnr.of(value).value
+    AttributeType.INSURANCE_NUMBER -> InsuranceNumber.of(value).value
     AttributeType.EMAIL -> Email.of(value).value
     AttributeType.KVNR -> {
         // Format-validate first (Kvnr.of throws IllegalArgumentException for a malformed value,

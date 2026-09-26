@@ -80,7 +80,7 @@ class IdentFscToolHandler(
             is IdentFscDecision.VerifyPersonalien -> {
                 // Name and birthdate are CHECKED, not merely collected - and before the code is
                 // even asked for, so nobody types a code for data that could never match.
-                val matches = personDirectory.matchesPersonalien(
+                val matches = personDirectory.matchesPersonalDetails(
                     decision.personId, decision.name, decision.vorname, decision.geburtsdatum
                 )
                 when {
@@ -124,11 +124,11 @@ class IdentFscToolHandler(
                 state.kvnr?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
                 Claim(AttributeType.FAMILY_NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 Claim(AttributeType.GIVEN_NAMES, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
-                // Checked against the register like the name (matchesPersonalien) - and one of the
+                // Checked against the register like the name (matchesPersonalDetails) - and one of the
                 // three things that find this identification in the change log (ADR-39).
                 Claim(AttributeType.BIRTH_DATE, checkNotNull(state.geburtsdatum).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
-                personDirectory.versnrOf(personId)?.let { Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
+                personDirectory.insuranceNumberOf(personId)?.let { Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),
             auditDetails = mapOf(
                 "provider" to "fsc-service",

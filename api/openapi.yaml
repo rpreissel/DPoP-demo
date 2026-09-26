@@ -1432,7 +1432,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Get the fachliche ID-token claims
+      summary: Get the business ID-token claims
       tags:
       - Channels
   /orchestrator/api/v1/channels/{channelSessionId}/journey:

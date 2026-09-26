@@ -45,7 +45,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
     ).also { data ->
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
-        every { personDirectory.versnrOf(any()) } returns null
+        every { personDirectory.insuranceNumberOf(any()) } returns null
     }
 
     given("verified personal data and a valid code") {
@@ -73,7 +73,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
             then("it fails right away - no code asked for, none checked - and the data is dropped") {
                 clearMocks(freischaltcodes)
                 val data = sessionWithVerifiedPersonalien()
-                every { personDirectory.matchesPersonalien("P000000007", "Muster", "Max", birthdate.plusDays(1)) } returns false
+                every { personDirectory.matchesPersonalDetails("P000000007", "Muster", "Max", birthdate.plusDays(1)) } returns false
 
                 val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
 
@@ -93,7 +93,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
             )
             every { repository.findById(toolSessionId) } returns Optional.of(data)
             every { repository.save(any()) } returns data
-            every { personDirectory.versnrOf(any()) } returns null
+            every { personDirectory.insuranceNumberOf(any()) } returns null
             every { freischaltcodes.pruefe("P000000004", any()) } returns true
 
             val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = null, fsc = "PAULA2026", personId = null, throttled = false)

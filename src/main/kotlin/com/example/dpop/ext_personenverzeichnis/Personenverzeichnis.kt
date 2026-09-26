@@ -8,7 +8,7 @@ import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.Kvnr
 import com.example.dpop.tool_spi.Partnernr
 import com.example.dpop.tool_api.PersonChanged
-import com.example.dpop.tool_api.Versnr
+import com.example.dpop.tool_api.InsuranceNumber
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_api.PersonMasterData
@@ -38,23 +38,23 @@ class Personenverzeichnis(
     override fun findPersonIdByPartnernr(partnernr: String): String? =
         Partnernr.ofOrNull(partnernr)?.let { personRepository.findByIdOrNull(it.value) }?.id
 
-    override fun versnrOf(personId: String): String? = personRepository.findByIdOrNull(personId)?.versnr
+    override fun insuranceNumberOf(personId: String): String? = personRepository.findByIdOrNull(personId)?.versnr
 
-    override fun matchesStammdaten(personId: String, claimed: ClaimedIdentity): Boolean {
+    override fun matchesMasterData(personId: String, claimed: ClaimedIdentity): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
         // null = the attestation didn't include the attribute; it is not compared. Names compare
         // in MRZ form (MrzName): a document reads them differently than the register writes them.
         // The street line compares against the register's own two fields, joined.
-        return namesMatch(person, claimed.name, claimed.vorname) &&
-            (claimed.geburtsdatum == null || person.geburtsdatum == claimed.geburtsdatum) &&
-            (claimed.strasse == null || MrzName.of(person.toPersonData().strassenzeile.orEmpty()) == MrzName.of(claimed.strasse)) &&
-            (claimed.plz == null || person.plz == claimed.plz?.trim()) &&
-            (claimed.ort == null || MrzName.of(person.ort.orEmpty()) == MrzName.of(claimed.ort))
+        return namesMatch(person, claimed.familyName, claimed.givenNames) &&
+            (claimed.birthDate == null || person.geburtsdatum == claimed.birthDate) &&
+            (claimed.streetAddress == null || MrzName.of(person.toPersonData().strassenzeile.orEmpty()) == MrzName.of(claimed.streetAddress)) &&
+            (claimed.postalCode == null || person.plz == claimed.postalCode?.trim()) &&
+            (claimed.locality == null || MrzName.of(person.ort.orEmpty()) == MrzName.of(claimed.locality))
     }
 
-    override fun matchesPersonalien(personId: String, name: String, vorname: String, geburtsdatum: LocalDate): Boolean {
+    override fun matchesPersonalDetails(personId: String, familyName: String, givenNames: String, birthDate: LocalDate): Boolean {
         val person = personRepository.findByIdOrNull(personId) ?: return false
-        return namesMatch(person, name, vorname) && person.geburtsdatum == geburtsdatum
+        return namesMatch(person, familyName, givenNames) && person.geburtsdatum == birthDate
     }
 
     /** Both names present: the whole MRZ name field, cut like a passport's; one alone: that one. */
@@ -80,8 +80,8 @@ class Personenverzeichnis(
     override fun masterDataOf(personId: String): PersonRecord? =
         findPersonById(personId)?.let {
             PersonRecord(
-                kvnr = it.kvnr, name = it.name, vorname = it.vorname, geburtsdatum = it.geburtsdatum,
-                strasse = it.strassenzeile, plz = it.plz, ort = it.ort, versnr = it.versnr
+                kvnr = it.kvnr, familyName = it.name, givenNames = it.vorname, birthDate = it.geburtsdatum,
+                streetAddress = it.strassenzeile, postalCode = it.plz, locality = it.ort, insuranceNumber = it.versnr
             )
         }
 
@@ -141,7 +141,7 @@ class Personenverzeichnis(
             Kvnr.ofOrNull(it)?.value ?: throw PersonRejectedException(Text("KVNR muss ein Buchstabe und neun Ziffern sein"))
         }
         val versnr = input.versnr?.takeIf { it.isNotBlank() }?.let {
-            Versnr.ofOrNull(it)?.value ?: throw PersonRejectedException(Text("Die Versicherungsnummer muss aus acht Ziffern bestehen"))
+            InsuranceNumber.ofOrNull(it)?.value ?: throw PersonRejectedException(Text("Die Versicherungsnummer muss aus acht Ziffern bestehen"))
         }
         if (kvnr != null && versnr == null) {
             throw PersonRejectedException(Text("Eine KVNR gibt es nur zusammen mit einer Versicherungsnummer"))

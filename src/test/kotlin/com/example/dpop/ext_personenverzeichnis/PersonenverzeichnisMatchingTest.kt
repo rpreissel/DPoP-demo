@@ -40,23 +40,23 @@ class PersonenverzeichnisMatchingTest : BehaviorSpec({
         )
 
         then("a passport chip's reading matches") {
-            register.matchesStammdaten("P000000001", ClaimedIdentity(name = "MUELLER LUEDENSCHEIDT", vorname = "JUERGEN", geburtsdatum = geburtsdatum)) shouldBe true
+            register.matchesMasterData("P000000001", ClaimedIdentity(familyName = "MUELLER LUEDENSCHEIDT", givenNames = "JUERGEN", birthDate = geburtsdatum)) shouldBe true
         }
 
         then("an eID card's upper-case reading matches, street line included") {
-            register.matchesStammdaten(
+            register.matchesMasterData(
                 "P000000001",
-                ClaimedIdentity(name = "MÜLLER-LÜDENSCHEIDT", vorname = "JÜRGEN", geburtsdatum = geburtsdatum, strasse = "HEIDESTRASSE 17")
+                ClaimedIdentity(familyName = "MÜLLER-LÜDENSCHEIDT", givenNames = "JÜRGEN", birthDate = geburtsdatum, streetAddress = "HEIDESTRASSE 17")
             ) shouldBe true
         }
 
         then("a different person does not") {
-            register.matchesStammdaten("P000000001", ClaimedIdentity(name = "MUELLER", vorname = "JUERGEN", geburtsdatum = geburtsdatum)) shouldBe false
-            register.matchesStammdaten("P000000001", ClaimedIdentity(name = "Müller-Lüdenscheidt", vorname = "Jürgen", strasse = "Heidestraße 18")) shouldBe false
+            register.matchesMasterData("P000000001", ClaimedIdentity(familyName = "MUELLER", givenNames = "JUERGEN", birthDate = geburtsdatum)) shouldBe false
+            register.matchesMasterData("P000000001", ClaimedIdentity(familyName = "Müller-Lüdenscheidt", givenNames = "Jürgen", streetAddress = "Heidestraße 18")) shouldBe false
         }
 
         then("typed Personalien compare the same way") {
-            register.matchesPersonalien("P000000001", "mueller-luedenscheidt", "juergen", geburtsdatum) shouldBe true
+            register.matchesPersonalDetails("P000000001", "mueller-luedenscheidt", "juergen", geburtsdatum) shouldBe true
         }
     }
 
@@ -67,7 +67,7 @@ class PersonenverzeichnisMatchingTest : BehaviorSpec({
 
         then("the chip's truncated reading still matches - the register asks no more than the chip holds") {
             // SCHMIDT<WOLKENSTEIN<<MAXIMILIAN<FRIEDRI = 39 characters
-            register.matchesStammdaten("P000000001", ClaimedIdentity(name = "SCHMIDT WOLKENSTEIN", vorname = "MAXIMILIAN FRIEDRI", geburtsdatum = geburtsdatum)) shouldBe true
+            register.matchesMasterData("P000000001", ClaimedIdentity(familyName = "SCHMIDT WOLKENSTEIN", givenNames = "MAXIMILIAN FRIEDRI", birthDate = geburtsdatum)) shouldBe true
         }
     }
 })

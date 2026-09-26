@@ -38,11 +38,11 @@ class ClaimsTest : BehaviorSpec({
 
     given("TrustLevel") {
         then("rank encodes the precedence order: Stammdaten > Proven > Self-reported") {
-            (TrustLevel.STAMMDATEN.rank > TrustLevel.PROVEN.rank) shouldBe true
+            (TrustLevel.AUTHORITATIVE.rank > TrustLevel.PROVEN.rank) shouldBe true
             (TrustLevel.PROVEN.rank > TrustLevel.SELF_REPORTED.rank) shouldBe true
         }
         then("ClaimSource.trustLevel maps every source kind to its level") {
-            ClaimSource.PERSON_DIRECTORY.trustLevel shouldBe TrustLevel.STAMMDATEN
+            ClaimSource.PERSON_DIRECTORY.trustLevel shouldBe TrustLevel.AUTHORITATIVE
             ClaimSource.SELF_REPORTED.trustLevel shouldBe TrustLevel.SELF_REPORTED
             ClaimSource.of(ToolId("ident-eid")).trustLevel shouldBe TrustLevel.PROVEN
         }

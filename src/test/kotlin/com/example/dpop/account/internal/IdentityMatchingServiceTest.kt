@@ -51,7 +51,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.BIRTH_DATE, "1970-01-01", anchor)
         )
         every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
-        every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
+        every { personDirectory.matchesMasterData("P000000007", any()) } returns true
         every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns
             AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000007", accountId = 7L, establishedAt = Instant.now())
 
@@ -79,7 +79,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             then("no stammdaten interaction happens - the source already vouches for these") {
                 resolver.resolve(claims) shouldBe Resolution.ExistingAccount(42L, MatchedVia.Anchor(AttributeType.PERSON_ID))
                 verify(exactly = 0) { personDirectory.findPersonIdByKvnr(any()) }
-                verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
+                verify(exactly = 0) { personDirectory.matchesMasterData(any(), any()) }
             }
         }
     }
@@ -95,7 +95,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             Claim(AttributeType.FAMILY_NAME, "Muster", anchor)
         )
         every { personDirectory.findPersonIdByKvnr("A123456789") } returns "P000000007"
-        every { personDirectory.matchesStammdaten("P000000007", any()) } returns true
+        every { personDirectory.matchesMasterData("P000000007", any()) } returns true
         every { anchorRepository.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000007") } returns
             AccountAnchor(attributeType = AttributeType.PERSON_ID, value = "P000000007", accountId = 42L, establishedAt = Instant.now())
 
@@ -173,7 +173,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
                 )
                 // No attribute matching, no stammdaten round trip - the anchor alone decides.
                 verify(exactly = 0) { personDirectory.findPersonIdByKvnr(any()) }
-                verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
+                verify(exactly = 0) { personDirectory.matchesMasterData(any(), any()) }
             }
         }
     }
@@ -249,14 +249,14 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
-            every { personDirectory.matchesStammdaten("P000000042", any()) } returns true
+            every { personDirectory.matchesMasterData("P000000042", any()) } returns true
 
             then("it passes, carrying exactly the attested attributes into the comparison") {
                 resolver.attestedIdentityMatches(1L, "P000000042") shouldBe true
                 verify {
-                    personDirectory.matchesStammdaten(
+                    personDirectory.matchesMasterData(
                         "P000000042",
-                        ClaimedIdentity(name = "Muster", vorname = "Max", geburtsdatum = LocalDate.of(1985, 6, 15))
+                        ClaimedIdentity(familyName = "Muster", givenNames = "Max", birthDate = LocalDate.of(1985, 6, 15))
                     )
                 }
             }
@@ -267,7 +267,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
             val personDirectory = mockk<PersonDirectory>()
             val resolver = service(mockk(), claimRepository, personDirectory)
             every { claimRepository.findEstablished(1L) } returns attested
-            every { personDirectory.matchesStammdaten("P000000099", any()) } returns false
+            every { personDirectory.matchesMasterData("P000000099", any()) } returns false
 
             then("it refuses") {
                 resolver.attestedIdentityMatches(1L, "P000000099") shouldBe false
@@ -282,7 +282,7 @@ class IdentityMatchingServiceTest : BehaviorSpec({
 
             then("it refuses without even asking - an empty ClaimedIdentity would match vacuously") {
                 resolver.attestedIdentityMatches(1L, "P000000042") shouldBe false
-                verify(exactly = 0) { personDirectory.matchesStammdaten(any(), any()) }
+                verify(exactly = 0) { personDirectory.matchesMasterData(any(), any()) }
             }
         }
     }

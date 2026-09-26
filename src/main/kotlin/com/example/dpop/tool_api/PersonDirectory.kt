@@ -20,38 +20,38 @@ interface PersonDirectory {
     fun findPersonIdByPartnernr(partnernr: String): String?
 
     /**
-     * Whether the stammdaten on file for [personId] match every attribute in [claimed] - lets an
-     * identification tool verify a claimed identity (e.g. eID Ausweisdaten) without ever handing
+     * Whether the master data on file for [personId] match every attribute in [claimed] - lets an
+     * identification tool verify a claimed identity (e.g. what an eID card attests) without ever handing
      * the master data itself back across the port, same rule as [findPersonIdByKvnr]. Names
      * compare in their passport (MRZ) form - case, umlaut spelling and diacritics do not count,
      * because each document writes them its own way (`MUELLER` on a chip, `MÜLLER` on an eID card).
      */
-    fun matchesStammdaten(personId: String, claimed: ClaimedIdentity): Boolean
+    fun matchesMasterData(personId: String, claimed: ClaimedIdentity): Boolean
 
     /**
      * Whether name and birthdate on file for [personId] match - the narrow sibling of
-     * [matchesStammdaten], for a procedure that only ever learns what a person types in
-     * (`ident-fsc`), not a full set of Ausweisdaten. Names compare the same way as there. Same
+     * [matchesMasterData], for a procedure that only ever learns what a person types in
+     * (`ident-fsc`), not a full set of card data. Names compare the same way as there. Same
      * rule: the answer crosses the port, the master data never does.
      */
-    fun matchesPersonalien(personId: String, name: String, vorname: String, geburtsdatum: LocalDate): Boolean
+    fun matchesPersonalDetails(personId: String, familyName: String, givenNames: String, birthDate: LocalDate): Boolean
 
     /**
      * "Vorname Name" for [personId], or `null` if unknown - a deliberate, narrow exception to the
      * "answer crosses the port, master data never does" rule above: this exists only so the demo
      * UI can show who is logged in (`TokenService.idClaims`'s `name` claim, docs/05-api.md
      * ID-Token-Claims - not part of the production contract), never for a policy/journey decision.
-     * Unlike [matchesStammdaten]/[matchesPersonalien], which exist precisely to avoid handing this out,
+     * Unlike [matchesMasterData]/[matchesPersonalDetails], which exist precisely to avoid handing this out,
      * this one hands out only the name - never address/birthdate/KVNR.
      */
     fun displayName(personId: String): String?
 
     /**
      * The Versicherungsnummer of [personId], or `null` (not insured with us, or unknown). Like
-     * [findPersonIdByKvnr] an identifier, not master data - it becomes the account's `VERSNR` anchor
+     * [findPersonIdByKvnr] an identifier, not master data - it becomes the account's `INSURANCE_NUMBER` anchor
      * when the person is bound (ADR-34), which is why it may cross the port.
      */
-    fun versnrOf(personId: String): String?
+    fun insuranceNumberOf(personId: String): String?
 }
 
 /**
@@ -68,11 +68,11 @@ fun normalizeKvnr(kvnr: String): String = kvnr.trim().uppercase()
  * disclosure) verify against the subset they actually carry.
  */
 data class ClaimedIdentity(
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
+    val familyName: String? = null,
+    val givenNames: String? = null,
+    val birthDate: LocalDate? = null,
     /** Street and house number in one line, as a document attests it (`AttributeType.STREET_ADDRESS`). */
-    val strasse: String? = null,
-    val plz: String? = null,
-    val ort: String? = null
+    val streetAddress: String? = null,
+    val postalCode: String? = null,
+    val locality: String? = null
 )
