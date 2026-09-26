@@ -735,7 +735,7 @@ class JourneyActionExecutor(
     }
 
     /**
-     * Both channel types get an [com.example.dpop.orchestrator.session.AuthEvidence] here - the
+     * Both channel types get an [com.example.dpop.orchestrator.session.EvidenceTrail] here - the
      * shared evidence trail, regardless of facade. Only the APP channel additionally gets an
      * [com.example.dpop.orchestrator.session.AuthContext] (docs/05-api.md, "AccessToken"):
      * token issuance is App-exclusive, KEYCLOAK never calls `getToken`/`getIdClaims` - the one

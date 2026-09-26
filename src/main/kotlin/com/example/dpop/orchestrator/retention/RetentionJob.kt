@@ -5,7 +5,7 @@ import com.example.dpop.orchestrator.journey.AuthJourneyRepository
 import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.AuthContextRepository
-import com.example.dpop.orchestrator.session.AuthEvidenceRepository
+import com.example.dpop.orchestrator.session.EvidenceTrailRepository
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
 import com.example.dpop.orchestrator.session.ToolSessionRepository
@@ -41,7 +41,7 @@ class RetentionJob(
     private val journeyRepository: AuthJourneyRepository,
     private val channelSessionRepository: ChannelSessionRepository,
     private val authContextRepository: AuthContextRepository,
-    private val authEvidenceRepository: AuthEvidenceRepository,
+    private val authEvidenceRepository: EvidenceTrailRepository,
     private val journeyTraceRepository: JourneyTraceRepository,
     private val attemptThrottleRepository: AttemptThrottleRepository,
     private val meterRegistry: MeterRegistry,

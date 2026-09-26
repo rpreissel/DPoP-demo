@@ -130,7 +130,7 @@ class KcTokenProviderTest : BehaviorSpec({
                 AccountTokenResponse("real-access-token", 300, "fresh-refresh", 600)
             val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevel.LOA2 }
             val authEvidenceService = mockk<AuthEvidenceService> {
-                every { getAuthEvidence(authEvidenceId) } returns AuthEvidence(accountId = accountId)
+                every { getAuthEvidence(authEvidenceId) } returns EvidenceTrail(accountId = accountId)
             }
             val accountService = mockk<AccountService> {
                 every { findAccount(accountId) } returns com.example.dpop.account.AccountProfile(

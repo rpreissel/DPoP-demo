@@ -97,11 +97,11 @@ class ChannelSession(
 
     @ManyToOne
     @JoinColumn(name = "auth_evidence_id", insertable = false, updatable = false)
-    var authEvidence: AuthEvidence? = null
+    var authEvidence: EvidenceTrail? = null
 
     /**
      * Whether at least one authentication factor has actually been proven on THIS channel (an
-     * [AuthEvidence] exists) - distinct from `state == AUTHENTICATED`, which additionally requires
+     * [EvidenceTrail] exists) - distinct from `state == AUTHENTICATED`, which additionally requires
      * the full required ACR to be reached (a channel mid-chain toward loa2 already has this after
      * its first factor, well before `state` reflects it). [accountId] alone is NOT this: a
      * recognized device already carries an `accountId` from `DeviceAccountLink` before any proof

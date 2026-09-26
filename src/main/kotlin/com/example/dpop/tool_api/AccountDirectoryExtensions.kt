@@ -10,10 +10,6 @@ fun AccountDirectory.resolveAccountByEmail(email: String): Long? =
 fun AccountDirectory.resolveAccountByPersonId(personId: String): Long? =
     resolveByAnchor(AttributeType.PERSON_ID, personId)
 
-/** The account anchored to Versicherungsnummer [versnr], or `null`. */
-fun AccountDirectory.resolveAccountByInsuranceNumber(versnr: String): Long? =
-    resolveByAnchor(AttributeType.INSURANCE_NUMBER, InsuranceNumber.of(versnr).value)
-
 /** KVNR is resolved from current master data, never a locally stored KVNR anchor. */
 fun AccountDirectory.resolveAccountByKvnr(kvnr: String, personDirectory: PersonDirectory): Long? =
     personDirectory.findPersonIdByKvnr(normalizeKvnr(kvnr))?.let { resolveAccountByPersonId(it) }

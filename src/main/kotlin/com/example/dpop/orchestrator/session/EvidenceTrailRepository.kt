@@ -5,6 +5,6 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface AuthEvidenceRepository : JpaRepository<AuthEvidence, UUID> {
-    fun findByAccountId(accountId: Long): List<AuthEvidence>
+interface EvidenceTrailRepository : JpaRepository<EvidenceTrail, UUID> {
+    fun findByAccountId(accountId: Long): List<EvidenceTrail>
 }

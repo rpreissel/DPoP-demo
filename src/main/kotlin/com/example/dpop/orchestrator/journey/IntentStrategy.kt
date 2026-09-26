@@ -142,7 +142,7 @@ sealed interface JourneyEvent {
     /**
      * Evidence was reported directly, outside any orchestrator tool outcome - e.g. Keycloak's own
      * native authenticators (docs/05-api.md Abschnitt 3), the only
-     * source today. The channel's [com.example.dpop.orchestrator.session.AuthEvidence] was already
+     * source today. The channel's [com.example.dpop.orchestrator.session.EvidenceTrail] was already
      * updated with it by the time this fires, so a strategy only needs to re-check `ctx.policy.
      * isSatisfied(...)`, exactly like after any other proof. Facade-neutral by construction - only
      * ever dispatched by `JourneyService.applyEvidenceUpdate`, which itself knows nothing about

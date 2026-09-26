@@ -2,7 +2,7 @@ package com.example.dpop.orchestrator.session
 
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
+import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.AuthPolicy
 import com.example.dpop.tool_api.PersonDirectory
 import com.example.dpop.tool_spi.AttributeType
@@ -121,8 +121,8 @@ class TokenService(
             ?.joinToString(" ")
     }
 
-    /** The core, policy-evaluable evidence this token context's paired [AuthEvidence] currently holds - `null` if none was ever recorded. */
-    private fun evidenceFor(authContext: AuthContext): CoreAuthEvidence? =
+    /** The core, policy-evaluable evidence this token context's paired [EvidenceTrail] currently holds - `null` if none was ever recorded. */
+    private fun evidenceFor(authContext: AuthContext): AuthEvidence? =
         authContext.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence()
 
     private fun mintAccessToken(authContext: AuthContext, iat: Instant, exp: Instant): String {

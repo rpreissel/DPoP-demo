@@ -633,7 +633,7 @@ Ende zu dem `acr`-Wert zusammen, der nach außen sichtbar ist:
   Rolle IDENTIFICATION (`ident-fsc`, `ident-eid`, `ident-nect`) **in dieser Sitzung** erbracht hat.
   Es wird bewusst NICHT aus `account.change_log` (IDENTIFIED) einer früheren Sitzung nachgeladen, denn die
   `AuthEvidence` gibt es „einmal je Kanal, gelöscht beim Abmelden"
-  (`orchestrator.session.AuthEvidence`).
+  (`orchestrator.session.EvidenceTrail`).
 - **AAL** (`authenticatorAssuranceLevel`, „Wie stark ist der Nachweis bei DIESEM Login?"): die
   Regel für die Kombination mehrerer Faktoren aus Punkt 2, aber ausschließlich über Nachweise aus
   Einrichten und Anmelden gerechnet.

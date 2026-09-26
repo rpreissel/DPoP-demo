@@ -9,15 +9,15 @@ import java.util.UUID
 @Service
 @Transactional
 class AuthEvidenceService(
-    private val authEvidenceRepository: AuthEvidenceRepository,
+    private val authEvidenceRepository: EvidenceTrailRepository,
     private val authContextRepository: AuthContextRepository,
     private val sessionManagementService: SessionManagementService
 ) {
 
-    fun createForAccount(accountId: Long): AuthEvidence =
-        authEvidenceRepository.save(AuthEvidence(accountId = accountId))
+    fun createForAccount(accountId: Long): EvidenceTrail =
+        authEvidenceRepository.save(EvidenceTrail(accountId = accountId))
 
-    fun getAuthEvidence(authEvidenceId: UUID): AuthEvidence? =
+    fun getAuthEvidence(authEvidenceId: UUID): EvidenceTrail? =
         authEvidenceRepository.findByIdOrNull(authEvidenceId)
 
     /**
@@ -32,7 +32,7 @@ class AuthEvidenceService(
      */
     fun rebindToAccount(authEvidenceId: UUID, accountId: Long) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: error("AuthEvidence not found: $authEvidenceId")
+            ?: error("EvidenceTrail not found: $authEvidenceId")
         evidence.accountId = accountId
         authEvidenceRepository.save(evidence)
         authContextRepository.findByAuthEvidenceId(authEvidenceId).forEach { authContext ->
@@ -42,10 +42,10 @@ class AuthEvidenceService(
         invalidateCachedTokens(authEvidenceId)
     }
 
-    /** A single completed orchestrator tool's own proof (docs/04-orchestrierung.md #1) - a one-off event, merged via [AuthEvidence.addAmr]. Each [updates] entry carries its own `MethodEvidence.source`. */
+    /** A single completed orchestrator tool's own proof (docs/04-orchestrierung.md #1) - a one-off event, merged via [EvidenceTrail.addAmr]. Each [updates] entry carries its own `MethodEvidence.source`. */
     fun applyEvidence(authEvidenceId: UUID, updates: List<MethodEvidence>) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: error("AuthEvidence not found: $authEvidenceId")
+            ?: error("EvidenceTrail not found: $authEvidenceId")
         evidence.addAmr(updates)
         authEvidenceRepository.save(evidence)
         invalidateCachedTokens(authEvidenceId)
@@ -53,7 +53,7 @@ class AuthEvidenceService(
 
     /**
      * A sync of [source]'s complete, currently-valid set (docs/05-api.md
-     * Abschnitt 3) - see [AuthEvidence.replaceForSource]. [source] scopes which existing records are
+     * Abschnitt 3) - see [EvidenceTrail.replaceForSource]. [source] scopes which existing records are
      * eligible for removal (needed even when [updates] is empty - everything for that source
      * expired); each entry in [updates] still carries its own `MethodEvidence.source` for the
      * upgrade-vs-ignore decision. Used by
@@ -62,14 +62,14 @@ class AuthEvidenceService(
      */
     fun applyEvidenceUpdate(authEvidenceId: UUID, updates: List<MethodEvidence>, source: String) {
         val evidence = authEvidenceRepository.findByIdOrNull(authEvidenceId)
-            ?: error("AuthEvidence not found: $authEvidenceId")
+            ?: error("EvidenceTrail not found: $authEvidenceId")
         evidence.replaceForSource(source, updates)
         authEvidenceRepository.save(evidence)
         invalidateCachedTokens(authEvidenceId)
     }
 
     /**
-     * A step-up (docs/07-betrieb.md #2) mutates the SAME [AuthEvidence] row an already-minted
+     * A step-up (docs/07-betrieb.md #2) mutates the SAME [EvidenceTrail] row an already-minted
      * AccessToken was baked from ([TokenService]/[KcTokenProvider] both cache purely by time,
      * `authContext.accessExpiresAt`) - without this, a client polling `.../token` right after a
      * step-up could keep getting back the pre-step-up token/claims for up to the token's own TTL,
@@ -96,7 +96,7 @@ class AuthEvidenceService(
     }
 
     /**
-     * The one place a [ChannelSession] gets linked to its own AuthEvidence trail (starting a
+     * The one place a [ChannelSession] gets linked to its own EvidenceTrail trail (starting a
      * fresh one for its account if none exists yet) and then synced via [applyEvidenceUpdate] -
      * both [ChannelSession] and this service already live in the `session` package, so the
      * linking itself belongs here, not duplicated in `orchestrator.journey.JourneyService` (which

@@ -18,7 +18,7 @@ import io.mockk.verifyOrder
  * obvious from reading the happy path: [ChannelSession.authContextId]/[ChannelSession.
  * authEvidenceId] AND their mirrored, read-only navigation properties ([ChannelSession.
  * authContext]/[ChannelSession.authEvidence], same FKs) must ALL be cleared before the referenced
- * [AuthContext]/[AuthEvidence] rows are deleted - leaving any one of them set is exactly the bug
+ * [AuthContext]/[EvidenceTrail] rows are deleted - leaving any one of them set is exactly the bug
  * that used to surface as a Hibernate `TransientPropertyValueException` on flush, invisible to a
  * plain field-by-field read of this class.
  */
@@ -30,7 +30,7 @@ class AccountDeletionServiceTest : BehaviorSpec({
         deviceAccountLinkRepository: DeviceAccountLinkRepository = mockk(relaxed = true),
         channelSessionRepository: ChannelSessionRepository = mockk(relaxed = true),
         authContextRepository: AuthContextRepository = mockk(relaxed = true),
-        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true),
+        authEvidenceRepository: EvidenceTrailRepository = mockk(relaxed = true),
         journeyTraceRepository: JourneyTraceRepository = mockk(relaxed = true),
         attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true)
     ) = AccountDeletionService(
@@ -53,7 +53,7 @@ class AccountDeletionServiceTest : BehaviorSpec({
                 authContextId = java.util.UUID.randomUUID()
                 authContext = AuthContext(accountId = 1L)
                 authEvidenceId = java.util.UUID.randomUUID()
-                authEvidence = AuthEvidence(accountId = 1L)
+                authEvidence = EvidenceTrail(accountId = 1L)
             }
             val channelSessionRepository = mockk<ChannelSessionRepository>(relaxed = true)
             every { channelSessionRepository.findByAccountId(1L) } returns listOf(session)

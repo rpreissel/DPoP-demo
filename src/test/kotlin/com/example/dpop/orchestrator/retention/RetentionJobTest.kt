@@ -3,7 +3,7 @@ package com.example.dpop.orchestrator.retention
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.AuthContextRepository
-import com.example.dpop.orchestrator.session.AuthEvidenceRepository
+import com.example.dpop.orchestrator.session.EvidenceTrailRepository
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
 
@@ -32,7 +32,7 @@ class RetentionJobTest : BehaviorSpec({
     fun job(
         channelSessionRepository: ChannelSessionRepository,
         authContextRepository: AuthContextRepository = mockk(relaxed = true),
-        authEvidenceRepository: AuthEvidenceRepository = mockk(relaxed = true),
+        authEvidenceRepository: EvidenceTrailRepository = mockk(relaxed = true),
         journeyTraceRepository: JourneyTraceRepository = mockk(relaxed = true),
         attemptThrottleRepository: AttemptThrottleRepository = mockk(relaxed = true),
     ) = RetentionJob(

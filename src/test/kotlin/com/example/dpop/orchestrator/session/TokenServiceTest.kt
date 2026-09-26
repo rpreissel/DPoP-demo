@@ -45,7 +45,7 @@ class TokenServiceTest : BehaviorSpec({
         this.authEvidenceId = authEvidenceId
     }
 
-    fun evidence(accountId: Long? = 42L) = AuthEvidence(accountId = accountId).apply {
+    fun evidence(accountId: Long? = 42L) = EvidenceTrail(accountId = accountId).apply {
         addAmr(
             listOf(
                 MethodEvidence(MethodName("sms"), AcrLevel.LOA1, amrSourceId = "auth-sms", source = AmrSource.ORCHESTRATOR),
@@ -54,7 +54,7 @@ class TokenServiceTest : BehaviorSpec({
         )
     }
 
-    fun evidenceService(authEvidenceId: UUID?, forAccount: AuthEvidence?): AuthEvidenceService {
+    fun evidenceService(authEvidenceId: UUID?, forAccount: EvidenceTrail?): AuthEvidenceService {
         val service = mockk<AuthEvidenceService>()
         every { service.getAuthEvidence(any()) } returns null
         if (authEvidenceId != null) every { service.getAuthEvidence(authEvidenceId) } returns forAccount

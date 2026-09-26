@@ -1,6 +1,6 @@
 package com.example.dpop.orchestrator.session
 
-import com.example.dpop.orchestrator.policy.AuthEvidence as CoreAuthEvidence
+import com.example.dpop.orchestrator.policy.AuthEvidence
 import com.example.dpop.orchestrator.policy.EvidenceAxis
 import com.example.dpop.orchestrator.policy.MethodEvidence
 import com.example.dpop.orchestrator.policy.MethodName
@@ -23,17 +23,16 @@ import com.example.dpop.orchestrator.kernel.AmrSource
  * The persistent, central evidence record, kept apart from the tokens issued from it
  * (docs/12-entscheidungen.md ADR-15) - one per channel, cleared at logout (not per account:
  * a step-up channel gets its own fresh row, evidence continuity across flow runs is the kc-facade's
- * own `RestoreData` mechanism, not a shared account-wide row). Named the same as
- * [com.example.dpop.orchestrator.policy.AuthEvidence] deliberately - this IS that evidence,
- * persisted; import-alias the core type where both are needed in one file
- * (`import ... AuthEvidence as CoreAuthEvidence`). `currentAcr` is deliberately NOT a field here:
+ * own `RestoreData` mechanism, not a shared account-wide row). The persisted form of
+ * [com.example.dpop.orchestrator.policy.AuthEvidence]; named apart from it (review 2026-09-26,
+ * A-6) so no file needs an import alias to hold both. `currentAcr` is deliberately NOT a field here:
  * it is always `AuthPolicy.resolveAcr(coreEvidence, account)`, recomputed live by every reader -
  * storing it would only ever duplicate what `amrEvidence` already determines, and combining more
  * evidence can never lower the resolved level, so there is nothing a cached max() could add.
  */
 @Entity
 @Table(schema = "orchestrator", name = "auth_evidence")
-class AuthEvidence(
+class EvidenceTrail(
     @Column(name = "account_id", nullable = false)
     var accountId: Long? = null
 ) {
@@ -165,7 +164,7 @@ class AuthEvidence(
     }
 }
 
-/** One method's own record within [AuthEvidence.amrEvidence] - see that field's doc for why this is one JSON list, not several parallel columns. */
+/** One method's own record within [EvidenceTrail.amrEvidence] - see that field's doc for why this is one JSON list, not several parallel columns. */
 data class AmrRecord(
     val method: String,
     val source: String,
@@ -180,12 +179,12 @@ data class AmrRecord(
 
 /**
  * Losslessly rebuilds the real [MethodEvidence] this record represents - INCLUDING `source`/
- * `amrSourceId`, unlike `CoreAuthEvidence.from(...)`'s flat factory (built for callers that only
+ * `amrSourceId`, unlike `AuthEvidence.from(...)`'s flat factory (built for callers that only
  * have already-decomposed maps on hand, e.g. a wire payload) which silently defaults both away.
- * The one seam every reader of a stored [AuthEvidence] should go through.
+ * The one seam every reader of a stored [EvidenceTrail] should go through.
  */
 fun AmrRecord.toMethodEvidence(): MethodEvidence =
     MethodEvidence(MethodName(method), AcrLevel.of(loa), enrolledUnderAcr?.let(AcrLevel::of), factorTypes, source, amrSourceId, axis)
 
-/** The real, core [CoreAuthEvidence] this channel's evidence currently is - see [AmrRecord.toMethodEvidence]. */
-fun AuthEvidence.toCoreEvidence(): CoreAuthEvidence = CoreAuthEvidence(amrEvidence.map { it.toMethodEvidence() })
+/** The real, core [AuthEvidence] this channel's evidence currently is - see [AmrRecord.toMethodEvidence]. */
+fun EvidenceTrail.toCoreEvidence(): AuthEvidence = AuthEvidence(amrEvidence.map { it.toMethodEvidence() })

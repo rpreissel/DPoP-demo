@@ -13,21 +13,21 @@ import java.util.UUID
  * Pure unit test of [AuthEvidenceService]'s cache-invalidation side effect: a step-up must never
  * leave a stale, pre-step-up AccessToken sitting in an [AuthContext] the caller could still poll
  * for up to the token's own TTL - both [applyEvidence] (single tool outcome) and
- * [applyEvidenceUpdate] (native-Keycloak-style full-set sync) mutate the same [AuthEvidence] row a
+ * [applyEvidenceUpdate] (native-Keycloak-style full-set sync) mutate the same [EvidenceTrail] row a
  * token was minted from, so both must clear any [AuthContext] pointing at it.
  */
 class AuthEvidenceServiceTest : BehaviorSpec({
 
     fun service(
-        authEvidenceRepository: AuthEvidenceRepository,
+        authEvidenceRepository: EvidenceTrailRepository,
         authContextRepository: AuthContextRepository
     ) = AuthEvidenceService(authEvidenceRepository, authContextRepository, mockk(relaxed = true))
 
     given("a step-up that adds a single tool's evidence (applyEvidence)") {
         then("clears the cached AccessToken of every AuthContext minted from that evidence") {
             val authEvidenceId = UUID.randomUUID()
-            val evidence = AuthEvidence(accountId = 1L)
-            val authEvidenceRepository = mockk<AuthEvidenceRepository>()
+            val evidence = EvidenceTrail(accountId = 1L)
+            val authEvidenceRepository = mockk<EvidenceTrailRepository>()
             every { authEvidenceRepository.findById(authEvidenceId) } returns Optional.of(evidence)
             every { authEvidenceRepository.save(any()) } answers { firstArg() }
 
@@ -54,8 +54,8 @@ class AuthEvidenceServiceTest : BehaviorSpec({
     given("no AuthContext was ever minted from this evidence") {
         then("is a no-op - nothing to invalidate, no pointless save") {
             val authEvidenceId = UUID.randomUUID()
-            val evidence = AuthEvidence(accountId = 1L)
-            val authEvidenceRepository = mockk<AuthEvidenceRepository>()
+            val evidence = EvidenceTrail(accountId = 1L)
+            val authEvidenceRepository = mockk<EvidenceTrailRepository>()
             every { authEvidenceRepository.findById(authEvidenceId) } returns Optional.of(evidence)
             every { authEvidenceRepository.save(any()) } answers { firstArg() }
 

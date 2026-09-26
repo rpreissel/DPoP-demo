@@ -56,7 +56,7 @@ class DefaultAuthPolicy(private val toolRegistry: ToolHandlerRegistry) : AuthPol
      * [EvidenceAxis.IDENTITY] entries) - deliberately NOT also falling back to [AccountProfile]'s
      * persisted `account.change_log.acr` (IDENTIFIED) from a past session: `AuthEvidence` is one-per-channel,
      * cleared at logout, precisely so identity must be re-proven per session
-     * (`orchestrator.session.AuthEvidence`'s own class doc) - a fresh channel on a device that was
+     * (`orchestrator.session.EvidenceTrail`'s own class doc) - a fresh channel on a device that was
      * never re-identified stays at whatever THIS session's own IDENTITY evidence says, "none" if
      * there is none, regardless of what the account achieved in some earlier, unrelated session
      * (`MfaCombinationIntegrationTest`: "no re-identification, so fsc's own loa2 isn't in play this

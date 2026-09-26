@@ -334,7 +334,7 @@ class AccountServiceDbTest(
             val receiver = bound("P000000002", "10000002")
 
             accountService.applyDirectoryChange(
-                com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.INSURANCE_NUMBER), kvnr = null, versnr = "10000001")
+                com.example.dpop.tool_api.PersonChanged("P000000002", setOf(AttributeType.INSURANCE_NUMBER), kvnr = null, insuranceNumber = "10000001")
             )
 
             insuranceNumberOf(receiver) shouldBe "10000001"

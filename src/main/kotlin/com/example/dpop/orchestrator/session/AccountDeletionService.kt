@@ -29,7 +29,7 @@ class AccountDeletionService(
     private val deviceAccountLinkRepository: DeviceAccountLinkRepository,
     private val channelSessionRepository: ChannelSessionRepository,
     private val authContextRepository: AuthContextRepository,
-    private val authEvidenceRepository: AuthEvidenceRepository,
+    private val authEvidenceRepository: EvidenceTrailRepository,
     private val journeyTraceRepository: JourneyTraceRepository,
     private val attemptThrottleRepository: AttemptThrottleRepository
 ) {

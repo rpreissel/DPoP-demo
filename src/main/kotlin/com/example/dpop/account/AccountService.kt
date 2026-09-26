@@ -732,7 +732,7 @@ class AccountService(
         }
         if (AttributeType.INSURANCE_NUMBER in change.changed) {
             retractAttribute(accountId, AttributeType.INSURANCE_NUMBER, RetractionAnchor.PERSON_DIRECTORY, "Versicherungsnummer im Personenverzeichnis geändert")
-            change.versnr?.let {
+            change.insuranceNumber?.let {
                 releaseFromOtherAccount(AttributeType.INSURANCE_NUMBER, it, keeper = accountId)
                 recordClaims(accountId, listOf(Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, DIRECTORY_ACR)), DIRECTORY_ACR)
             }

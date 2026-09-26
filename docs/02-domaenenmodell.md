@@ -110,7 +110,7 @@ stateDiagram-v2
 
 Der Lebenszyklus sagt nur, **ob** die Journey noch läuft. Wo sie gerade steht, sagt der
 `JourneyState` des jeweiligen Intents ([Orchestrierung](04-orchestrierung.md)); die Schritte
-innerhalb eines Tools gehören zu `ToolState`.
+innerhalb eines Tools verwaltet das Modul des Tools selbst.
 
 ```mermaid
 stateDiagram-v2

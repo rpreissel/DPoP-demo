@@ -14,7 +14,7 @@ import java.util.UUID
  * APP-channel-only token bookkeeping (docs/02-domaenenmodell.md #1; docs/12-entscheidungen.md
  * ADR-15 for why this is a table of its own) - binds the mock AccessToken/RefreshToken
  * [com.example.dpop.orchestrator.session.TokenService] issues to a channel. Deliberately holds NO
- * evidence (`amr`/`loa`/`currentAcr` etc.) - that is [AuthEvidence]'s job, referenced
+ * evidence (`amr`/`loa`/`currentAcr` etc.) - that is [EvidenceTrail]'s job, referenced
  * here via [authEvidenceId] so [TokenService] can resolve the claims it mints without going
  * through the channel. [keycloakSessionId] stays unused under
  * the default profile (no real Keycloak facade there) but IS load-bearing under `keycloak`
