@@ -663,4 +663,18 @@ class AccountServiceDbTest(
             accountService.establishedClaimValues(account.accountId, setOf(AttributeType.EID_RESTRICTED_ID))[AttributeType.EID_RESTRICTED_ID] shouldBe "ABC123"
         }
     }
+
+    given("a claim a tool reports at loa2, established from a session that only proved loa1 (ADR-5)") {
+        then("the claim log records loa1 - what was proven, not the tool's ceiling") {
+            val account = accountService.createUnidentifiedAccount()
+            accountService.recordClaims(
+                account.accountId,
+                listOf(Claim(AttributeType.PHONE_NUMBER, "+491701234567", ClaimSource.of(com.example.dpop.tool_spi.ToolId("enroll-sms")), AcrLevel.LOA2)),
+                provenAcr = AcrLevel.LOA1
+            )
+            jdbcTemplate.queryForObject(
+                "SELECT established_acr FROM account.claim WHERE account_id = ?", String::class.java, account.accountId
+            ) shouldBe "loa1"
+        }
+    }
 })

@@ -299,7 +299,11 @@ class AccountService(
                         attributeType = claim.attributeType,
                         value = claim.value,
                         claimSource = claim.source.value,
-                        establishedAcr = claim.establishedAcr?.value,
+                        // What was actually proven, not what the tool can reach at most: an
+                        // enrollment from a loa1 session establishes at loa1 even if the tool's
+                        // own ceiling is loa2 (ADR-5; review 2026-09, Phase F - the log used to
+                        // keep the uncapped tool value).
+                        establishedAcr = (claim.establishedAcr?.let { AcrLevel.min(it, provenAcr) } ?: provenAcr).value,
                         authMethodId = authMethodId,
                         establishedAt = establishedAt
                     )
