@@ -1,4 +1,4 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

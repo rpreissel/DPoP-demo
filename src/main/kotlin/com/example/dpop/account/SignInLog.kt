@@ -1,10 +1,10 @@
 package com.example.dpop.account
 
 import io.micrometer.core.instrument.MeterRegistry
-import com.example.dpop.account.internal.AccountRepository
-import com.example.dpop.account.internal.SignInType
-import com.example.dpop.account.internal.SignInLogEntry
-import com.example.dpop.account.internal.SignInLogRepository
+import com.example.dpop.account.infrastructure.AccountRepository
+import com.example.dpop.account.infrastructure.SignInType
+import com.example.dpop.account.infrastructure.SignInLogEntry
+import com.example.dpop.account.infrastructure.SignInLogRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Scheduled

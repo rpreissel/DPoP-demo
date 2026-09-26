@@ -20,7 +20,7 @@ import java.util.UUID
  * Pins what the correlation step asserts (docs/12-entscheidungen.md ADR-18): the register's own
  * person reference and KVNR, both under `PERSON_DIRECTORY` - unlike `ident-eid`, which vouches for
  * the card's attributes itself. The identity match that makes this safe lives in the account
- * module ([com.example.dpop.account.internal.IdentityMatchingServiceTest]), not here: this tool
+ * module ([com.example.dpop.account.application.IdentityMatchingServiceTest]), not here: this tool
  * never sees accounts.
  */
 class IdentKvnrToolHandlerTest : BehaviorSpec({

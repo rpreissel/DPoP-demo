@@ -2,21 +2,21 @@ package com.example.dpop.account
 
 import com.example.dpop.tool_api.PersonChanged
 import com.example.dpop.texts.Text
-import com.example.dpop.account.internal.Account
-import com.example.dpop.account.internal.AnchorRegistry
-import com.example.dpop.account.internal.ClaimLedger
-import com.example.dpop.account.internal.AccountAnchorRepository
-import com.example.dpop.account.internal.AccountClaim
-import com.example.dpop.account.internal.AccountClaimRepository
-import com.example.dpop.account.internal.AccountAuthMethod
-import com.example.dpop.account.internal.AccountAuthMethodRepository
-import com.example.dpop.account.internal.AccountRepository
-import com.example.dpop.account.internal.AccountRetraction
-import com.example.dpop.account.internal.AccountRetractionRepository
-import com.example.dpop.account.internal.MethodDeactivationReason
-import com.example.dpop.account.internal.ChangeLog
-import com.example.dpop.account.internal.PersonLookupKey
-import com.example.dpop.account.internal.strongestEstablishedValues
+import com.example.dpop.account.infrastructure.Account
+import com.example.dpop.account.application.AnchorRegistry
+import com.example.dpop.account.application.ClaimLedger
+import com.example.dpop.account.infrastructure.AccountAnchorRepository
+import com.example.dpop.account.infrastructure.AccountClaim
+import com.example.dpop.account.infrastructure.AccountClaimRepository
+import com.example.dpop.account.infrastructure.AccountAuthMethod
+import com.example.dpop.account.infrastructure.AccountAuthMethodRepository
+import com.example.dpop.account.infrastructure.AccountRepository
+import com.example.dpop.account.infrastructure.AccountRetraction
+import com.example.dpop.account.infrastructure.AccountRetractionRepository
+import com.example.dpop.account.application.MethodDeactivationReason
+import com.example.dpop.account.application.ChangeLog
+import com.example.dpop.account.application.PersonLookupKey
+import com.example.dpop.account.infrastructure.strongestEstablishedValues
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.IdentityConflictException
@@ -479,7 +479,7 @@ class AccountService(
      * name of an Interessent without a register person (ADR-18) and the Keycloak user view both
      * read through this instead of reaching into the log themselves. Same selection as
      * `IdentityMatchingService`'s attested-identity view, via the shared
-     * [com.example.dpop.account.internal.strongestEstablishedValues].
+     * [com.example.dpop.account.infrastructure.strongestEstablishedValues].
      */
     fun establishedClaimValues(accountId: Long, types: Set<AttributeType>): Map<AttributeType, String> =
         claimLedger.establishedValues(accountId, types)

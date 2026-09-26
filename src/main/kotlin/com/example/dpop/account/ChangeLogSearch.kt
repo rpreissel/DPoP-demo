@@ -1,7 +1,7 @@
 package com.example.dpop.account
 
-import com.example.dpop.account.internal.ChangeLogRepository
-import com.example.dpop.account.internal.PersonLookupKey
+import com.example.dpop.account.infrastructure.ChangeLogRepository
+import com.example.dpop.account.application.PersonLookupKey
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant

@@ -1,5 +1,7 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.domain.passportForm
+import com.example.dpop.account.infrastructure.ChangeLogRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties

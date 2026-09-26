@@ -1,5 +1,9 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.infrastructure.strongestEstablishedValues
+import com.example.dpop.account.domain.passportForm
+import com.example.dpop.account.infrastructure.AccountAnchorRepository
+import com.example.dpop.account.infrastructure.AccountClaimRepository
 import com.example.dpop.texts.Text
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException

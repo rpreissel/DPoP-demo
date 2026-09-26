@@ -1,5 +1,12 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.infrastructure.strongestEstablishedValues
+import com.example.dpop.account.infrastructure.AccountClaim
+import com.example.dpop.account.infrastructure.AccountClaimRepository
+import com.example.dpop.account.infrastructure.AccountRetraction
+import com.example.dpop.account.infrastructure.AccountRetractionRepository
+import com.example.dpop.account.domain.ClaimKey
+import com.example.dpop.account.domain.normalizeClaimValue
 import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.tool_api.AttributeAuthority
 import com.example.dpop.tool_api.authority
@@ -51,7 +58,7 @@ class ClaimLedger(
         }
         val logged = accountClaimRepository.findEstablished(accountId)
             .map { claim ->
-                EstablishedClaimKey(
+                ClaimKey(
                     checkNotNull(claim.attributeType),
                     checkNotNull(claim.normalizedValue),
                     checkNotNull(claim.claimSource),
@@ -62,9 +69,9 @@ class ClaimLedger(
         return claims.map { claim ->
             val establishedAt = Instant.now()
             if (logged.add(
-                    EstablishedClaimKey(
+                    ClaimKey(
                         claim.attributeType,
-                        checkNotNull(AccountClaim.normalize(claim.attributeType, claim.value)),
+                        checkNotNull(normalizeClaimValue(claim.attributeType, claim.value)),
                         claim.source.value,
                         authMethodId
                     )
@@ -147,15 +154,3 @@ class ClaimLedger(
         )
     }
 }
-
-/**
- * What makes a claim already logged: same attribute, same normalized value, same source, same
- * method instance - the key [ClaimLedger.append] skips on, keeping the claim log a change log
- * instead of a run log.
- */
-private data class EstablishedClaimKey(
-    val type: AttributeType,
-    val normalizedValue: String,
-    val source: String,
-    val authMethodId: UUID?
-)

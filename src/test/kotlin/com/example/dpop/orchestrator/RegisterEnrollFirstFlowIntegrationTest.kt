@@ -40,7 +40,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
 
     /**
      * The account modules's own public API (`AccountService`), not raw SQL - type-safe, and never
-     * reaches into `account.internal` from outside the module. Each of the tests below creates
+     * reaches into the account module's internals from outside it. Each of the tests below creates
      * exactly one account, so "the only one that exists right now" is unambiguous.
      */
     private fun theAccount(): AccountProfile =

@@ -1,4 +1,4 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue

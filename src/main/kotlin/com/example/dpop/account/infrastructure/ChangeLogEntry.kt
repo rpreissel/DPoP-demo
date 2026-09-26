@@ -1,5 +1,8 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
+import com.example.dpop.account.application.ChangeLog
+import com.example.dpop.account.application.ChangeLogRetention
+import com.example.dpop.account.application.PersonLookupKey
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -104,7 +107,7 @@ interface ChangeLogRepository : JpaRepository<ChangeLogEntry, Long> {
 
     fun findByAccountIdInOrderByAccountIdAscOccurredAtAsc(accountIds: Collection<Long>): List<ChangeLogEntry>
 
-    @Query("select e.accountId from ChangeLogEntry e where e.changeType = com.example.dpop.account.internal.ChangeType.ACCOUNT_DELETED and e.occurredAt < :cutoff")
+    @Query("select e.accountId from ChangeLogEntry e where e.changeType = com.example.dpop.account.infrastructure.ChangeType.ACCOUNT_DELETED and e.occurredAt < :cutoff")
     fun accountsDeletedBefore(cutoff: Instant, pageable: Pageable): List<Long>
 
     @Modifying

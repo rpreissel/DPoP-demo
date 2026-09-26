@@ -222,7 +222,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 // named individually rather than exempting all of tool_api/account, so a SECOND
                 // class in either package cannot quietly inherit the exemption.
                 .and().doNotHaveFullyQualifiedName("com.example.dpop.tool_api.IdentityResolver")
-                .and().doNotHaveFullyQualifiedName("com.example.dpop.account.internal.IdentityMatchingService")
+                .and().doNotHaveFullyQualifiedName("com.example.dpop.account.application.IdentityMatchingService")
                 .should().dependOnClassesThat().haveFullyQualifiedName("com.example.dpop.tool_api.IdentityResolver")
                 .because(
                     "resolving claims to an existing account is the first half of a takeover; the second half " +

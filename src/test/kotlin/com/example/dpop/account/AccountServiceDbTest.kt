@@ -1,8 +1,8 @@
 package com.example.dpop.account
 
-import com.example.dpop.account.internal.AccountAnchorRepository
-import com.example.dpop.account.internal.ChangeLogRepository
-import com.example.dpop.account.internal.ChangeType
+import com.example.dpop.account.infrastructure.AccountAnchorRepository
+import com.example.dpop.account.infrastructure.ChangeLogRepository
+import com.example.dpop.account.infrastructure.ChangeType
 import com.example.dpop.orchestrator.api.v1.OrchestratorExceptionHandler
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_spi.AcrLevel

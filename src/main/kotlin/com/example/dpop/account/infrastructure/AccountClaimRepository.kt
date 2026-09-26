@@ -1,5 +1,6 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
+import com.example.dpop.account.application.IdentityMatchingService
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.trustLevel
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Repository
  * Append-only identity log; written by `AccountService.recordClaims`, read via
  * [findEstablished] by every established-claims consumer - the matching guard in
  * [IdentityMatchingService], the [com.example.dpop.account.AccountService] value facade, the
- * Keycloak mirror - all comparing against [AccountClaim.normalizedValue], written once at
+ * account view Keycloak reads (ADR-38) - all comparing against [AccountClaim.normalizedValue], written once at
  * persist time (see its `@PrePersist` hook).
  */
 @Repository

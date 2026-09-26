@@ -1,5 +1,6 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.infrastructure.PERSON_CHANGE_EXECUTOR
 import org.springframework.scheduling.annotation.Async
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_api.PersonChanged

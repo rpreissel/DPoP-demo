@@ -1,5 +1,8 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.infrastructure.ChangeLogEntry
+import com.example.dpop.account.infrastructure.ChangeLogRepository
+import com.example.dpop.account.infrastructure.ChangeType
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Pageable

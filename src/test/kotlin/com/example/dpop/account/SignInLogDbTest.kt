@@ -1,6 +1,6 @@
 package com.example.dpop.account
 
-import com.example.dpop.account.internal.SignInLogRepository
+import com.example.dpop.account.infrastructure.SignInLogRepository
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import org.springframework.boot.test.context.SpringBootTest

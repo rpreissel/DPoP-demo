@@ -1,5 +1,10 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.application.IdentityMatchingService
+import com.example.dpop.account.infrastructure.AccountAnchor
+import com.example.dpop.account.infrastructure.AccountAnchorRepository
+import com.example.dpop.account.infrastructure.AccountClaim
+import com.example.dpop.account.infrastructure.AccountClaimRepository
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_api.ClaimedIdentity
 import com.example.dpop.tool_api.IdentityConflictException

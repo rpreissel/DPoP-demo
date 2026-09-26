@@ -1,8 +1,8 @@
 package com.example.dpop.account
 
-import com.example.dpop.account.internal.ChangeLogEntry
-import com.example.dpop.account.internal.ChangeLogRepository
-import com.example.dpop.account.internal.ChangeLogRetention
+import com.example.dpop.account.infrastructure.ChangeLogEntry
+import com.example.dpop.account.infrastructure.ChangeLogRepository
+import com.example.dpop.account.application.ChangeLogRetention
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.AttributeType
 import com.example.dpop.tool_spi.Claim

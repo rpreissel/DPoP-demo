@@ -1,5 +1,8 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.application.PersonChangeListener
+import com.example.dpop.account.infrastructure.PERSON_CHANGE_EXECUTOR
+import com.example.dpop.account.infrastructure.PersonChangeExecutorConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe

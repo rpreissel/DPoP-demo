@@ -1,5 +1,6 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
+import com.example.dpop.account.application.IdentityMatchingService
 import com.example.dpop.account.RetractionAnchor
 import com.example.dpop.tool_spi.AttributeType
 import jakarta.persistence.Column

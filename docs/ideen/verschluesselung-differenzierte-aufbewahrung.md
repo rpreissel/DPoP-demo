@@ -294,12 +294,12 @@ großen gesetzlichen Krankenkasse (etwa 11 Millionen Versicherte).
 
 ## Betroffene Dateien (nur als Hinweis für eine spätere Umsetzung)
 
-- `src/main/kotlin/com/example/dpop/account/internal/AccountClaim.kt` (neues Feld `claim_batch_id`)
+- `src/main/kotlin/com/example/dpop/account/infrastructure/AccountClaim.kt` (neues Feld `claim_batch_id`)
 - `src/main/kotlin/com/example/dpop/account/AccountService.kt` (`recordClaims`: je Aufruf eine
   `claim_batch_id` erzeugen)
-- `src/main/kotlin/com/example/dpop/account/internal/AccountAnchor.kt` (unverändert; Bezugspunkt für
+- `src/main/kotlin/com/example/dpop/account/infrastructure/AccountAnchor.kt` (unverändert; Bezugspunkt für
   die Abgrenzung in Abschnitt 3a)
-- `src/main/kotlin/com/example/dpop/account/internal/AccountRetraction.kt`
+- `src/main/kotlin/com/example/dpop/account/infrastructure/AccountRetraction.kt`
 - `docs/12-entscheidungen.md` (neues ADR für diese Entscheidung)
 - `docs/07-betrieb.md` (bestehendes Muster der `*RetentionJob`s erweitern)
 

@@ -1,5 +1,9 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.application
 
+import com.example.dpop.account.application.LookupKeyCoverageCheck
+import com.example.dpop.account.application.PersonLookupKey
+import com.example.dpop.account.application.PreviousLookupSecrets
+import com.example.dpop.account.infrastructure.ChangeLogRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain

@@ -1,4 +1,4 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.infrastructure
 
 import com.example.dpop.tool_spi.AttributeType
 import org.springframework.data.jpa.repository.JpaRepository

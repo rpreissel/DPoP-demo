@@ -1,5 +1,7 @@
-package com.example.dpop.account.internal
+package com.example.dpop.account.domain
 
+import com.example.dpop.account.application.IdentityMatchingService
+import com.example.dpop.account.application.PersonLookupKey
 import java.text.Normalizer
 
 /**
