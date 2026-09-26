@@ -1,12 +1,12 @@
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { textId } from '../src/texts'
 
 /**
  * The German wording the app shows for a template (docs/adr/ADR-033). The suite names texts by their
  * source template, like the unit tests do; the browser runs in German (playwright.config.ts), so
- * what it shows is the de bundle's rewording - looked up here by the same id the app computes.
+ * what it shows is the de bundle's rewording - looked up here by the app's own `textId`, not a copy of it.
  */
 const bundle = (() => {
   const file = join(dirname(fileURLToPath(import.meta.url)), '../../src/main/resources/texts/app/texts_de.properties')
@@ -20,7 +20,7 @@ const bundle = (() => {
 })()
 
 export function ui(template: string): string {
-  return bundle.get(createHash('sha256').update(template, 'utf8').digest('hex').slice(0, 12)) ?? template
+  return bundle.get(textId(template)) ?? template
 }
 
 /** For matching inside a larger text or a regex. */

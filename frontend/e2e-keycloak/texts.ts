@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// KcText.idOf is the same rule as the app's textId - pinned by shared samples (TextIdTest, KcTextsTest).
+import { textId } from '../src/texts'
 
 /**
  * The German wording of a login-page template (docs/adr/ADR-033) - the `keycloak` bundle both
@@ -22,7 +23,7 @@ const bundle = (() => {
 })()
 
 export function kc(template: string, values: Record<string, string> = {}): string {
-  const wording = bundle.get(createHash('sha256').update(template, 'utf8').digest('hex').slice(0, 12)) ?? template
+  const wording = bundle.get(textId(template)) ?? template
   return wording.replace(/\{(\w+)\}/g, (placeholder, name: string) => values[name] ?? placeholder)
 }
 
