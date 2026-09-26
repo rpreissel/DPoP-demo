@@ -33,8 +33,9 @@ flowchart LR
 
   NE --> O
   O --> KC
+  KC -.->|liest Konto nach| O
   O --> AC
-  AC -.->|AccountChanged| O
+  AC -.->|AccountDeleted| O
 
   UI1 --> M1
   UI2 --> M2
@@ -63,8 +64,8 @@ Zwei Ergänzungen aus der Praxis:
   des üblichen Wechsels von Anfrage und Antwort (WebAuthn, Weiterleitung beim eID-Verfahren). Das
   bleibt aber auf die eine Komponente des Tools beschränkt.
 - Den OIDC-Tokenfluss mit Keycloak führt für die App allein der Orchestrator; die App hat dafür keinen
-  eigenen, direkten Weg. Im Backend legt ein eigenes Modul `account` die Konten an und meldet
-  Änderungen als Events; der Orchestrator spiegelt sie nach Keycloak. Auch das bleibt vollständig
+  eigenen, direkten Weg. Im Backend legt ein eigenes Modul `account` die Konten an; Keycloak liest
+  sie bei Bedarf beim Orchestrator nach, statt eine Kopie zu halten. Auch das bleibt vollständig
   hinter dem Orchestrator verborgen.
 
 Daraus folgt für dich als Frontend-Entwickler:
@@ -106,7 +107,7 @@ zu lesen sieht, wo man ist:
   Keycloak gibt es nicht mehr.
 - **Admin** (`/admin/`): die Sicht des Betreibers, hinter der Admin-Anmeldung (HTTP Basic auf
   `/orchestrator/admin/**`, `AdminSecurityConfig`). Reiter: *Einstellungen* (Verfahren je Kanal
-  sperren und ordnen, Reihenfolge der Registrierung, Abgleich mit Keycloak, Links für Entwickler),
+  sperren und ordnen, Reihenfolge der Registrierung, Oberfläche der Keycloak-Anmeldeseiten, Links für Entwickler),
   *Journey-Trace* über alle Konten und Geräte (mit laufender Aktualisierung) und *Konten* (löschen,
   Demo zurücksetzen).
 - **Personenverzeichnis** (`/personenverzeichnis/`): das simulierte **Fremdsystem** (ADR-31) mit

@@ -7,8 +7,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 internal const val PERSON_CHANGE_EXECUTOR = "personChangeExecutor"
 
 /**
- * One thread for the directory's change events (review 2026-09, M-13) - same reasoning as the
- * Keycloak sync's own lane (`KeycloakSyncExecutorConfig`): order matters, parallelism buys nothing.
+ * One thread for the directory's change events (review 2026-09, M-13): two changes to the same
+ * person must be applied in the order the directory published them, and the Event Publication
+ * Registry guarantees delivery, not order. Parallelism buys nothing here.
+ *
+ * Declaring any `Executor` bean makes Spring Boot back off from its own `applicationTaskExecutor`
+ * - every other `@Async` in the application would silently end up on this single thread.
+ * `spring.task.execution.mode: force` in application.yml keeps Boot's pool in place as the default.
  */
 @Configuration
 class PersonChangeExecutorConfig {

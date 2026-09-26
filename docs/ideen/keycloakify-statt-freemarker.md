@@ -79,7 +79,7 @@ durch ein React-Bundle), nicht diese Logik; der Java-Code bliebe unverändert.
   `MigrationClientBootstrapFactory`), der das Realm ohnehin aufbaut und ändern darf. Das Token kommt
   aus `KeycloakMigrationToken.accessToken()`, der Admin-Client aus `buildAdminClient(...)`
   (`keycloak-migrations`, `AdminClient.kt`), genau wie in `KeycloakMigrationRunnerStartup`. Der
-  Service-Account `orchestrator-admin` behält seine Rechte (manage-users, view-realm).
+  Service-Account `orchestrator-admin` behält sein einziges Recht (manage-users).
 - **Kein neuer Code in der Extension**, keine eigene ThemeSelector-SPI.
 
 ## 5) Der Schalter im Orchestrator

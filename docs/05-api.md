@@ -46,7 +46,7 @@ Endpunkte unter `API_V1`; das ergibt sich aus der Konstante, nicht aus einer Aus
 Arten von Endpunkten liegen bewusst woanders:
 
 - Betriebsendpunkte unter `/orchestrator/admin` (Tool-Sperre, Reihenfolge der Registrierung,
-  Abgleich mit Keycloak, Journey-Trace aller Konten, Konten löschen, Demo zurücksetzen). Nur sie
+  Oberfläche der Keycloak-Anmeldeseiten, Journey-Trace aller Konten, Konten löschen, Demo zurücksetzen). Nur sie
   liegen hinter einer Anmeldung (HTTP Basic mit `demo.admin.*`).
 - Der öffentliche, nur lesende Server-Status unter `/orchestrator/demo/server-info`.
 - Die Stellvertreter externer Systeme unter `/mock-*` (`/mock-kobil`,

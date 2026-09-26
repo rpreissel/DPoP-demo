@@ -265,7 +265,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
 
     given("outbound Keycloak Admin API calls") {
         then("no @Transactional class makes one - a DB transaction never spans a network round trip") {
-            // The rule KeycloakAccountSyncListener states for itself ("never hold the account's own
+            // The rule KeycloakAccountRemovalListener states for itself ("never hold the account's own
             // DB transaction open across a network call to Keycloak") and enforces by listening
             // AFTER_COMMIT. It was only ever a comment, and three places broke it: JourneyService's
             // logout transition, RetentionJob's dead-session probe, and KcTokenProvider. The first
@@ -289,7 +289,7 @@ class OrchestratorArchitectureTest : BehaviorSpec({
                 .because(
                     "a transaction that spans a Keycloak round trip holds row locks for the duration of a " +
                         "remote call; publish an event and act on it AFTER_COMMIT instead, the way " +
-                        "KeycloakAccountSyncListener and KeycloakSessionLogoutListener do"
+                        "KeycloakAccountRemovalListener and KeycloakSessionLogoutListener do"
                 )
                 .check(everything)
         }

@@ -3,9 +3,9 @@ spring:
     name: dpop-demo
   task:
     execution:
-      # Boots eigener Async-Pool bleibt Default, obwohl es mit keycloakSyncExecutor einen weiteren
+      # Boots eigener Async-Pool bleibt Default, obwohl es mit personChangeExecutor einen weiteren
       # Executor gibt - ohne "force" zieht sich Boot dann zurueck, und jedes @Async landete auf
-      # dessen einem Thread (KeycloakSyncExecutorConfig).
+      # dessen einem Thread (PersonChangeExecutorConfig).
       mode: force
   modulith:
     events:

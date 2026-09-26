@@ -5,6 +5,12 @@ Löst die Spiegelung ab, die [ADR-9](ADR-009-profilabhaengiges-token-retrieval-a
 (Public Key als Credential am Nutzer) und [ADR-34](ADR-034-personenverzeichnis-meldet-aenderungen.md)
 (Änderungen per Event „bis Keycloak“) voraussetzten.
 
+> **Nachtrag 2026-09-26 (zweite Bewertung, F-6, A-1):** Das Schlüsselpaar je Konto gibt es nicht
+> mehr ([ADR-9](ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)).
+> Der Grant holt keinen Public Key mehr beim Orchestrator; er nimmt `account_id`, `acr` und `amr` als
+> Parameter und nur vom vertraulichen Client `orchestrator-app-token` an. Die Festlegung zum Public Key
+> unten ist entsprechend angepasst.
+
 **Entscheidung**: Die Konten des Orchestrators *sind* die Nutzer von Keycloak. Die Nutzer-Federation
 der Extension (`OrchestratorStorageProvider`) liest ein Konto bei Bedarf nach, ohne Import. Keycloak
 hält keine Kopie von Identität, E-Mail, Namen oder Stammdaten; nur was Keycloak für sich selbst
@@ -31,9 +37,9 @@ braucht (Sitzungen, Fehlversuche, Zustimmungen), liegt in seinem föderierten Sp
 - **Schreibgeschützt:** Was das Konto besitzt, lässt sich in Keycloak nicht ändern
   (`ReadOnlyException`). Ein Schreibweg an Keycloak vorbei wäre wieder eine zweite Wahrheit.
 - **Keine Liste:** Suchen finden genau einen Nutzer über exakten Benutzernamen, E-Mail oder Konto-Id.
-- **Der Public Key (ADR-9) wird gelesen, nicht hochgeladen.** Der Grant holt ihn frisch beim
-  Orchestrator, am Cache vorbei: Der Orchestrator erzeugt das Schlüsselpaar unmittelbar vor seinem
-  ersten Grant-Aufruf.
+- **Kein Schlüssel je Konto in Keycloak.** Bis 2026-09-26 las der Grant den Public Key eines Kontos
+  frisch beim Orchestrator, statt ihn hochzuladen. Seit dem Wegfall des Schlüsselpaars (ADR-9) prüft
+  der Grant nur noch den aufrufenden Client.
 - **Löschen ist das einzige Ereignis**, das Keycloak noch erreicht. Keycloaks eigene Daten zu einem
   gelöschten Konto räumt ein eigener Admin-Endpunkt ab (`AccountRemoval`), weil Keycloaks
   `DELETE users/{id}` den Nutzer zuerst nachschlagen würde – und ein gelöschtes Konto nicht mehr findet.

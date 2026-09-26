@@ -30,8 +30,8 @@ sonst könnte, wer ihn kontrolliert, eigene Schlüssel unterschieben und sich al
 Wann der Endpunkt `GET .../token` ein simuliertes und wann ein echtes Token liefert, wann erneuert und
 wann neu ausgestellt wird, beschreibt [05-api.md](../05-api.md) Abschnitt 2 („AccessToken“). Dass ein
 Step-up die zwischengespeicherten Tokens verwirft, regelt
-[ADR-15](ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md). Welche Werte der
-Abgleich außerdem nach Keycloak spiegelt, steht in [07-betrieb.md](../07-betrieb.md) Abschnitt 3a.
+[ADR-15](ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md). Welche Werte
+Keycloak aus dem Konto liest, steht in [07-betrieb.md](../07-betrieb.md) Abschnitt 3a.
 
 **Erwogene Alternativen**:
 
@@ -69,5 +69,5 @@ der Datenbank ([ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.
 **Geschichte**: Die Anmeldung der übrigen Clients mit `private_key_jwt` statt `client_secret` war hier
 als spätere Härtung zurückgestellt; umgesetzt ist sie mit
 [ADR-25](ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md). Früher beschrieb dieser ADR
-auch den Profilschalter und die gespiegelten Attribute; beides steht jetzt in den oben genannten
+auch den Profilschalter und die damals nach Keycloak gespiegelten Attribute; beides steht jetzt in den oben genannten
 Kapiteln.

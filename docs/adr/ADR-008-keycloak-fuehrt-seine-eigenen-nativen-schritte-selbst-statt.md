@@ -1,5 +1,10 @@
 # ADR-8: Keycloak führt seine eigenen nativen Schritte selbst, statt alles zu delegieren oder über Identity-Brokering zu gehen
 
+> **Nachtrag 2026-09-26 (zweite Bewertung, A-1):** Die Passwortprüfung läuft weiter über
+> `OrchestratorStorageProvider` und `MgmtPasswordController`. Der Provider ist aber seit [ADR-38](ADR-038-keycloak-liest-konten.md)
+> eine Nutzer-Federation ohne Import: Keycloak legt keine eigenen Nutzer mit `federationLink` mehr an,
+> sondern liest jedes Konto bei Bedarf beim Orchestrator nach. Der Text unten ist darauf angepasst.
+
 **Status**: umgesetzt.
 
 **Entscheidung**: Im Web-Kanal führt Keycloak seine Anmeldeabläufe so aus, wie er sie selbst
@@ -14,7 +19,7 @@ Schritte auf, die er selbst nicht kann. Dafür gibt es drei Wege:
 - **Als Required Action** mit eigener Journey: Das Verwalten der Anmeldeverfahren
   (`MANAGE_AUTH_METHODS`) läuft über `OrchestratorManageMethodsRequiredAction`.
 - **Zustandslos, ohne Kanal und Journey**, nur für die Prüfung des Passworts:
-  `OrchestratorStorageProvider` (UserStorage mit `federationLink`) ruft dafür
+  `OrchestratorStorageProvider` (Nutzer-Federation ohne Import, [ADR-38](ADR-038-keycloak-liest-konten.md)) ruft dafür
   `MgmtPasswordController` auf. Hier wird kein Nachweis zusammengefasst; der Orchestrator dient nur
   als Speicher für das Credential. Das Passwortformular und die Steuerung des Niveaus bleiben bei
   Keycloak.

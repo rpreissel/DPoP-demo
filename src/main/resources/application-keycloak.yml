@@ -23,10 +23,11 @@ kc:
     max-clock-skew-seconds: 300
     max-age-seconds: 300
 
-# Account-Sync (KeycloakAdminClient/KeycloakAccountSyncListener): spiegelt jede Account-Aenderung
-# in einen Keycloak-User - macht handdeklarierte Demo-User ueberfluessig. Vollstaendig abgeleitet
-# (base-url, realm, beide Client-Ids): es sind genau die Clients, die die Migration anlegt, siehe
-# Kopf. Angemeldet wird per private_key_jwt, nicht per Secret (ADR-25).
+# Admin-Zugang des Orchestrators (KeycloakAdminClient): beendet Sitzungen, raeumt nach einer
+# Kontoloeschung auf (KeycloakAccountRemovalListener) und ruft den Konto-Grant. Keycloak liest die
+# Konten selbst ueber seine Nutzer-Federation (ADR-38), es gibt keine Spiegelung. Vollstaendig
+# abgeleitet (base-url, realm, beide Client-Ids): es sind genau die Clients, die die Migration
+# anlegt, siehe Kopf. Angemeldet wird per private_key_jwt, nicht per Secret (ADR-25).
 
 # KeycloakMigrationRunnerStartup wendet die Migrationen beim Start des Orchestrators an - Ersatz
 # fuer den frueheren separaten Tofu-Schritt. Es gibt hier nichts mehr zu konfigurieren: die

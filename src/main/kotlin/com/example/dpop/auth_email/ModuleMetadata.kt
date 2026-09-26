@@ -7,8 +7,8 @@ import org.springframework.modulith.ApplicationModule
  * (docs/archiv/claims-modell-und-vertrauensanker.md): the confirmed email is the account's
  * **identifier**, not a swappable credential. It is asserted as a typed EMAIL claim on
  * `Completed.Enrolled` and recorded through the generic claims write path
- * (`AccountService.recordClaim`), which consolidates the `account.anchor` row and fires the
- * `AccountChanged` event. Reads go through the generic anchor
+ * (`AccountService.recordClaim`), which consolidates the `account.anchor` row. Reads go through
+ * the generic anchor
  * ports (`AccountDirectory.resolveByAnchor`/`anchorValue`) - the same normalized lookups
  * `auth-sms-lookup`/`auth-password-lookup` and `enroll-password`'s `requires` gate use.
  * `auth-sms-lookup` and `auth-password-lookup` resolve by email through the port without this

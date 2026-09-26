@@ -39,31 +39,12 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
- * Fired after a change to an account's current state (creation, anchors, methods) - the
- * account-sync mechanism (`orchestrator.kc.KeycloakAccountSyncListener`, only wired up under the
- * `keycloak` Spring profile) listens for this to keep a mirrored Keycloak user in sync, but the
- * event itself is profile-agnostic. [accountId] alone (not a snapshot) - a listener re-reads the
- * current state via [AccountService.findAccount]. Appends to the audit logs do not fire it.
- *
- * At most ONE per account and transaction, however many changes that transaction makes (see
- * [AccountService.announceChanged]): the event says "re-read this account", not "this one thing
- * changed", so a second one for the same transaction would only start a second identical sync.
- *
- * [changed] names the kinds of attributes when the cause is known and narrow - today only a change
- * reported by the Personenverzeichnis (ADR-34) - so a listener can skip what does not concern it
- * (the Keycloak sync ignores attributes it does not mirror). `null` means "anything may have
- * changed": every other cause, and always re-read.
+ * Fired once an account row is actually gone; the only account event (review 2026-09-26, A-1). An
+ * `AccountChanged` per change existed while Keycloak kept a mirrored user in step - since Keycloak
+ * reads accounts itself (ADR-38) nobody needs to hear about a change.
  */
-data class AccountChanged(val accountId: Long, val changed: Set<AttributeType>? = null)
-
-/** Transaction resource holding the account ids [AccountService.announceChanged] already published for. */
-private const val ANNOUNCED_KEY = "account.AccountChanged.announced"
-
-/** Fired once an account row is actually gone - unlike [AccountChanged], nothing left to re-read, so this carries everything a listener gets. */
 data class AccountDeleted(val accountId: Long)
 
 @Service
@@ -174,8 +155,6 @@ class AccountService(
             accountAnchorRepository.findByAccountIdAndAttributeType(accountId, attributeType)
                 ?.let { accountAnchorRepository.delete(it) }
         }
-        // Mirrors (Keycloak) must learn the value is gone, like after any other change.
-        announceChanged(accountId)
         return true
     }
 
@@ -312,7 +291,6 @@ class AccountService(
             if (claim.attributeType.isLocalAnchor) {
                 lockForUpdate(accountId)
                 recordAnchor(accountId, claim.attributeType, claim.value, establishedAt, provenAcr)
-                announceChanged(accountId)
             }
         }
     }
@@ -431,7 +409,6 @@ class AccountService(
     fun createUnidentifiedAccount(): AccountProfile {
         val account = accountRepository.save(Account(createdAt = Instant.now()))
         val accountId = checkNotNull(account.id) { "Account has no id" }
-        announceChanged(accountId)
         return AccountProfile(accountId = accountId, personId = null, authenticationMethods = emptyList())
     }
 
@@ -607,7 +584,6 @@ class AccountService(
                 details = details
             ).also { it.id = instanceId; it.createdAt = now }
         )
-        announceChanged(accountId)
         return getProfileOrThrow(accountId)
     }
 
@@ -625,7 +601,6 @@ class AccountService(
             it.deactivate(now)
             changeLog.methodDeactivated(accountId, it.method, MethodDeactivationReason.REMOVED_BY_HOLDER, now)
         }
-        announceChanged(accountId)
         return getProfileOrThrow(accountId)
     }
 
@@ -717,7 +692,7 @@ class AccountService(
      * The established (asserted, non-retracted) claim VALUES for [types], strongest assertion per
      * attribute - the value-reading counterpart of [AccountProfile.establishedClaims] for surfaces
      * that need what the account had attested about itself, not just its trust level: the ID-token
-     * name of an Interessent without a register person (ADR-18) and the Keycloak user mirror both
+     * name of an Interessent without a register person (ADR-18) and the Keycloak user view both
      * read through this instead of reaching into the log themselves. Same selection as
      * `IdentityMatchingService`'s attested-identity view, via the shared
      * [com.example.dpop.account.internal.strongestEstablishedValues].
@@ -730,35 +705,6 @@ class AccountService(
 
     override fun activeInstanceEnrollment(accountId: Long, method: String, livesOnCallerKey: (instanceDetails: Map<String, Any?>?) -> Boolean): EnrollmentRef? =
         findActiveMethods(accountId, method).firstOrNull { livesOnCallerKey(it.details) }?.enrollmentRef
-
-    /**
-     * Publishes [AccountChanged] for [accountId] once per transaction. A single business step
-     * changes an account several times in one transaction - the demo seeder records anchors, claims
-     * and two methods, a registration step an anchor and a claim - and every one of those used to
-     * publish its own event. Each was delivered after the commit as its own async sync, all reading
-     * the same final state, all at the same time: redundant work, and in Keycloak's case a race
-     * (duplicate user, duplicate keypair). The first change registers the event; the listeners
-     * read the state as of commit anyway, so the later changes are already included.
-     *
-     * Outside a transaction (no synchronization active) there is nothing to coalesce with.
-     */
-    private fun announceChanged(accountId: Long, changed: Set<AttributeType>? = null) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            eventPublisher.publishEvent(AccountChanged(accountId, changed))
-            return
-        }
-        @Suppress("UNCHECKED_CAST")
-        val announced = TransactionSynchronizationManager.getResource(ANNOUNCED_KEY) as MutableSet<Long>?
-            ?: mutableSetOf<Long>().also { set ->
-                TransactionSynchronizationManager.bindResource(ANNOUNCED_KEY, set)
-                TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-                    override fun afterCompletion(status: Int) {
-                        TransactionSynchronizationManager.unbindResourceIfPossible(ANNOUNCED_KEY)
-                    }
-                })
-            }
-        if (announced.add(accountId)) eventPublisher.publishEvent(AccountChanged(accountId, changed))
-    }
 
     /**
      * Follows a change the Personenverzeichnis reported (ADR-34) for the account bound to that
@@ -778,9 +724,6 @@ class AccountService(
     @Transactional
     fun applyDirectoryChange(change: PersonChanged): Long? {
         val accountId = resolveByAnchor(AttributeType.PERSON_ID, change.personId) ?: return null
-        // First, so this transaction's one AccountChanged names what changed (the anchor write
-        // below would otherwise announce an unspecific one).
-        announceChanged(accountId, change.changed)
         if (AttributeType.KVNR in change.changed) {
             retractAttribute(accountId, AttributeType.KVNR, RetractionAnchor.PERSON_DIRECTORY, "KVNR im Personenverzeichnis geändert")
             change.kvnr?.let {

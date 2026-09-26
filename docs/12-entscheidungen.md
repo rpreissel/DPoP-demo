@@ -47,7 +47,7 @@ als Diff mitten im Fließtext.
 | [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt |
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
-| [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak |
+| [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event ans Konto |
 | [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md) | Betriebsanspruch – der Backend-Kern ist produktionsreif, Frontends und Umgebung folgen später |
 | [ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md) | Niveaus und ihre Nachweise – was nur behauptet ist, läuft nur im Demomodus |
 | [ADR-37](adr/ADR-037-postfach-traegt-unidentifizierte-konten.md) | Bei einem nie identifizierten Konto genügt das Postfach auch für destruktive Aktionen |
@@ -76,9 +76,10 @@ einzigen Stelle erledigen:
   - Gesucht wird nur über normalisierte Werte (`normalizeAnchorValue`); `account.claim` braucht
     keinen Index für die Suche vom Wert zum Konto.
   - Bestehende Daten stellt man in wiederholbaren Portionen um, nicht in einer einzigen Transaktion.
-  - Der Keycloak-Abgleich (`KeycloakAccountSyncService.syncAll`) liest heute alle Konto-IDs in den
-    Speicher (`findAllIds`) und lädt danach jedes Konto einzeln. Bei so vielen Konten muss er
-    seitenweise laufen (Issue `DPoP-demo-oa7d`).
+  - Einen Abgleich aller Konten mit Keycloak gibt es nicht mehr: Keycloak liest ein Konto bei
+    Bedarf einzeln nach, über den Primärschlüssel oder den E-Mail-Anker
+    ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)). Der frühere Voll-Abgleich, der alle Konto-IDs
+    in den Speicher las (Issue `DPoP-demo-oa7d`), ist damit entfallen.
 
   Die Überlegungen stammen aus der archivierten Idee
   [claims-modell-und-vertrauensanker.md](archiv/claims-modell-und-vertrauensanker.md).

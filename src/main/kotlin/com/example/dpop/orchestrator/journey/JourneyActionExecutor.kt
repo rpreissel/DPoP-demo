@@ -389,7 +389,7 @@ class JourneyActionExecutor(
         val methodInstanceId = UUID.randomUUID()
         // Every claim this enrollment asserted lands in the account's identity log
         // (AccountService.recordClaims, a few lines below); an EMAIL claim additionally
-        // consolidates its anchor and fires the AccountChanged event. Done here, before this
+        // consolidates its anchor. Done here, before this
         // method returns, so the very next context rebuild (JourneyEvent.ActionCompleted) already
         // sees it.
         // What the environment already established BEFORE this completion (recordToolCompletion

@@ -516,12 +516,13 @@ zurück. Er bringt keine Journey weiter, leitet nicht weiter und startet keine S
 bleibt die Wiederholung in `JourneyService.applyTransition` die einzige im ganzen Ablauf.
 `OrchestratorArchitectureTest` prüft das.
 
-Auch Keycloak wird in keiner Phase direkt abgeglichen. Was ein Übergang am Konto ändert, meldet das
-Modul `account` per `AccountChanged`. Danach, nach dem Commit, spiegelt der
-`KeycloakAccountSyncListener` die Änderung nach Keycloak, über die Event-Publication-Registry
-(ADR-29). Denselben Weg nimmt eine Änderung im Personenverzeichnis, ganz ohne Journey:
-`PersonChanged` → Konto (`applyDirectoryChange`) → `AccountChanged(accountId, changed)` → Keycloak,
-dort aber nur, wenn Attribute betroffen sind, die nach Keycloak gespiegelt werden (ADR-34).
+Keycloak wird in keiner Phase aufgerufen. Es hält keine Kopie der Konten, sondern liest ein Konto
+bei Bedarf selbst beim Orchestrator nach (ADR-38). Was ein Übergang am Konto ändert, sieht Keycloak
+deshalb beim nächsten Lesen, ohne dass ihm jemand etwas meldet. Dasselbe gilt für eine Änderung im
+Personenverzeichnis, die ganz ohne Journey läuft: `PersonChanged` → Konto (`applyDirectoryChange`),
+und Keycloak liest die neuen Werte beim nächsten Mal (ADR-34). Nur eine Löschung erreicht Keycloak:
+Nach dem Commit räumt der `KeycloakAccountRemovalListener` auf `AccountDeleted` hin die Daten ab, die
+Keycloak selbst zu dem Konto hält, über die Event-Publication-Registry (ADR-29).
 
 ### RestoreData als erster Übergang
 

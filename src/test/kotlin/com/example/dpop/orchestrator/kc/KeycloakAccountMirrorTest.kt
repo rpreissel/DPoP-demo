@@ -8,8 +8,8 @@ import io.kotest.matchers.shouldBe
 import java.time.LocalDate
 
 /**
- * Pure unit test of the account -> Keycloak-user mapping shared by [KeycloakAccountSyncListener]'s
- * event path and [KeycloakAccountSyncService]'s full reconciliation - the precedence is the point:
+ * Pure unit test of the account -> Keycloak-user mapping the user federation reads (ADR-38,
+ * `KcAccountViews`) - the precedence is the point:
  * register person first (authoritative stammdaten), then the account's own attested claims
  * (full-attested Interessent, ADR-18), placeholders only for an account that has neither.
  */

@@ -1,12 +1,24 @@
 # ADR-29: Die Event Publication Registry von Spring Modulith statt einer eigenen Outbox-Tabelle
 
-**Entscheidung.** Die Keycloak-Spiegelung läuft über `@ApplicationModuleListener`. Damit trägt
-Spring Modulith die offenen Zustellungen in `orchestrator.event_publication` ein. Eine eigene
-Outbox-Tabelle gibt es nicht.
+> **Nachtrag 2026-09-26 (zweite Bewertung, A-1):** Die Keycloak-Spiegelung, für die dieser ADR
+> entstand, gibt es seit [ADR-38](ADR-038-keycloak-liest-konten.md) nicht mehr: Keycloak liest die
+> Konten selbst beim Orchestrator nach. Die Registry trägt heute zwei Listener:
+> `KeycloakAccountRemovalListener` räumt nach `AccountDeleted` die Daten ab, die Keycloak selbst zu
+> dem Konto hält (Sitzungen, Fehlversuche, Zustimmungen), und `PersonChangeListener` übernimmt eine
+> Änderung aus dem Personenverzeichnis ins Konto ([ADR-34](ADR-034-personenverzeichnis-meldet-aenderungen.md)).
+> Die Abschnitte „Das Problem“, „Erster Ansatz“ und „Was wir dafür aufgeben“ beschreiben den Stand
+> der Spiegelung. Die Regeln unter „Was dadurch anders wird“ und „Kosten und Stolpersteine“ gelten
+> weiter.
+
+**Entscheidung.** Ereignisse, deren Zustellung nicht verloren gehen darf, laufen über
+`@ApplicationModuleListener` (anfangs die Keycloak-Spiegelung, heute das Abräumen eines gelöschten
+Kontos in Keycloak und die Übernahme von Änderungen aus dem Personenverzeichnis). Damit trägt Spring
+Modulith die offenen Zustellungen in `orchestrator.event_publication` ein. Eine eigene Outbox-Tabelle
+gibt es nicht.
 
 ## Das Problem
 
-Die Spiegelung läuft absichtlich ohne Garantie: Ein fehlgeschlagener Aufruf bei Keycloak darf eine
+Die Spiegelung lief absichtlich ohne Garantie: Ein fehlgeschlagener Aufruf bei Keycloak durfte eine
 bereits festgeschriebene Kontoänderung nicht nachträglich scheitern lassen. Der Fehler wurde ins Log
 geschrieben, sonst geschah nichts. Wiederholt wurde nur, wenn sich das Konto irgendwann noch einmal
 änderte; bei einem Konto, das sich nie wieder ändert, also nie. Das Ergebnis: Das Konto existiert,
@@ -33,16 +45,16 @@ mit, die Event Publication Registry. Sie kann mehr als mein Nachbau:
 
 Meine Tabelle hatte `accountId` als Schlüssel: Zehn Änderungen an einem Konto ergaben einen offenen
 Eintrag. Die Registry führt einen Eintrag je Ereignis und Listener, also zehn. Das ist vertretbar,
-weil die Spiegelung immer den aktuellen Stand des Kontos überträgt und sich deshalb beliebig oft
-wiederholen lässt: Zehn Zustellungen schreiben zehnmal dasselbe und erzeugen keine falschen Daten.
+weil die Spiegelung immer den aktuellen Stand des Kontos übertrug und sich deshalb beliebig oft
+wiederholen ließ: Zehn Zustellungen schreiben zehnmal dasselbe und erzeugen keine falschen Daten.
 
 ## Was dadurch anders wird
 
 - Ein Fehler im Listener darf **nicht** mehr gefangen werden. Die Exception ist das Signal „nicht
   erledigt"; sie hält den Eintrag offen. Ein `catch`, das den Fehler nur ins Log schreibt,
   würde die Zustellung als erledigt markieren und den Fall endgültig verlieren.
-- `@ApplicationModuleListener` ist zusätzlich `@Async`. Die Spiegelung läuft nicht mehr im Thread
-  der Anfrage.
+- `@ApplicationModuleListener` ist zusätzlich `@Async`. Der Listener läuft nicht im Thread der
+  Anfrage.
 
 ## Kosten und Stolpersteine
 
@@ -58,7 +70,8 @@ wiederholen lässt: Zehn Zustellungen schreiben zehnmal dasselbe und erzeugen ke
 ## Eine Ausnahme
 
 `KeycloakSessionLogoutListener` bleibt ein einfacher `@TransactionalEventListener` ohne Registry.
-Eine nicht beendete Sitzung in Keycloak läuft in wenigen Minuten von selbst ab. Ein fehlender
-Nutzer in Keycloak fehlt dagegen dauerhaft. Nur der zweite Fall braucht eine Wiederholung.
+Eine nicht beendete Sitzung in Keycloak läuft in wenigen Minuten von selbst ab. Die Daten, die
+Keycloak zu einem gelöschten Konto hält, blieben dagegen ohne Abräumen liegen. Nur der zweite Fall
+braucht eine Wiederholung.
 
 Siehe [07-betrieb.md](../07-betrieb.md) Abschnitt 3a.

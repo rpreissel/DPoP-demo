@@ -254,7 +254,12 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 **Phase J – Was ein Kollege liest**
 
-11. A-1 Doku-Drift Keycloak (03, 04, ADR-8/9/29/34, yml, Realm-Migration) und tote Reste im Code.
+11. ~~A-1 Doku-Drift Keycloak und tote Reste~~ – erledigt 2026-09-26: `KeycloakAccountRemovalListener`
+    (umbenannt, ohne eigenen Executor), `KeycloakSyncExecutorConfig` und `KEYCLOAK_ATTRIBUTE_TYPES`
+    entfernt; `AccountChanged` entfernt (kein Abnehmer seit ADR-38, Entscheidung); Keycloak-Migration V5
+    entzieht `orchestrator-admin` die Rolle `view-realm`; 03, 04, 05, 07, 08, 10, ADR-8/9/29/34/38 und
+    die Kommentare auf ADR-38 gezogen. Die Kommentare in `V1__realm.kc.kts` bleiben, weil eine
+    geänderte Migration das Realm neu aufbauen würde.
 12. D-1 veraltete Namen, D-2 fehlende Beschreibungen, A-5 ADR-Widersprüche (ADR-31-Titel, ADR-5, ADR-20).
 13. D-3 Review-Dokumente archivieren, README kürzen, Lesepfad einmal.
 

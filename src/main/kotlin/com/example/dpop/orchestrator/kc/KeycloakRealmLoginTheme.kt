@@ -19,7 +19,7 @@ enum class LoginTheme {
  * Sets the realm's login theme in Keycloak - only that; which theme is wanted is the admin
  * switch's business (`LoginThemeSwitch`). Writes as `orchestrator-migration`
  * ([KeycloakMigrationToken]), the client that builds the realm anyway, so `orchestrator-admin`
- * keeps just manage-users and view-realm.
+ * keeps just manage-users.
  */
 @Component
 @Profile("keycloak")

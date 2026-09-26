@@ -82,12 +82,6 @@ internal val MIRRORED_CLAIM_TYPES = setOf(
     AttributeType.STREET_ADDRESS, AttributeType.POSTAL_CODE, AttributeType.LOCALITY
 )
 
-/**
- * Every kind of attribute that ends up on the Keycloak user: the mirrored claims plus the
- * identifiers read from the Personenverzeichnis ([masterDataAttributes]).
- */
-internal val KEYCLOAK_ATTRIBUTE_TYPES: Set<AttributeType> = MIRRORED_CLAIM_TYPES + setOf(AttributeType.KVNR, AttributeType.INSURANCE_NUMBER)
-
 /** Names and attributes of one account as Keycloak shows them. */
 internal data class KcUserMirror(
     val firstName: String,

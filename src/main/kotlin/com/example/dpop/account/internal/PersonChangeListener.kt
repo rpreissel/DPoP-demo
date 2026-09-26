@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component
 
 /**
  * The account side of a change in the Personenverzeichnis (ADR-34): the account bound to that
- * person follows it, and its `AccountChanged` - naming what changed - lets the Keycloak sync
- * follow in turn. An [ApplicationModuleListener], so the change sits in the Event Publication
+ * person follows it; Keycloak sees the new values the next time it reads the account (ADR-38).
+ * An [ApplicationModuleListener], so the change sits in the Event Publication
  * Registry until this ran through: a failure is retried, never lost (ADR-29).
  */
 @Component

@@ -232,7 +232,7 @@ findet nur exakte Treffer ([ADR-38](adr/ADR-038-keycloak-liest-konten.md), Revie
   (`USER_STORAGE_COMPONENT_ID`); eine neu gewürfelte Id würde jedes `sub` ändern.
 - **Was Keycloak selbst hält:** Sitzungen, Fehlversuche (Brute-Force-Schutz), Zustimmungen und
   sonstige föderierte Daten eines Nutzers.
-- **Konto gelöscht:** `KeycloakAccountSyncListener` räumt genau diese Keycloak-eigenen Daten ab
+- **Konto gelöscht:** `KeycloakAccountRemovalListener` räumt genau diese Keycloak-eigenen Daten ab
   (`DELETE /admin/realms/{realm}/orchestrator-accounts/{accountId}`, `AccountRemoval`). Das ist das
   einzige Ereignis, das Keycloak noch erreicht; eine Änderung am Konto braucht keinen Aufruf mehr.
 
@@ -244,7 +244,8 @@ Aufruf nicht spurlos verloren geht:
   festgeschrieben wird, schreibt Modulith eine Zeile nach `orchestrator.event_publication`.
 - Die Zeile wird erst abgeschlossen, wenn die Methode ohne Fehler zurückkehrt. Deshalb fängt der
   Listener Fehler **nicht** mehr ab: Die Exception ist das Signal „nicht erledigt“.
-- Zugestellt wird auf einem eigenen Thread (`keycloakSyncExecutor`), eine Löschung nach der anderen.
+- Zugestellt wird auf Springs gemeinsamem Async-Pool. Eine Löschung ist unabhängig von jeder anderen
+  und darf wiederholt werden; eine eigene Spur mit fester Reihenfolge braucht es nicht.
 - Offene Zeilen werden nach fünf Minuten erneut zugestellt (`spring.modulith.events.staleness.*`),
   ebenso beim Neustart (`republish-outstanding-events-on-restart`).
 - Die Zeile enthält den Status, die Zahl der Zustellversuche und den Zeitpunkt der letzten
@@ -295,7 +296,7 @@ Stellen:
   Instanz ist für die andere unlesbar.
 
 Unkritisch für mehrere Instanzen sind dagegen die Zwischenspeicher im `KeycloakAdminClient` (jede
-Instanz holt ihr eigenes Token) und `KeycloakAccountSyncListener`: Er entfernt nur noch gelöschte
+Instanz holt ihr eigenes Token) und `KeycloakAccountRemovalListener`: Er entfernt nur noch gelöschte
 Konten aus Keycloak, und das darf auch doppelt geschehen.
 
 Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst mit der zweiten Instanz, als

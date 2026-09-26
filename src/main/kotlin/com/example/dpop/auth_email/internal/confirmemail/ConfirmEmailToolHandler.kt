@@ -25,8 +25,7 @@ import java.util.UUID
  * EMAIL anchor, referenced as [EMAIL_ANCHOR_ENROLLMENT], the first anchor-role application of the
  * claims model (docs/archiv/claims-modell-und-vertrauensanker.md). It is therefore asserted as a
  * typed EMAIL claim on `Completed.Attested`, which `JourneyActionExecutor.performAdoptAttestation`
- * records via `AccountService.recordClaims` - consolidating the anchor and firing AccountChanged,
- * but creating no method instance and no device binding (docs/03-tool-architektur.md "ATTEST").
+ * records via `AccountService.recordClaims` - consolidating the anchor, but creating no method instance and no device binding (docs/03-tool-architektur.md "ATTEST").
  * This is what lets REGISTER "Enrollment zuerst" (docs/04-orchestrierung.md) create the account
  * lazily, on this very first step, instead of needing one to already exist beforehand - this was
  * the ONE handler in the whole catalog that needed an account mid-PATCH; every other one already

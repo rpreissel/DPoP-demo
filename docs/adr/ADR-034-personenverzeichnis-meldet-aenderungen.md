@@ -1,10 +1,16 @@
-# ADR-34: Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event bis Keycloak
+# ADR-34: Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event ans Konto
+
+> **Nachtrag 2026-09-26 (zweite Bewertung, A-1):** Der Weg „per Event bis Keycloak“ endet seit
+> [ADR-38](ADR-038-keycloak-liest-konten.md) am Konto. Keycloak hält keine Kopie der Konten mehr und
+> liest die Werte bei Bedarf selbst beim Orchestrator nach; eine Änderung im Verzeichnis ist dort
+> spätestens nach einer Minute sichtbar. Punkt 6 (Abgleich nur, wenn Gespiegeltes betroffen ist) ist
+> damit entfallen. Titel und Text unten sind darauf angepasst.
 
 **Status**: umgesetzt.
 
 **Entscheidung**: Das simulierte Fremdsystem heißt **Personenverzeichnis** (Modul
-`ext_personenverzeichnis`). Es kennt drei Kennungen je Person und meldet Änderungen per Event bis zu
-Keycloak. Die Kennungen und die drei Rollen im Einzelnen beschreibt
+`ext_personenverzeichnis`). Es kennt drei Kennungen je Person und meldet Änderungen per Event an das
+Konto. Die Kennungen und die drei Rollen im Einzelnen beschreibt
 [02-domaenenmodell.md](../02-domaenenmodell.md) Abschnitt 6. Entschieden ist hier:
 
 1. **Die Partnernummer ist der Schlüssel jeder Person** (`P` und neun Ziffern, vom Verzeichnis
@@ -27,14 +33,15 @@ Keycloak. Die Kennungen und die drei Rollen im Einzelnen beschreibt
    kommt, falls es eine KVNR gibt, mit der nächsten Änderung aus dem Verzeichnis.
 5. **Änderungen gehen per Event an das Konto.** Ändert das Verzeichnis eine Person, veröffentlicht es
    `tool_api.PersonChanged(personId, changed, kvnr, versnr)`. Das Modul `account` übernimmt die
-   Änderung und meldet `AccountChanged(accountId, changed)`. Alles läuft über die Event Publication
-   Registry ([ADR-29](ADR-029-event-publication-registry-statt-eigener-outbox.md)): Die Ereignisse
+   Änderung (`PersonChangeListener`). Das frühere Folgeereignis `AccountChanged` ist seit
+   2026-09-26 entfallen, weil es keinen Abnehmer mehr hatte (Punkt 6). Alles läuft über die Event
+   Publication Registry ([ADR-29](ADR-029-event-publication-registry-statt-eigener-outbox.md)): Die Ereignisse
    werden gespeichert und bei einem Fehler erneut zugestellt.
-6. **Keycloak nur, wenn es Keycloak betrifft.** `AccountChanged.changed` nennt die Arten der geänderten
-   Attribute, wenn der Auslöser sie kennt; `null` heißt „alles neu lesen“. Der Abgleich überspringt
-   eine Änderung, die nichts Gespiegeltes betrifft. Für ein Konto, das einer Person zugeordnet ist,
-   spiegelt er nur die Werte des Verzeichnisses; ein dort geleertes Feld bleibt so leer, statt aus
-   alten Claims wieder aufzutauchen.
+6. **Keycloak liest selbst** (seit [ADR-38](ADR-038-keycloak-liest-konten.md)). Bis dahin übertrug
+   ein Abgleich die Änderung nach Keycloak, aber nur, wenn sie Werte betraf, die Keycloak als Kopie
+   hielt. Heute liest Keycloak das Konto bei Bedarf nach. Für ein Konto, das einer Person zugeordnet
+   ist, zeigt es nur die Werte des Verzeichnisses; ein dort geleertes Feld bleibt so leer, statt aus
+   alten Claims wieder aufzutauchen ([07-betrieb.md](../07-betrieb.md) Abschnitt 3a).
 
 Name, Vorname, Geburtsdatum und Adresse werden weiter **bei jeder Abfrage** aus dem Verzeichnis gelesen
 (`PersonDirectory`). Das Konto speichert davon keinen aktuellen Wert; eine Änderung braucht dort also

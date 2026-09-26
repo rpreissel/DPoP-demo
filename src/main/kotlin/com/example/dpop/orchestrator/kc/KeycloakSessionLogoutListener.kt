@@ -13,16 +13,16 @@ import org.springframework.transaction.event.TransactionalEventListener
  *
  * An event rather than a direct call: the logout transition runs inside `JourneyService`'s
  * transaction, and calling the Admin API from there held that transaction open across a network
- * round trip - exactly what [KeycloakAccountSyncListener] states as the rule and does not do.
+ * round trip - which no Keycloak call of the orchestrator does (OrchestratorArchitectureTest).
  * [TransactionPhase.AFTER_COMMIT] additionally means Keycloak is never asked to end a session for a
  * logout that then rolled back.
  *
  * Deliberately a plain `@TransactionalEventListener` and NOT an `@ApplicationModuleListener`,
- * unlike the account sync next to it - so a failure here is logged and dropped rather than kept in
- * the Event Publication Registry for retry.
+ * unlike [KeycloakAccountRemovalListener] next to it - so a failure here is logged and dropped
+ * rather than kept in the Event Publication Registry for retry.
  *
- * The difference is what a failure leaves behind. A missing Keycloak user is a lasting
- * inconsistency: the account exists, cannot log in, and nothing repairs itself. A session that was
+ * The difference is what a failure leaves behind. A deleted account's sessions and login state
+ * left in Keycloak are a lasting inconsistency that nothing repairs by itself. A session that was
  * not ended early expires on its own within minutes, so a retry would mostly be chasing a session
  * that is already gone - and a permanently failing one would sit in the registry forever.
  */

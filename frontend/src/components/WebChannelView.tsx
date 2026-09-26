@@ -211,8 +211,8 @@ export function WebChannelView({ keycloak }: { keycloak: KeycloakInfo }) {
   const refreshExpiresAt = typeof refreshExp === 'number' ? refreshExp * 1000 : undefined
   const belowLoa2 = isBelowAcr(currentAcr, 'loa2')
   // "name" is the standard OIDC claim from the "profile" scope (Keycloak's full-name mapper over
-  // firstName/lastName, set by KeycloakAccountSyncListener); the role as in the app (ADR-34), from
-  // person_id/versnr, which the account sync sets as Keycloak attributes.
+  // firstName/lastName, read through the user federation, ADR-38); the role as in the app (ADR-34),
+  // from person_id/versnr, which the federation provides as Keycloak attributes.
   const personName = typeof idClaims?.name === 'string' ? idClaims.name : undefined
   const role = idClaims ? accountRole(idClaims.person_id, idClaims.versnr) : undefined
   const claimText = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined)

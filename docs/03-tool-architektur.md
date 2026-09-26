@@ -36,8 +36,9 @@ flowchart LR
 
   NE --> O
   O --> KC
+  KC -.->|liest Konto nach| O
   O --> AC
-  AC -.->|AccountChanged| O
+  AC -.->|AccountDeleted| O
 
   UI1 --> M1
   UI2 --> M2
@@ -56,7 +57,6 @@ sequenceDiagram
   participant JS as JourneyService
   participant IS as IntentStrategy
   participant AC as account
-  participant KC as Keycloak
 
   TC->>TH: Eingabe verarbeiten (z.B. TAN prüfen)
   TH-->>TC: ToolOutcome.Completed
@@ -69,12 +69,14 @@ sequenceDiagram
   JS->>IS: transition(state, ActionCompleted, ctx) : Transition
   IS-->>JS: Transition (z.B. nächster Schritt)
   JS-->>TC: ChannelResponse (next/stepData)
-  AC--)JS: AccountChanged (nach dem Commit)
-  JS--)KC: Orchestrator gleicht Keycloak ab (KeycloakAccountSyncListener)
 ```
 
-Das Modul `account` spricht nie selbst mit Keycloak. Es meldet `AccountChanged`, und erst danach
-gleicht der Orchestrator (`KeycloakAccountSyncListener`) Keycloak ab.
+Keycloak kommt in diesem Schritt nicht vor. Es hält keine Kopie der Konten, sondern liest ein Konto
+bei Bedarf selbst beim Orchestrator nach ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)). Das Modul
+`account` spricht nie selbst mit Keycloak. Nur wenn ein Konto gelöscht wird, meldet es
+`AccountDeleted`, und nach dem Commit räumt der Orchestrator (`KeycloakAccountRemovalListener`) die
+Daten ab, die Keycloak selbst zu diesem Konto hält, etwa Sitzungen
+([07-betrieb.md](07-betrieb.md) Abschnitt 3a).
 
 Was der `ToolHandler` intern tut, um zu diesem `ToolOutcome` zu kommen, gehört bewusst nicht zu
 diesem Bild. Er arbeitet mit eigener Fachlogik auf einem eigenen Schema (`ToolDB`), auf das nichts
