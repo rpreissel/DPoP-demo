@@ -36,6 +36,7 @@ object IdentFscDescriptor : ToolDescriptor {
         ClaimDeclaration(AttributeType.KVNR, ClaimSource.PERSON_DIRECTORY),
         ClaimDeclaration(AttributeType.VERSNR, ClaimSource.PERSON_DIRECTORY),
         ClaimDeclaration(AttributeType.NAME, ClaimSource.PERSON_DIRECTORY),
-        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.PERSON_DIRECTORY)
+        ClaimDeclaration(AttributeType.VORNAME, ClaimSource.PERSON_DIRECTORY),
+        ClaimDeclaration(AttributeType.GEBURTSDATUM, ClaimSource.PERSON_DIRECTORY)
     )
 }

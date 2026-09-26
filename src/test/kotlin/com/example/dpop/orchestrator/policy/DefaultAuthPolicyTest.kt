@@ -1,5 +1,7 @@
 package com.example.dpop.orchestrator.policy
 
+import com.example.dpop.tool_spi.ClaimSource
+import com.example.dpop.tool_spi.ClaimDeclaration
 import com.example.dpop.account.AccountProfile
 import com.example.dpop.account.AuthMethodView
 import com.example.dpop.orchestrator.tool.ToolHandlerRegistry
@@ -34,6 +36,11 @@ class DefaultAuthPolicyTest : BehaviorSpec({
             override val method = method
             override val factorTypes = factorTypes
             override val maxAcr = maxAcr
+            // What the catalog demands of every identification (ToolHandlerRegistry, ADR-39).
+            override val claims =
+                if (role == MethodRole.IDENTIFICATION) setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+                    .map { ClaimDeclaration(it, ClaimSource.of(toolId)) }.toSet()
+                else emptySet()
         }
 
     val identFsc = descriptor("ident-fsc", MethodRole.IDENTIFICATION, "fsc", setOf(FactorType.POSSESSION), AcrLevel.LOA2)

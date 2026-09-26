@@ -92,14 +92,6 @@ class IdentityMatchingService(
         }
     }
 
-    /** Uppercase, German umlauts spelled out, other diacritics dropped - how a passport chip writes a name. */
-    private fun passportForm(value: String): String =
-        java.text.Normalizer.normalize(
-            value.trim().uppercase()
-                .replace("Ä", "AE").replace("Ö", "OE").replace("Ü", "UE").replace("ß", "SS").replace("ẞ", "SS"),
-            java.text.Normalizer.Form.NFD
-        ).replace("\\p{M}".toRegex(), "").replace("[^A-Z0-9-]".toRegex(), "")
-
     /**
      * Anchor values - unique, error-free lookups via `account.anchor`'s UNIQUE constraint,
      * PERSON_ID included. KVNR instead resolves live to the external person ID and then to that

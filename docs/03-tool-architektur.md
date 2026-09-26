@@ -385,6 +385,11 @@ einsteht) und `AttributeType.authority` (wem der aktuelle Wert gehört):
 Über die KVNR lässt sich keine Kontrolle nachweisen, nur die Zugehörigkeit zur Person. Sie gehört
 also zu `IDENT`; ein `attest-kvnr` gibt es nicht.
 
+**Jedes Identifizierungsverfahren liefert Name, Vorname und Geburtsdatum.** Danach wird eine Person
+im Änderungsprotokoll wiedergefunden, auch nach der Löschung ihres Kontos (ADR-39).
+`ToolHandlerRegistry` verweigert den Start, wenn ein Verfahren der Rolle `IDENTIFICATION` eines der
+drei nicht deklariert.
+
 Ein dritter Fall fehlte in dieser Regel und wurde mit ADR-18 ergänzt: **Steht das Verfahren selbst
 (`ClaimSource.of(toolId)`) für einen Wert ein, der dem Personenverzeichnis gehört
 (`AttributeAuthority.PersonDirectory`), ist es `IDENT`.** So ist es bei `ident-eid`, das Name,

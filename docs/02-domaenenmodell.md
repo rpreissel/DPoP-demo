@@ -393,6 +393,8 @@ erDiagram
     varchar subject "Verfahren oder Attributtyp"
     varchar acr
     json details "type, version und je Ereignis eigene Schlüssel"
+    varchar lookup_key "HMAC über Name, Vorname, Geburtsdatum"
+    varchar person_id "Registernummer, falls vorhanden"
   }
   auth_sms.enrollment {
     bigint id PK

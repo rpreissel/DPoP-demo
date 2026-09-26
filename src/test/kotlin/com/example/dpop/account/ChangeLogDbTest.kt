@@ -3,13 +3,19 @@ package com.example.dpop.account
 import com.example.dpop.account.internal.ChangeLogEntry
 import com.example.dpop.account.internal.ChangeLogRepository
 import com.example.dpop.account.internal.ChangeLogRetention
+import com.example.dpop.tool_spi.AcrLevel
+import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.Claim
+import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.ActiveProfiles
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
@@ -21,6 +27,7 @@ import java.time.ZoneOffset
 class ChangeLogDbTest(
     private val accountService: AccountService,
     private val changeLogRetention: ChangeLogRetention,
+    private val changeLogSearch: ChangeLogSearch,
     private val changeLogRepository: ChangeLogRepository,
     private val jdbcTemplate: JdbcTemplate,
 ) : BehaviorSpec({
@@ -85,6 +92,47 @@ class ChangeLogDbTest(
             accountService.addIdentification(accountId, "ident-fsc", "loa2", null)
             changeLogRetention.purge(Instant.now().atZone(ZoneOffset.UTC).plusYears(50).toInstant()) shouldBe 0
             events(accountId).size shouldBe 1
+        }
+    }
+
+    given("a person identified once, whose account was deleted since") {
+        fun identifiedAndDeleted(source: ClaimSource, personId: String?): Long {
+            val accountId = accountService.createUnidentifiedAccount().accountId
+            accountService.recordClaims(
+                accountId,
+                listOfNotNull(
+                    Claim(AttributeType.NAME, "Müller", source, AcrLevel.LOA2),
+                    Claim(AttributeType.VORNAME, "Max", source, AcrLevel.LOA2),
+                    Claim(AttributeType.GEBURTSDATUM, "1985-06-15", source, AcrLevel.LOA2),
+                    personId?.let { Claim(AttributeType.PERSON_ID, it, ClaimSource.PERSON_DIRECTORY, AcrLevel.LOA2) },
+                ),
+                provenAcr = AcrLevel.LOA2
+            )
+            accountService.addIdentification(accountId, "ident-eid", "loa3", role = "IDENTIFICATION", report = mapOf("provider" to "eid-mock-service"))
+            accountService.deleteAccount(accountId)
+            return accountId
+        }
+
+        then("name, first name and date of birth alone find it - in any spelling a passport would agree with, without a person id") {
+            val accountId = identifiedAndDeleted(ClaimSource.of(com.example.dpop.tool_spi.ToolId("ident-eid")), personId = null)
+
+            val found = changeLogSearch.byPerson(" mueller ", "MAX", LocalDate.parse("1985-06-15"))
+            found.map { it.accountId }.distinct() shouldBe listOf(accountId)
+            found.map { it.changeType } shouldBe listOf("IDENTIFIED", "ACCOUNT_DELETED")
+            changeLogSearch.byPerson("Müller", "Max", LocalDate.parse("1985-06-16")).shouldBeEmpty()
+            // The key is a keyed hash - no name or date is readable in the row itself.
+            jdbcTemplate.queryForObject("SELECT lookup_key FROM account.change_log WHERE account_id = ? AND change_type = 'IDENTIFIED'",
+                String::class.java, accountId)!!.length shouldBe 64
+        }
+
+        then("the register's person id finds it too, when there was one") {
+            val accountId = identifiedAndDeleted(ClaimSource.PERSON_DIRECTORY, personId = "P000000042")
+            changeLogSearch.byPersonId("P000000042").map { it.accountId }.distinct() shouldBe listOf(accountId)
+        }
+
+        then("self-reported names never make a key - otherwise anyone could plant hits under someone else's name") {
+            identifiedAndDeleted(ClaimSource.SELF_REPORTED, personId = null)
+            changeLogSearch.byPerson("Müller", "Max", LocalDate.parse("1985-06-15")).shouldBeEmpty()
         }
     }
 })

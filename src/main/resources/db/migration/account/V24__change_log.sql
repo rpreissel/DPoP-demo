@@ -18,6 +18,10 @@ CREATE TABLE account.change_log (
     subject     VARCHAR(50),
     acr         VARCHAR(16),
     details     JSON,
+    -- Suchschluessel: danach wird eine Person Jahre spaeter gefunden, unter Millionen Zeilen - je eine
+    -- indizierte Spalte statt einer Suche im JSON. Nur bei IDENTIFIED gesetzt.
+    lookup_key  VARCHAR(64),
+    person_id   VARCHAR(64),
     occurred_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT ck_change_log_type CHECK (change_type IN (
         'IDENTIFIED', 'ATTRIBUTE_RETRACTED', 'METHOD_ADDED', 'METHOD_DEACTIVATED', 'ACCOUNT_DELETED', 'ACCOUNT_ABSORBED'))
@@ -25,3 +29,6 @@ CREATE TABLE account.change_log (
 CREATE INDEX ix_change_log_account ON account.change_log (account_id, occurred_at);
 -- Die Frage der Aufbewahrung: welche Konten sind seit wann geloescht?
 CREATE INDEX ix_change_log_type_time ON account.change_log (change_type, occurred_at);
+-- Die Suche nach einer Person (PersonLookupKey bzw. Registernummer), auch nach der Loeschung.
+CREATE INDEX ix_change_log_lookup_key ON account.change_log (lookup_key);
+CREATE INDEX ix_change_log_person_id ON account.change_log (person_id);

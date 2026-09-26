@@ -42,6 +42,18 @@ bestätigen** und deshalb einstellbar.
   bestimmtes Verfahren in einer bestimmten Version identifiziert hat, und ein einzelner Fall beim
   Anbieter nachprüfen. Übernimmt ein Konto ein vorläufiges (ADR-20), wandern dessen
   Identifizierungen mit, mit Herkunftsvermerk (`carriedFromAccountId`).
+- **Eine Person ist über Name, Vorname und Geburtsdatum wiederzufinden**, auch nach der Löschung:
+  Mehr kann jemand, dessen Konto übernommen und gelöscht wurde, oft nicht angeben. Jedes
+  `IDENTIFIED` trägt dafür einen Suchschlüssel (`lookup_key`): einen HMAC über die drei **geprüften**
+  Werte des Kontos, in der Schreibweise des Abgleichs (`passportForm`). Selbst angegebene Werte
+  zählen nicht, sonst ließen sich Treffer unter fremdem Namen anlegen. Dazu kommt die `person_id`
+  des Personenverzeichnisses, wo es eine gibt. Beides sind indizierte Spalten, keine Schlüssel in
+  `details`: Wonach unter Millionen Zeilen gesucht wird, ist eine Spalte. Ein einfacher Hash taugt
+  nicht, weil Name und Geburtsdatum sich mit Namenslisten durchprobieren ließen; das Geheimnis
+  (`account.change-log.lookup-secret`) muss so lange bestehen wie das Protokoll. Jedes
+  Identifizierungsverfahren muss alle drei Werte liefern – geprüft beim Start
+  (`ToolHandlerRegistry`); `ident-fsc` meldet dafür jetzt auch das Geburtsdatum. Der Schlüssel ist
+  ein pseudonymes Personendatum und stützt sich auf dieselbe Begründung wie das Protokoll.
 - **Keine Dokument- oder Ausweisnummer**, weder im Protokoll noch angefordert: Sie darf nicht zum
   Verknüpfen verwendet werden (§ 20 PAuswG), und ein echter eID-Dienst gibt sie gar nicht heraus.
   Übernommen werden nur die genannten Referenzfelder, per Namen – `ChangeLog.identified` filtert den

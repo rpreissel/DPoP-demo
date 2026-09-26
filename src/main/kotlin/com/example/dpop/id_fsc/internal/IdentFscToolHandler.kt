@@ -124,6 +124,9 @@ class IdentFscToolHandler(
                 state.kvnr?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
                 Claim(AttributeType.NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 Claim(AttributeType.VORNAME, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                // Checked against the register like the name (matchesPersonalien) - and one of the
+                // three things that find this identification in the change log (ADR-39).
+                Claim(AttributeType.GEBURTSDATUM, checkNotNull(state.geburtsdatum).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
                 personDirectory.versnrOf(personId)?.let { Claim(AttributeType.VERSNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),

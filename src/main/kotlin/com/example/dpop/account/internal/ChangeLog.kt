@@ -46,6 +46,9 @@ enum class ChangeType(val detailsVersion: Int) {
  * event is decided in one place, [ChangeLog] - never by a caller. [details] always names its own
  * `type` and `version` ([ChangeType.detailsVersion]), so a row explains itself without the code
  * that wrote it.
+ *
+ * The exception are search keys: [lookupKey] and [personId] are what a person is found by, years
+ * later and among millions of rows - an indexed column each, never a scan through [details].
  */
 @Entity
 @Table(schema = "account", name = "change_log")
@@ -68,6 +71,14 @@ class ChangeLogEntry(
     @Column(name = "details", updatable = false)
     val details: Map<String, Any?>? = null,
 
+    /** [PersonLookupKey] of the verified name, first name and date of birth - set on `IDENTIFIED` only. */
+    @Column(name = "lookup_key", updatable = false, length = 64)
+    val lookupKey: String? = null,
+
+    /** The register's person id, when the account had one - set on `IDENTIFIED` only. */
+    @Column(name = "person_id", updatable = false, length = 64)
+    val personId: String? = null,
+
     @Column(name = "occurred_at", nullable = false, updatable = false)
     val occurredAt: Instant = Instant.now(),
 ) {
@@ -81,6 +92,14 @@ interface ChangeLogRepository : JpaRepository<ChangeLogEntry, Long> {
     fun findByAccountIdOrderByOccurredAt(accountId: Long): List<ChangeLogEntry>
 
     fun findByAccountIdAndChangeTypeOrderByOccurredAt(accountId: Long, changeType: ChangeType): List<ChangeLogEntry>
+
+    @Query("select distinct e.accountId from ChangeLogEntry e where e.lookupKey = :lookupKey")
+    fun accountsWithLookupKey(lookupKey: String): List<Long>
+
+    @Query("select distinct e.accountId from ChangeLogEntry e where e.personId = :personId")
+    fun accountsWithPersonId(personId: String): List<Long>
+
+    fun findByAccountIdInOrderByAccountIdAscOccurredAtAsc(accountIds: Collection<Long>): List<ChangeLogEntry>
 
     @Query("select e.accountId from ChangeLogEntry e where e.changeType = com.example.dpop.account.internal.ChangeType.ACCOUNT_DELETED and e.occurredAt < :cutoff")
     fun accountsDeletedBefore(cutoff: Instant, pageable: Pageable): List<Long>
@@ -114,10 +133,14 @@ class ChangeLog(private val repository: ChangeLogRepository) {
      * dropped here, whatever a tool puts into its report.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    fun identified(accountId: Long, method: String, acr: String?, role: String?, report: Map<String, Any?>) =
+    fun identified(
+        accountId: Long, method: String, acr: String?, role: String?, report: Map<String, Any?>,
+        lookupKey: String?, personId: String?,
+    ) =
         record(
             accountId, ChangeType.IDENTIFIED, subject = method, acr = acr,
             details = mapOf("role" to role) + IDENTIFICATION_REFERENCE_KEYS.associateWith { report[it]?.toString() },
+            lookupKey = lookupKey, personId = personId,
         )
 
     /** A method was added: under which proofs of the session (amr) and on which channel. */
@@ -153,6 +176,7 @@ class ChangeLog(private val repository: ChangeLogRepository) {
                 ChangeLogEntry(
                     accountId = into, changeType = ChangeType.IDENTIFIED, subject = e.subject, acr = e.acr,
                     details = e.details.orEmpty() + mapOf("carriedFromAccountId" to from), occurredAt = e.occurredAt,
+                    lookupKey = e.lookupKey, personId = e.personId,
                 )
             )
         }
@@ -162,12 +186,13 @@ class ChangeLog(private val repository: ChangeLogRepository) {
     private fun record(
         accountId: Long, type: ChangeType, subject: String? = null, acr: String? = null,
         at: Instant = Instant.now(), details: Map<String, Any?> = emptyMap(),
+        lookupKey: String? = null, personId: String? = null,
     ) {
         repository.save(
             ChangeLogEntry(
                 accountId = accountId, changeType = type, subject = subject, acr = acr,
                 details = mapOf("type" to type.name, "version" to type.detailsVersion) + details.filterValues { it != null },
-                occurredAt = at,
+                occurredAt = at, lookupKey = lookupKey, personId = personId,
             )
         )
     }

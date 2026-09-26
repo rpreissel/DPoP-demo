@@ -5,6 +5,7 @@ import com.example.dpop.orchestrator.kernel.OrchestratorException
 import com.example.dpop.tool_spi.ToolDescriptor
 import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.AttributeType
+import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolId
 import org.springframework.stereotype.Component
 
@@ -46,10 +47,25 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
         check(unvouchedKvnr.isEmpty()) {
             "Only the Personenverzeichnis may vouch for a KVNR, but ${unvouchedKvnr.map { it.toolId }} declare one from elsewhere"
         }
+        // Every identification must be findable again by what a person can still tell us years
+        // later - name, first name, date of birth - even after the account is deleted (the change
+        // log's search key, ADR-39). A procedure not delivering all three would leave its accounts
+        // unfindable; ident-fsc once did, for the date of birth.
+        val unfindable = descriptorsByToolId.values.filter { descriptor ->
+            descriptor.role == MethodRole.IDENTIFICATION &&
+                !descriptor.claims.map { it.attributeType }.containsAll(FINDABLE_BY)
+        }
+        check(unfindable.isEmpty()) {
+            "Every identification procedure must declare $FINDABLE_BY, but ${unfindable.map { it.toolId }} do not"
+        }
     }
 
     fun descriptorOf(toolId: ToolId): ToolDescriptor =
         descriptorsByToolId[toolId] ?: throw OrchestratorException.notFound(Text("Unknown tool"), "toolId=${toolId}")
 
     fun descriptors(): List<ToolDescriptor> = descriptorsByToolId.values.toList()
+
+    private companion object {
+        val FINDABLE_BY = setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
+    }
 }

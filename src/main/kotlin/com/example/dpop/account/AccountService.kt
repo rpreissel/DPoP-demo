@@ -14,6 +14,7 @@ import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
 import com.example.dpop.account.internal.MethodDeactivationReason
 import com.example.dpop.account.internal.ChangeLog
+import com.example.dpop.account.internal.PersonLookupKey
 import com.example.dpop.account.internal.strongestEstablishedValues
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
@@ -31,6 +32,7 @@ import com.example.dpop.tool_spi.ClaimSource
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.validateValue
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -73,6 +75,7 @@ class AccountService(
     private val accountRetractionRepository: AccountRetractionRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val changeLog: ChangeLog,
+    private val personLookupKey: PersonLookupKey,
 ) : AccountDirectory {
 
     private val log = LoggerFactory.getLogger(AccountService::class.java)
@@ -521,10 +524,22 @@ class AccountService(
      * The audit record of one identification run (ADR-39): which procedure, at which level, in which
      * role (identifying or only correlating, ADR-18), and where to check it - never what it saw.
      * [report] is the tool's own, unfiltered; [ChangeLog.identified] keeps only its references.
+     *
+     * Also stamps what finds the person again, even after deletion (ADR-39): the search key over
+     * the account's VERIFIED name, first name and date of birth - self-reported values never count,
+     * or anyone could plant hits under someone else's name - and the register's person id if any.
+     * Called after the run's claims are recorded, so they are part of it.
      */
     @Transactional
     fun addIdentification(accountId: Long, method: String, loa: String?, role: String? = null, report: Map<String, Any?> = emptyMap()) {
-        changeLog.identified(accountId, method, loa, role, report)
+        val verified = accountClaimRepository.findEstablished(accountId)
+            .filter { ClaimSource(it.claimSource.orEmpty()).trustLevel.rank >= TrustLevel.PROVEN.rank }
+            .strongestEstablishedValues(PERSON_LOOKUP_ATTRIBUTES)
+        val lookupKey = personLookupKey.of(
+            verified[AttributeType.NAME], verified[AttributeType.VORNAME], verified[AttributeType.GEBURTSDATUM]?.let(LocalDate::parse)
+        )
+        val personId = accountAnchorRepository.findByAccountIdAndAttributeType(accountId, AttributeType.PERSON_ID)?.value
+        changeLog.identified(accountId, method, loa, role, report, lookupKey, personId)
     }
 
     /**
@@ -847,6 +862,9 @@ class AccountService(
     private companion object {
         /** What the Personenverzeichnis' own word counts as for [applyDirectoryChange] - the anchor floor of both identifiers. */
         val DIRECTORY_ACR = AcrLevel.LOA2
+
+        /** What a person can still tell us years later - the input of [PersonLookupKey]. */
+        val PERSON_LOOKUP_ATTRIBUTES = setOf(AttributeType.NAME, AttributeType.VORNAME, AttributeType.GEBURTSDATUM)
     }
 }
 
