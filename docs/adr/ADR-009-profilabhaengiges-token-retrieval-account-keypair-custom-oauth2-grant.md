@@ -2,6 +2,12 @@
 
 **Status**: umgesetzt (DPoP-demo-xso).
 
+> **Nachtrag 2026-09-26 (zweite Bewertung, F-1):** Den Grant darf nur ein vertraulicher Client mit dem
+> Attribut `dpop-demo.account-token-grant` aufrufen; Keycloak-Migration V4 setzt es am Client
+> `orchestrator-app-token` (`AccountTokenGrantClients`). Vorher prüfte der Grant den Aufrufer nicht,
+> und die Konto-Assertion war das einzige Tor. Ob das Schlüsselpaar je Konto bleibt, entscheidet
+> die zweite Bewertung unter F-6.
+
 **Entscheidung**: Braucht der App-Kanal ein echtes AccessToken von Keycloak, stellt Keycloak es über
 einen **eigenen OAuth2-Grant** aus (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in
 `keycloak-extension`). Der Orchestrator weist sich dabei nicht mit einem Admin-Secret aus, sondern

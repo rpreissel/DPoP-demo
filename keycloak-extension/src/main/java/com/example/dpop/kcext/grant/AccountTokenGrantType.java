@@ -37,7 +37,8 @@ import java.util.stream.Stream;
  * Custom OAuth 2.0 grant (DPoP-demo-xso) that mints a real, Keycloak-signed access token for one
  * account, without a shared admin secret standing in for that account. The orchestrator already
  * authenticates as its own confidential client (Keycloak's normal client-auth step, run before
- * grant dispatch, same as every built-in grant) - this grant additionally requires a per-account
+ * grant dispatch, same as every built-in grant), and only a confidential client carrying
+ * {@link AccountTokenGrantClients#ALLOWED_CLIENT_ATTRIBUTE} may call this grant at all - this grant additionally requires a per-account
  * signed assertion, proving the caller also holds THAT account's own private key
  * (AccountKeypairService on the orchestrator side). Compromising the shared client secret alone is
  * therefore not enough to mint a token for an arbitrary account; compromising one account's key
@@ -63,6 +64,13 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
     @Override
     public Response process(Context context) {
         setContext(context);
+
+        if (!AccountTokenGrantClients.isAllowed(client)) {
+            event.detail(Details.REASON, "Client not allowed to use " + GRANT_TYPE);
+            event.error(Errors.UNAUTHORIZED_CLIENT);
+            throw new CorsErrorResponseException(cors, OAuthErrorException.UNAUTHORIZED_CLIENT,
+                    "Client not allowed to use this grant type", Response.Status.BAD_REQUEST);
+        }
 
         String accountId = formParams.getFirst(ACCOUNT_ID_PARAM);
         String assertion = formParams.getFirst(ASSERTION_PARAM);

@@ -283,7 +283,10 @@ nach Profil:
      Zwischenspeicher verworfen): Eine frische, signierte Assertion geht an den eigenen
      OAuth2-Grant (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in
      `keycloak-extension`, ADR-9). Signiert wird sie mit dem privaten Schlüssel aus
-     `orchestrator.keycloak_keypair`; sie trägt `acr` und `amr` selbst als Claims.
+     `orchestrator.keycloak_keypair`; sie trägt `acr` und `amr` selbst als Claims. Aufrufen darf den
+     Grant nur der vertrauliche Client des Orchestrators (`orchestrator-app-token`, Client-Attribut
+     `dpop-demo.account-token-grant`); jeder andere Client, auch der öffentliche Browser-Client, wird
+     mit `unauthorized_client` abgewiesen.
 
   Alle Aufrufe für dasselbe Konto teilen sich dieselbe Keycloak-Sitzung.
 

@@ -211,7 +211,7 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 **Phase H – Was ein Sicherheitsexperte zuerst findet (vor jedem weiteren Anspruch)**
 
-1. F-1 Grant auf den Orchestrator-Client beschränken; Test.
+1. ~~F-1 Grant auf den Orchestrator-Client beschränken; Test.~~ – erledigt 2026-09-26 (`AccountTokenGrantClients`, Keycloak-Migration V4).
 2. F-2 Namensvetter: Nachtrag zu ADR-18 entscheiden, dann Code (zweiter Akt bei Auflösung auf ein
    bestehendes Konto).
 3. F-3 `ProductionModeCheck`: Start mit Demo-Voreinstellungen bei `demo.mode=false` verweigern; darin
