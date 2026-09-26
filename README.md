@@ -52,8 +52,8 @@ Zwei weitere Varianten, je nachdem, ob überhaupt ein echtes Keycloak gebraucht 
   `https://localhost:8543`, nicht auf das Compose-interne `https://keycloak:8443`. Ein einfaches
   `bootRun` bliebe im Standardprofil und würde das Keycloak aus Compose gar nicht ansprechen.
 - **Ohne Keycloak**: nur `./gradlew bootRun` (Standardprofil). Podman und Compose sind dann nicht
-  nötig. Es gibt dafür nur den App-Kanal, das Personenverzeichnis, die Nect-Simulation und die
-  Admin-Seite; der Web-Kanal ist abgeschaltet.
+  nötig. Es gibt dafür nur den App-Kanal und – nur im Demomodus (`DEMO_MODE`, Standard `true`) –
+  das Personenverzeichnis, die Nect-Simulation und die Admin-Seite; der Web-Kanal ist abgeschaltet.
 
 ## Basis-Images von außen einstellen
 

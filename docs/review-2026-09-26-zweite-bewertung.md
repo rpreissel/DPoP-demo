@@ -1,6 +1,6 @@
 # Zweite Bewertung (2026-09-26): Stand nach Phase A–F, neue Befunde, neue Reihenfolge
 
-Grundlage: die erste Bewertung ([review-2026-09-bewertung-und-massnahmen.md](review-2026-09-bewertung-und-massnahmen.md),
+Grundlage: die erste Bewertung ([review-2026-09-bewertung-und-massnahmen.md](archiv/review-2026-09-bewertung-und-massnahmen.md),
 Phasen A–F umgesetzt), vier getrennte Prüfungen des heutigen Stands (Sicherheit, Architektur und
 Vereinfachung, Tests/Betrieb/Skalierung, Doku-Konsistenz) und eigene Nachprüfung jedes Befunds, der
 hier als „hoch“ steht. Maßstab ist [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md): Der Kern soll
@@ -259,8 +259,12 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
     entfernt; `AccountChanged` entfernt (kein Abnehmer seit ADR-38, Entscheidung); `orchestrator-admin`
     ohne `view-realm` (direkt in `V1__realm.kc.kts`, samt dessen veralteten Kommentaren); 03, 04, 05,
     07, 08, 10, ADR-8/9/29/34/38 und die Kommentare auf ADR-38 gezogen.
-12. D-1 veraltete Namen, D-2 fehlende Beschreibungen, A-5 ADR-Widersprüche (ADR-31-Titel, ADR-5, ADR-20).
-13. D-3 Review-Dokumente archivieren, README kürzen, Lesepfad einmal.
+12. ~~D-1 veraltete Namen, D-2 fehlende Beschreibungen, A-5 ADR-Widersprüche~~ – erledigt 2026-09-26
+    (Namen nach dem Code, sechs fehlende Beschreibungen ergänzt, ADR-5/19/20/31/34 bereinigt).
+13. ~~D-3 Review-Dokumente archivieren, README kürzen, Lesepfad einmal.~~ – erledigt 2026-09-26: beide
+    ersten Reviews liegen in `docs/archiv/`, `docs/README.md` ohne Umsetzungsstand und Ich-Form-Hinweis,
+    Lesepfad nur noch in `00-agent-quickstart.md` (AGENTS.md verweist), README-Satz auf den Demomodus
+    eingeschränkt; die „früher war … jetzt“-Prosa in 04 und 05 bleibt vorerst.
 
 **Phase K – Vereinfachung**
 

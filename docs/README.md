@@ -38,12 +38,10 @@ fachlich brauchen.
 | [11-beispiel-story.md](11-beispiel-story.md) | Eine Person durchläuft Registrierung, Login, Step-up, Geräte-Verfahren, QR-Login im Browser und Löschung | Konzepte an einem konkreten Beispiel statt abstrakt |
 | [12-entscheidungen.md](12-entscheidungen.md) | **Index** der Architekturentscheidungen | Review, „Warum ist das so?" |
 | [adr/](adr/) | Eine Datei je Entscheidung, samt erwogener Alternative und Kosten | Genau eine Entscheidung nachlesen |
-| [review-2026-09-sicherheit-und-konzept.md](review-2026-09-sicherheit-und-konzept.md) | Offenes Review: Sicherheitsbefunde und konzeptionelle Schwächen, nach Schwere sortiert | Härtung planen, Befunde abarbeiten |
 | [invarianten.md](invarianten.md) | Die Regeln, auf die sich der Kern verlässt, und womit jede gesichert ist (Typ, Constraint, Test) – Lücken sichtbar | Bevor man eine Invariante anfasst oder eine neue einführt |
 | [port-vertraege.md](port-vertraege.md) | Was ein echtes Fremdsystem (Personenverzeichnis, KOBIL, Nect, eID-Server, Zustellung) zusagen muss, damit der Kern ihm vertrauen darf | Bevor ein simuliertes System durch ein echtes ersetzt wird |
-| [review-2026-09-bewertung-und-massnahmen.md](review-2026-09-bewertung-und-massnahmen.md) | Einschätzung des Ganzen, strukturelle Ursachen, Gegenmaßnahmen und globale Reihenfolge | Entscheiden, was zuerst passiert |
 | [review-2026-09-26-zweite-bewertung.md](review-2026-09-26-zweite-bewertung.md) | Stand nach Phase A–F: Urteil, neue Befunde (Sicherheit, Betrieb, Architektur, Doku), Reihenfolge Phasen H–L | Entscheiden, was als Nächstes passiert |
-| [archiv/](archiv/) | Abgeschlossene Reviews – historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
+| [archiv/](archiv/) | Abgeschlossene Reviews, darunter die beiden ersten vom September 2026 (abgelöst durch die zweite Bewertung) – historisch, nicht maßgeblich | „Wie wurde das damals entschieden?" |
 | [ideen/](ideen/) | Noch nicht entschiedene Überlegungen samt Herleitung | Bevor man ein größeres Redesign neu durchdenkt |
 | [glossar/](glossar/) | Externes Begriffsglossar und sein Abgleich mit diesem Projekt | Prüfen, ob das Domänenmodell fremde Begriffe abbilden kann |
 
@@ -123,40 +121,3 @@ Diese Dokumentation beschreibt das **Zielbild**. Backend und Frontend wurden vol
 umgebaut, einschließlich der Keycloak-Anbindung
 ([12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Bekannte Betriebsrisiken stehen
 in [07-betrieb.md](07-betrieb.md).
-
----
-
-## Umsetzungsstand
-
-1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (mit einem `JourneyState` je Intent),
-   `AuthEvidence`, `AuthContext`, `ToolSession`, `DeviceAccountLink`; dazu das Änderungsprotokoll je Konto (`account.change_log`).
-2. **Tool-Architektur** ✅: `ToolDescriptor` und `ToolOutcome` (Modul `tool_spi`); die Handler
-   liegen innerhalb ihrer Module. Jedes Tool hat einen eigenen Controller – `ident-fsc`,
-   `ident-eid`, `ident-nect`, `ident-kvnr`, `confirm-email`,
-   `enroll-sms`/`auth-sms`/`auth-sms-lookup`, `enroll-password`/`auth-password`/`auth-password-lookup`,
-   `enroll-email`/`auth-email`/`auth-email-lookup`, `enroll-device`/`auth-device`,
-   `enroll-kobil`/`auth-kobil`, `enroll-qr`/`auth-qr`/`auth-qr-lookup`, `confirm-qr-login`
-   ([03-tool-architektur.md](03-tool-architektur.md) Abschnitt 1).
-3. **App-Zugang (API)** ✅: `/orchestrator/api/v1/app/...`, einschließlich Abbruch der Journey
-   (`DELETE /channels/{channelSessionId}/journey`) sowie Zurück und Verfahrenswechsel
-   (`DELETE /tools/{toolSessionId}/{toolId}`).
-4. **Keycloak-Zugang** ✅: `/orchestrator/api/v1/kc/...` (`KcChannelController`), einschließlich
-   Step-up und der Anbindung an Keycloaks eigene Credentials von Server zu Server. Der Abgleich der
-   Konten (`KeycloakSyncController`) ist ein Betriebsendpunkt unter
-   `/orchestrator/admin/keycloak/sync` ([05-api.md](05-api.md) Abschnitt 3,
-   [12-entscheidungen.md](12-entscheidungen.md) ADR-7/ADR-8/ADR-9). Ob Keycloak die Anmeldeseiten mit
-   FreeMarker oder mit Keycloakify zeigt, schaltet der Betriebsendpunkt
-   `/orchestrator/admin/login-theme` zur Laufzeit um
-   ([ideen/keycloakify-statt-freemarker.md](ideen/keycloakify-statt-freemarker.md)).
-5. **`AuthPolicy`** ✅: zentrale Prüfung anhand von `currentAcr` und `currentAmr`, samt der
-   Schleife über mehrere Faktoren. Welche `amr`-Kombination welchen `acr`-Wert ergibt, ist bewusst
-   nur vorläufig festgelegt; eine fachlich oder regulatorisch verbindliche Festlegung gehört nicht
-   zu diesem Umbau.
-
----
-
-## Hinweis zu künftigen Änderungen
-
-Wünschst du später Änderungen an dieser Dokumentation, weise ich dich darauf hin, wenn eine neue
-Anforderung oder Formulierung früheren Aussagen widersprechen könnte. Ich zeige dir die
-betroffene Stelle und den Widerspruch und frage dich, wie damit umgegangen werden soll.

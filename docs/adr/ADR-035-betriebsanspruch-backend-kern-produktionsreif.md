@@ -1,7 +1,7 @@
 # ADR-35: Betriebsanspruch – der Backend-Kern ist produktionsreif, Rand und Umgebung folgen später
 
 **Status**: entschieden (2026-09-25). Umsetzung über den Fahrplan in
-[review-2026-09-bewertung-und-massnahmen.md](../review-2026-09-bewertung-und-massnahmen.md).
+[review-2026-09-bewertung-und-massnahmen.md](../archiv/review-2026-09-bewertung-und-massnahmen.md).
 
 **Entscheidung**: Das Projekt dient heute dazu, kritische Kolleginnen und Kollegen von der Richtung zu
 überzeugen. Überzeugen soll es durch einen **produktionsreifen Backend-Kern**, nicht durch eine

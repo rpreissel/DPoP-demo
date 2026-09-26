@@ -1,7 +1,7 @@
 # Review 2026-09: Sicherheit und konzeptionelle Schwächen
 
 Stand: 2026-09-25, Commit `e9f8fd9`. Offenes Review – die Befunde sind noch nicht umgesetzt.
-Nach Abarbeitung wandert dieses Dokument nach [archiv/](archiv/).
+Nach Abarbeitung wandert dieses Dokument nach [archiv/](./).
 
 **Umfang:** Backend (Orchestrator, Verfahrens- und Identifikationsmodule, `account`,
 `ext_personenverzeichnis`), Keycloak-Extension und -Migrationen, Frontend (ohne Demo-Oberfläche),
@@ -58,7 +58,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 ### S-2 Keycloak-Account-Sync übernimmt fremde Keycloak-User per E-Mail-Treffer
 
 > **Gegenstandslos seit 2026-09-25:** Es gibt keinen Sync mehr, der Nutzer übernehmen könnte –
-> Keycloak liest die Konten ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)). Die Nutzer-Id ist die
+> Keycloak liest die Konten ([ADR-38](../adr/ADR-038-keycloak-liest-konten.md)). Die Nutzer-Id ist die
 > Konto-Id, berechnet statt gesucht. Die Absicherungen unten beschreiben den Stand davor.
 
 > **Behoben (2026-09-25):** Der Sync sucht den Spiegel zuerst über `orchestratorAccountId` und
@@ -228,7 +228,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 
 > **Behoben (2026-09-25):** `auth-device`/`enroll-device` erklären sich als `demoOnly` und sind
 > außerhalb von `demo.mode` nicht verfügbar – ihre Werte bleiben, statt je nach Modus anders zu
-> lauten ([ADR-36](adr/ADR-036-niveaus-und-ihre-nachweise.md)). `enroll-device` lehnt einen
+> lauten ([ADR-36](../adr/ADR-036-niveaus-und-ihre-nachweise.md)). `enroll-device` lehnt einen
 > Geräteschlüssel ab, der der DPoP-Schlüssel des Kanals ist. Tests: `DemoOnlyToolAvailabilityTest`,
 > `EnrollDeviceFlowTest`.
 
@@ -266,8 +266,8 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 ### M-3 Ausgegebene Access-Tokens sind reine Bearer-Tokens
 
 > **Entschieden, nicht geändert (2026-09-25):** Keycloak-Tokens werden nicht gebunden. Die Grenze
-> steht jetzt ausdrücklich in [ADR-9](adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)
-> und [09-dpop.md](09-dpop.md) Abschnitt 4.
+> steht jetzt ausdrücklich in [ADR-9](../adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)
+> und [09-dpop.md](../09-dpop.md) Abschnitt 4.
 
 - **Wo:** `orchestrator/session/TokenService.kt:121-135`, `orchestrator/session/KcTokenProvider.kt:106-130`,
   `keycloak-extension/.../AccountTokenGrantType.java:140` – kein `cnf.jkt`, kein `ath`.
@@ -316,7 +316,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 > **Entschieden, nicht geändert (2026-09-25):** Keine Aussperrung, sondern ein gewollter Umweg:
 > Unter `loa2` gefallen führt die Re-Identifizierung zurück. Eine strengere Prüfung hätte legitime
 > Wünsche abgelehnt (Passwort entfernen, nur SMS behalten). Die zwei Schwellen meinen verschiedene
-> Dinge; Begründung und Restrisiko in [journeys/manage-auth-methods.md](journeys/manage-auth-methods.md).
+> Dinge; Begründung und Restrisiko in [journeys/manage-auth-methods.md](../journeys/manage-auth-methods.md).
 
 - **Wo:** `orchestrator/journey/JourneyActionExecutor.kt:589, 638` – Selbstaussperr-Prüfung gegen
   `acrFloorOf(channel)` (Default loa1); `RegisterStrategy.afterEnrollment` erzwingt dagegen loa2.
@@ -328,7 +328,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 ### M-7 E-Mail-Postfach genügt für destruktive Aktionen an nie identifizierten Konten
 
 > **Entschieden, nicht geändert (2026-09-25):** bewusst so, festgehalten in
-> [ADR-37](adr/ADR-037-postfach-traegt-unidentifizierte-konten.md). Der KDoc von
+> [ADR-37](../adr/ADR-037-postfach-traegt-unidentifizierte-konten.md). Der KDoc von
 > `accountOfAttestation` nennt jetzt richtig die Evidenz des Kanals statt „derselben Journey“.
 
 - **Wo:** `orchestrator/journey/IntentStrategy.kt:41-42` (`selfServiceAcrFloor` = loa1 ohne

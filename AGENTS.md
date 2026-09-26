@@ -6,17 +6,9 @@
 - **Arbeitsverzeichnis**: `/Users/rene/Develop/opencode/DPoP-demo`
 - **Maßgebliche fachliche Quelle**: `docs/` (das Zielbild hat Vorrang vor dem aktuellen Code).
 
-## Token-sparender Lesepfad für Agents
+## Lesepfad für Agents
 
-1. **Immer zuerst**: `docs/00-agent-quickstart.md`
-2. Danach **nur gezielt** das benötigte Detaildokument:
-   - Architektur/Module: `docs/08-projektrahmen.md`
-   - Abläufe/Orchestrierung: `docs/04-orchestrierung.md`, `docs/06-ablaeufe.md`
-     (einzelne Journey: `docs/journeys/<intent>.md`; einzelne Entscheidung: `docs/adr/`)
-   - API: `docs/05-api.md`
-   - DPoP: `docs/09-dpop.md`
-   - Frontend: `docs/10-frontend.md`
-3. `docs/README.md` nur zur Orientierung und für die Lesepfade, nicht als Pflichtlektüre.
+Der Lesepfad steht an einer Stelle: [docs/00-agent-quickstart.md](docs/00-agent-quickstart.md) – immer zuerst lesen.
 
 ## Dokumentationsregeln
 

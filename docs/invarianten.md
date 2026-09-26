@@ -1,7 +1,7 @@
 # Invarianten und womit sie gesichert sind
 
 Dieses Register sammelt die Regeln, auf die sich der Backend-Kern verlässt, und nennt je Regel den
-**Mechanismus**, der sie erzwingt ([Fahrplan](review-2026-09-bewertung-und-massnahmen.md), P-1,
+**Mechanismus**, der sie erzwingt ([Fahrplan](archiv/review-2026-09-bewertung-und-massnahmen.md), P-1,
 Schicht 4). Eine Regel ohne Mechanismus gilt nur per Konvention – sie steht hier trotzdem, als
 sichtbare **Lücke**, damit sie nicht im Kommentar verschwindet.
 

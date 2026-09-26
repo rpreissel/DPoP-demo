@@ -58,7 +58,7 @@ bekommt bei der nächsten Journey dieselben Befunde in neuer Form.
 ### P-3 Die Keycloak-Anbindung führt zwei Wahrheiten
 
 > **Behoben (2026-09-25):** Keycloak liest die Konten statt sie zu spiegeln
-> ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)).
+> ([ADR-38](../adr/ADR-038-keycloak-liest-konten.md)).
 
 - **Beobachtung:** Orchestrator-Konto und Keycloak-User werden per Best-Effort-Event
   synchronisiert, das Verknüpfungsattribut `orchestratorAccountId` ist nicht eindeutig, E-Mail
@@ -158,7 +158,7 @@ Die Trennung Kanal / Journey / ToolSession ist richtig – sie ist nur nirgends 
 
 ### Zu P-2: Anspruch entscheiden
 
-> **Entschieden ([ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md)):** Der
+> **Entschieden ([ADR-35](../adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md)):** Der
 > Backend-Kern ist produktionsreif; simulierte Fremdsysteme bleiben Vorführrahmen hinter Ports;
 > Frontends und Ausführungsumgebung werden später gehärtet. Die Optionen unten sind der Stand vor
 > der Entscheidung; gültig ist die Mischform aus dem ADR.
@@ -225,7 +225,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
 
 1. ~~S-1 Tool-Replay~~ – erledigt 2026-09-25.
 1b. ~~ADR „Betriebsanspruch“~~ – entschieden 2026-09-25 als
-    [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md): Backend-Kern
+    [ADR-35](../adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md): Backend-Kern
     produktionsreif, Frontends und Umgebung später. Die Schritte unten sind danach zugeschnitten;
     was in die Umgebung gehört, steht gesammelt in Phase G.
 2. ~~S-2 Keycloak-Sync~~ – erledigt 2026-09-25.
@@ -247,7 +247,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     ohne den S-1-Fix findet er S-1 selbst. Gefunden hat er M-5 – eingeschoben und behoben
     (`JourneyService.start` bricht die laufende Kette ab).
 12. ~~ArchUnit `@BindingKey`-Regel und Invariantenregister~~ – erledigt 2026-09-25:
-    `ApiBoundaryArchitectureTest`, [invarianten.md](invarianten.md) mit `InvariantRegisterTest`.
+    `ApiBoundaryArchitectureTest`, [invarianten.md](../invarianten.md) mit `InvariantRegisterTest`.
 13. ~~ArchUnit-Grenze Kern ↔ Fremdsystem-Simulation~~ – erledigt 2026-09-25:
     `SimulationBoundaryArchitectureTest`; der Keycloak-Sync liest Stammdaten jetzt über den neuen
     Port `PersonMasterData` statt direkt aus dem simulierten Personenverzeichnis.
@@ -322,17 +322,17 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     außerhalb des neuen `demo.mode` aus (Entscheidung Rene: „nur im Demomodus“, dann „bei den Tools
     definieren, ob sie nur Demo sind“). Ebenso `demoOnly`: KOBIL, eID und Nect, deren Niveau auf
     einer simulierten Gegenstelle beruht. `thumbprint ≠ bindingKeyRef` gilt immer.
-    [ADR-36 „Niveaus und ihre Nachweise“](adr/ADR-036-niveaus-und-ihre-nachweise.md) (P-4).
+    [ADR-36 „Niveaus und ihre Nachweise“](../adr/ADR-036-niveaus-und-ihre-nachweise.md) (P-4).
 23. ~~M-3~~ – entschieden 2026-09-25: Keycloak-Tokens werden nicht gebunden; die Grenze steht in
     ADR-9 und docs/09 Abschnitt 4.
 24. ~~M-7~~ – entschieden 2026-09-25: bleibt, abgewogen in ADR-37.
 25. ~~M-9 / M-10~~ – erledigt 2026-09-25: Antworten an Keycloak signiert und von der Extension
     geprüft (TLS auf dem Hop bleibt Phase G); Realm-Neuaufbau nur im Demomodus.
-26. ~~P-3: Keycloak liest statt spiegelt~~ – erledigt 2026-09-25 ([ADR-38](adr/ADR-038-keycloak-liest-konten.md)):
+26. ~~P-3: Keycloak liest statt spiegelt~~ – erledigt 2026-09-25 ([ADR-38](../adr/ADR-038-keycloak-liest-konten.md)):
     Nutzer-Federation ohne Import, feste Komponenten-Id (stabiles `sub`), Cache höchstens 60 s,
     Public Key wird gelesen statt hochgeladen; es bleibt nur das Lösch-Ereignis. Voll-Abgleich,
     Spiegel-Konfliktregeln und `findOrCreateUser` entfallen – ausgelegt auf 10 Millionen Konten und mehr.
-27. ~~Port-Verträge der Fremdsysteme~~ – erledigt 2026-09-25: [port-vertraege.md](port-vertraege.md)
+27. ~~Port-Verträge der Fremdsysteme~~ – erledigt 2026-09-25: [port-vertraege.md](../port-vertraege.md)
     für Personenverzeichnis, KOBIL, Nect, eID-Server und die Zustellung von TAN/Code.
 
 **Phase F – Härtung und Hygiene (nach Bedarf)**
@@ -342,7 +342,7 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     Widerruf-`>=`, toter KVNR-Zweig, Namensvetter-Entscheidung (ADR-18), Argon2id statt PBKDF2,
     KOBIL-Geheimnisse kürzer, `DPoP-Nonce` in docs/09, Fehlerantworten ohne Bibliotheksmeldungen,
     `jti` in der Konto-Assertion, JWKS-Backoff.
-29. ~~ADR „Audit“~~ – erledigt 2026-09-26 ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)):
+29. ~~ADR „Audit“~~ – erledigt 2026-09-26 ([ADR-39](../adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)):
     Änderungsprotokoll `account.change_log` ohne Werte, überlebt die Löschung 10 Jahre (von der DSB zu
     bestätigen), JSON-`details` mit Typ und Version, auffindbar über Name, Vorname und Geburtsdatum
     (HMAC); `account.identification` geht darin auf, keine Ausweisnummer. Die Wertetabellen bleiben
@@ -371,7 +371,7 @@ Nicht Teil der jetzigen Runde. Bis sie erledigt ist, läuft keine Instanz mit ec
 
 ## 5. Was dieses Dokument nicht entscheidet
 
-- Den Betriebsanspruch entscheidet [ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md),
+- Den Betriebsanspruch entscheidet [ADR-35](../adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md),
   nicht dieses Dokument; die Reihenfolge ist danach zugeschnitten.
 - Ob der Web-Kanal die Regel „Refresh-Token nie ins Frontend“ übernehmen soll – das ist eine
   Frage an den Anspruch des Web-Kanals, nicht an seine Sicherheit.
