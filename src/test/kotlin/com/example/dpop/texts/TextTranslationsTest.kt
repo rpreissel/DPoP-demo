@@ -7,11 +7,32 @@ import java.util.Properties
 /**
  * Every language of every bundle - German included, it is reworded like any other - carries a
  * wording for each template in the code, nothing left over, and the same placeholders as the
- * template. Red means: run `/translate-texts <lang>` (docs/adr/ADR-033).
+ * template (docs/adr/ADR-033).
+ *
+ * A missing or left-over wording is a warning while developing: the client shows the template
+ * meanwhile (`TextRef.template`), so a new text works at once. With `-PstrictTexts` - for a build
+ * that runs outside the demo mode - it fails; `/translate-texts <lang>` makes it green. A wrong
+ * placeholder and an id two templates share always fail.
  */
 class TextTranslationsTest : BehaviorSpec({
 
     val catalog = TextCatalog.all
+    val strict = System.getProperty("texts.strict").toBoolean()
+
+    /** Fails with -PstrictTexts, otherwise names what `/translate-texts` would fix. */
+    fun List<String>.requireWorded() {
+        if (strict) shouldBeEmpty() else forEach { System.err.println("WARN text: $it") }
+    }
+
+    given("the ids of all templates") {
+        then("no two different templates share one - the slug is cut short, the hash tells them apart") {
+            catalog.byBundle.values.flatMap { it.values }
+                .groupBy { it.id }
+                .filterValues { entries -> entries.map { it.template }.distinct().size > 1 }
+                .map { (id, entries) -> "$id: ${entries.map { it.template }.distinct()}" }
+                .shouldBeEmpty()
+        }
+    }
 
     fun keycloakWordings(language: String): Map<String, String> {
         val file = java.nio.file.Path.of("keycloak-extension/src/main/resources/theme/orchestrator/login/messages/messages_$language.properties")
@@ -47,11 +68,11 @@ class TextTranslationsTest : BehaviorSpec({
                 then("every template has a wording") {
                     entries.values.filter { it.id !in wordings }
                         .map { "${it.id} \"${it.template}\" (${it.locations.first()}) - run /translate-texts $language" }
-                        .shouldBeEmpty()
+                        .requireWorded()
                 }
 
                 then("no wording is left over") {
-                    (wordings.keys - entries.keys).map { "${it}=${wordings[it]} - run /translate-texts $language" }.shouldBeEmpty()
+                    (wordings.keys - entries.keys).map { "${it}=${wordings[it]} - run /translate-texts $language" }.requireWorded()
                 }
 
                 then("each wording keeps the template's placeholders") {

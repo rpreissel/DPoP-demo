@@ -19,7 +19,8 @@ Backend- und Frontend-Texte eines Bundles stehen in derselben Datei (die App lä
    - Lies `prompts/<lang>.md` in diesem Skill-Verzeichnis – das ist die verbindliche Anweisung für Ton, Anrede und Begriffe.
    - Vergleiche Quellkatalog und bestehende Zieldatei:
      - **neu**: ID im Katalog, nicht in der Zieldatei → formulieren.
-     - **geändert**: Die Vorlage hat sich geändert ⇒ sie hat eine neue ID (Hash der Vorlage); die alte ID ist verwaist.
+     - **geändert**: Die Vorlage hat sich geändert ⇒ sie hat eine neue ID (Kurzname plus Hash der Vorlage, z. B.
+       `journey-trace-laden-fehlgeschlagen-cf9829`); die alte ID ist verwaist.
      - **verwaist**: ID in der Zieldatei, nicht mehr im Katalog → entfernen.
      - Bestehende, weiter gültige Einträge **nicht** neu formulieren (stabile Texte, kleiner Diff) – außer der
        Prompt hat sich geändert und der Nutzer verlangt eine Überarbeitung.
@@ -45,5 +46,6 @@ Backend- und Frontend-Texte eines Bundles stehen in derselben Datei (die App lä
    werden vom Client in derselben Sprache eingesetzt – Satzbau darauf abstimmen. Bei `<Tx>` steht ein Platzhalter
    für Markup (z. B. `{code}` = hervorgehobener Wert, `{modus}` = fett gesetztes Label): Reihenfolge darf sich
    ändern, der Platzhalter bleibt.
-5. `./gradlew :test --tests 'com.example.dpop.texts.TextTranslationsTest'` muss grün sein.
+5. `./gradlew :test --tests 'com.example.dpop.texts.TextTranslationsTest' -PstrictTexts` muss grün sein (ohne
+   `-PstrictTexts` meldet der Test fehlende Übersetzungen nur als Warnung).
 6. Kurz berichten: je Sprache/Bundle Anzahl neu/entfernt, auffällige Umformulierungen.

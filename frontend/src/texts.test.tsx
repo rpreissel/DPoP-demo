@@ -79,8 +79,20 @@ describe('the frontend’s own texts', () => {
   })
 
   it('computes the same id as the backend (Text.idOf) and node’s SHA-256', () => {
-    // Pinned from the backend's catalog: Text("Account not found").id
-    expect(textId('Account not found')).toBe('08a2ef94ef94')
+    // The shared samples - the same list pins Text.idOf (TextIdTest) and KcText.idOf (KcTextsTest).
+    const samples: Record<string, string> = {
+  'Account not found': 'account-not-found-08a2ef',
+  'Journey-Trace laden fehlgeschlagen': 'journey-trace-laden-fehlgeschlagen-cf9829',
+  'Noch {anzahl} Versuche': 'noch-anzahl-versuche-fb9887',
+  'Größe über Maß – ÄÖÜ äöü ß': 'groesse-ueber-mass-aeoeue-aeoeue-ss-30656e',
+  'Löscht alle Konten (samt Geräten, Verfahren und Journey-Trace), setzt alles zurück': 'loescht-alle-konten-samt-geraeten-038056',
+  'Café': 'caf-73473d',
+  '!!!': 'e84c53',
+    }
+    for (const [template, id] of Object.entries(samples)) {
+      expect(textId(template)).toBe(id)
+      expect(idOf(template)).toBe(id)
+    }
     for (const sample of ['', 'Weiter', 'Straße und Hausnummer – „Zitat“ 😀', 'x'.repeat(200)]) {
       expect(textId(sample)).toBe(idOf(sample))
     }

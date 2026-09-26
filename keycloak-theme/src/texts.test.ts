@@ -3,8 +3,8 @@ import { setTexts, t, textId } from './texts'
 
 describe('texts', () => {
   it('computes the same id as the extension (KcText.idOf)', () => {
-    // messages_de.properties: "# Quelle: Weiter" / 1e14bdf34c3b=Weiter
-    expect(textId('Weiter')).toBe('1e14bdf34c3b')
+    // messages_de.properties: "# Quelle: Weiter" / weiter-1e14bd=Weiter
+    expect(textId('Weiter')).toBe('weiter-1e14bd')
   })
 
   it('shows the wording Keycloak rendered into the page', () => {

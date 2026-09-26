@@ -1590,6 +1590,12 @@ export interface TextRef {
      */
     key: string;
     /**
+     * The developer's wording, sent only while the texts bundle has none for key yet - show it instead of the key.
+     * @type {string}
+     * @memberof TextRef
+     */
+    template?: string;
+    /**
      * 
      * @type {{ [key: string]: Array<TextRef>; }}
      * @memberof TextRef

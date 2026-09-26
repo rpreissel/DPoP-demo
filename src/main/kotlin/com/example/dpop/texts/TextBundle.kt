@@ -21,6 +21,21 @@ class TextBundle(val name: String) {
 
     private val byLanguage: Map<String, Served> = SUPPORTED_LANGUAGES.associateWith { load(it) }
 
+    init {
+        loaded += this
+    }
+
+    companion object {
+        private val loaded = java.util.concurrent.CopyOnWriteArrayList<TextBundle>()
+
+        /**
+         * Whether some bundle has a wording for [id] in every language - if not, a [Text] carries its
+         * template along (`TextRef.template`), so a reader sees the developer's wording instead of an
+         * id until `/translate-texts` has run (ADR-33).
+         */
+        fun wordedEverywhere(id: String): Boolean = loaded.any { bundle -> bundle.byLanguage.values.all { id in it.texts } }
+    }
+
     /** The texts in [language], or in the fallback language if that one is not written. */
     fun texts(language: String): Map<String, String> = served(language).texts
 

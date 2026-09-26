@@ -14,7 +14,7 @@ describe('texts per page', () => {
     // OrchestratorSelect.tsx itself
     expect(pages['orchestrator-select.ftl']).toContain(idOf('Noch kein Konto?'))
     // KcText.idOf("Weiter"), the id messages_de.properties carries
-    expect(pages['orchestrator-tool.ftl']).toContain('1e14bdf34c3b')
-    expect(pages['orchestrator-select.ftl']).not.toContain('1e14bdf34c3b')
+    expect(pages['orchestrator-tool.ftl']).toContain('weiter-1e14bd')
+    expect(pages['orchestrator-select.ftl']).not.toContain('weiter-1e14bd')
   })
 })

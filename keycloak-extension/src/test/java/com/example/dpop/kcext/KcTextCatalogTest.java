@@ -72,7 +72,7 @@ class KcTextCatalogTest {
         String frontendCatalog = java.nio.file.Files.readString(java.nio.file.Path.of(
                 System.getProperty("texts.frontendCatalog", "../frontend/build/texts-catalog.json")));
         Set<String> frontendIds = new TreeSet<>();
-        Matcher id = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-f]{12})\"").matcher(frontendCatalog);
+        Matcher id = Pattern.compile("\"id\"\\s*:\\s*\"([a-z0-9-]+)\"").matcher(frontendCatalog);
         while (id.find()) frontendIds.add(id.group(1));
         List<String> differing = new ArrayList<>();
         for (KcTextCatalog.Entry entry : KcTextCatalog.extension().entries.values()) {

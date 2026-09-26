@@ -9,9 +9,25 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseSync } from 'rolldown/experimental'
 
-/** Same id as the extension's `KcText.idOf`: the first 12 hex digits of the template's SHA-256. */
+/** Same id as the extension's `KcText.idOf`: slug of the first words, then the first 6 hex digits of the SHA-256. */
 export function idOf(template) {
-  return createHash('sha256').update(template, 'utf8').digest('hex').slice(0, 12)
+  const hash = createHash('sha256').update(template, 'utf8').digest('hex').slice(0, 6)
+  const slug = slugOf(template)
+  return slug === '' ? hash : `${slug}-${hash}`
+}
+
+const SLUG_MAX = 40
+
+/** `KcText.slugOf`, character for character. */
+function slugOf(template) {
+  const words = template
+    .toLowerCase()
+    .replaceAll('ä', 'ae').replaceAll('ö', 'oe').replaceAll('ü', 'ue').replaceAll('ß', 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (words.length <= SLUG_MAX) return words
+  const cut = words.substring(0, SLUG_MAX + 1).lastIndexOf('-')
+  return (cut > 0 ? words.substring(0, cut) : words.substring(0, SLUG_MAX)).replace(/^-+|-+$/g, '')
 }
 
 /** OrchestratorSelect.tsx -> orchestrator-select.ftl */

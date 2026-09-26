@@ -60,7 +60,9 @@ final class OrchestratorTexts {
     }
 
     static String resolve(Map<String, String> texts, JsonNode ref) {
-        String wording = texts.getOrDefault(ref.get("key").asText(), ref.get("key").asText());
+        // Not worded yet (ADR-33): the orchestrator then sends the template along - shown instead of the key.
+        String fallback = ref.hasNonNull("template") ? ref.get("template").asText() : ref.get("key").asText();
+        String wording = texts.getOrDefault(ref.get("key").asText(), fallback);
         Matcher matcher = PLACEHOLDER.matcher(wording);
         StringBuilder out = new StringBuilder();
         while (matcher.find()) {

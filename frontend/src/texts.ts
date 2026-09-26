@@ -14,6 +14,8 @@ export interface TextRef {
   key: string
   args?: Record<string, string>
   texts?: Record<string, TextRef[]>
+  /** The developer's wording, sent only while no bundle has one for `key` yet (ADR-33) - shown instead of the key. */
+  template?: string
 }
 
 /** This application's texts. */
@@ -130,7 +132,7 @@ export function loadAllTexts(...bases: string[]): Promise<void> {
  */
 export function resolveText(ref: TextRef | null | undefined, base: string = APP_TEXTS): string {
   if (!ref) return ''
-  const wording = bundles.get(base)?.[ref.key] ?? ref.key
+  const wording = bundles.get(base)?.[ref.key] ?? ref.template ?? ref.key
   return fill(wording, (name) => {
     const nested = ref.texts?.[name]
     if (nested) return nested.map((n) => resolveText(n, base)).join(', ')
@@ -170,14 +172,33 @@ function fill(wording: string, value: (name: string) => string | undefined): str
 
 const ids = new Map<string, string>()
 
-/** The first 12 hex digits of the template's SHA-256 - the backend's `Text.idOf`, computed synchronously. */
+/**
+ * The backend's `Text.idOf`, computed synchronously: the template's first words as a slug, then the
+ * first 6 hex digits of its SHA-256 (`journey-trace-laden-fehlgeschlagen-cf9829`).
+ */
 export function textId(template: string): string {
   let id = ids.get(template)
   if (id === undefined) {
-    id = sha256Hex(new TextEncoder().encode(template)).slice(0, 12)
+    const hash = sha256Hex(new TextEncoder().encode(template)).slice(0, 6)
+    const slug = textSlug(template)
+    id = slug === '' ? hash : `${slug}-${hash}`
     ids.set(template, id)
   }
   return id
+}
+
+const SLUG_MAX = 40
+
+/** See `Text.slugOf` - the same rule, character for character (text-catalog.mjs repeats it for node). */
+export function textSlug(template: string): string {
+  const words = template
+    .toLowerCase()
+    .replaceAll('ä', 'ae').replaceAll('ö', 'oe').replaceAll('ü', 'ue').replaceAll('ß', 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (words.length <= SLUG_MAX) return words
+  const cut = words.substring(0, SLUG_MAX + 1).lastIndexOf('-')
+  return (cut > 0 ? words.substring(0, cut) : words.substring(0, SLUG_MAX)).replace(/^-+|-+$/g, '')
 }
 
 const K = new Uint32Array([

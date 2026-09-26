@@ -1,6 +1,6 @@
 /**
  * The theme's own texts, the same way the FreeMarker theme does it (docs/adr/ADR-033): the German
- * source wording stays in the code, `t("Weiter")`; its id - the first 12 hex digits of its SHA-256,
+ * source wording stays in the code, `t("Weiter")`; its id - a slug of its first words plus the first 6 hex digits of its SHA-256,
  * Java's `KcText.idOf` - is looked up in the wordings Keycloak renders into every orchestrator page
  * (`kcContext.texts`, set by the extension's WebFormRenderer from the login theme's messages, in
  * the login's language). So a reworded messages file shows without rebuilding this theme. A page
@@ -40,10 +40,26 @@ const ids = new Map<string, string>()
 export function textId(template: string): string {
   let id = ids.get(template)
   if (id === undefined) {
-    id = sha256Hex(new TextEncoder().encode(template)).slice(0, 12)
+    const hash = sha256Hex(new TextEncoder().encode(template)).slice(0, 6)
+    const slug = textSlug(template)
+    id = slug === '' ? hash : `${slug}-${hash}`
     ids.set(template, id)
   }
   return id
+}
+
+const SLUG_MAX = 40
+
+/** `Text.slugOf` / `KcText.slugOf`, character for character. */
+function textSlug(template: string): string {
+  const words = template
+    .toLowerCase()
+    .replaceAll('ä', 'ae').replaceAll('ö', 'oe').replaceAll('ü', 'ue').replaceAll('ß', 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (words.length <= SLUG_MAX) return words
+  const cut = words.substring(0, SLUG_MAX + 1).lastIndexOf('-')
+  return (cut > 0 ? words.substring(0, cut) : words.substring(0, SLUG_MAX)).replace(/^-+|-+$/g, '')
 }
 
 const K = new Uint32Array([

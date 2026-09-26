@@ -2,12 +2,28 @@
 
 **Entscheidung** (**umgesetzt**): Alle Texte des Backends, die Nutzer sehen, bleiben im Code, als
 deutsche **Formulierung für Entwickler** in `Text("…")` mit Platzhaltern der Form `{name}`. Das Backend
-liefert nie den Wortlaut aus, sondern eine Referenz `{ key, args, texts }` (`key` = die ersten 12 Hex-Zeichen des SHA-256 der
-Vorlage). Jede Sprache – **auch Deutsch** – ist eine redigierte Fassung in
+liefert nie den Wortlaut aus, sondern eine Referenz `{ key, args, texts }` (`key` = die Anfangswörter der
+Vorlage als lesbarer Kurzname plus die ersten 6 Hex-Zeichen ihres SHA-256, siehe Nachtrag). Jede Sprache – **auch Deutsch** – ist eine redigierte Fassung in
 `src/main/resources/texts/<bundle>/texts_<lang>.properties`, geschrieben vom Claude-Code-Skill
 `/translate-texts` nach einem Prompt pro Sprache (`.claude/skills/translate-texts/prompts/<lang>.md`).
 Clients holen das Bundle beim Start per `GET …/texts/{lang}` mit ETag und setzen den Wortlaut selbst
 ein.
+
+> **Nachtrag 2026-09-26 (Review 2026-09, Schritt 30): lesbare IDs, fehlende Übersetzung zeigt die Vorlage.**
+>
+> - **Die ID bleibt aus der Vorlage abgeleitet, wird aber lesbar**: `journey-trace-laden-fehlgeschlagen-cf9829`
+>   statt `cf9829c10e87` – Kleinbuchstaben, ä/ö/ü/ß ausgeschrieben, alles andere `-`, höchstens 40 Zeichen
+>   an einer Wortgrenze, dann 6 Hex-Zeichen des SHA-256. Abgeleitet bleibt sie, weil nur so eine
+>   Übersetzung nicht still veralten kann: Eine geänderte Vorlage hat eine neue ID. Handvergebene
+>   Schlüssel wurden verworfen – sie hätten dafür eine eigene Prüfung gebraucht und rund 1000 Texte
+>   einen Namen. Die Regel steht an sechs Stellen (`Text.idOf`, `KcText.idOf`, `texts.ts`,
+>   `text-catalog.mjs`, `keycloak-theme/src/texts.ts`, `texts-per-page.mjs`); gemeinsame Beispiele in
+>   `TextIdTest`, `KcTextsTest` und `texts.test.tsx` halten sie gleich. Zwei Vorlagen mit derselben ID
+>   lässt `TextTranslationsTest` nicht durch.
+> - **Fehlt eine Übersetzung, sieht man die Vorlage statt der ID**: Das Backend schickt sie in
+>   `TextRef.template` mit, solange kein Bundle den Text in allen Sprachen hat. `TextTranslationsTest`
+>   warnt dann nur; mit `-PstrictTexts` – für einen Build außerhalb des Demomodus – schlägt er fehl.
+>   Ein neuer Text braucht also nicht sofort einen Lauf von `/translate-texts`.
 
 ## Warum keine Schlüsselkataloge
 

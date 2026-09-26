@@ -244,6 +244,11 @@ tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunKc") {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Fehlende Uebersetzungen sind beim Entwickeln nur eine Warnung (der Client zeigt so lange die
+    // Vorlage); fuer einen Build ausserhalb des Demomodus ./gradlew test -PstrictTexts (ADR-33).
+    val strictTexts = providers.gradleProperty("strictTexts").isPresent
+    systemProperty("texts.strict", strictTexts)
+    inputs.property("strictTexts", strictTexts)
     // Der eingecheckte Vertrag ist eine Eingabe der Tests, nicht nur ihre Ausgabe:
     // DiscriminatorMappingTest liest api/openapi.yaml direkt. Ohne diese Zeile haelt Gradle die
     // Tests fuer aktuell, wenn sich nur der Vertrag geaendert hat - der Test laeuft dann nicht und
