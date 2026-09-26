@@ -13,6 +13,8 @@ import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.storage.StorageId;
 
+import java.util.OptionalLong;
+
 /**
  * Reports every Keycloak logout of an orchestrator account to the orchestrator, for the account's
  * sign-in log (ADR-39, addendum): the Web channel's logout is Keycloak's own, so the orchestrator
@@ -35,20 +37,19 @@ public class SignInLogEventListener implements EventListenerProvider {
 
     @Override
     public void onEvent(Event event) {
-        if (event.getType() != EventType.LOGOUT || event.getUserId() == null || event.getSessionId() == null) {
+        if (event.getType() != EventType.LOGOUT) {
             return;
         }
         RealmModel realm = session.realms().getRealm(event.getRealmId());
         var component = realm == null ? null : OrchestratorStorageProviderFactory.componentIn(realm).orElse(null);
-        if (component == null || !component.getId().equals(StorageId.providerId(event.getUserId()))) {
+        if (component == null) {
             return;
         }
-        long accountId;
-        try {
-            accountId = Long.parseLong(StorageId.externalId(event.getUserId()));
-        } catch (NumberFormatException e) {
+        OptionalLong reportable = accountToReport(event.getType(), event.getUserId(), event.getSessionId(), component.getId());
+        if (reportable.isEmpty()) {
             return;
         }
+        long accountId = reportable.getAsLong();
         OrchestratorClient client = OrchestratorSettings.from(component).newClient();
         String kcSessionId = event.getSessionId();
         session.getTransactionManager().enlistAfterCompletion(new AbstractKeycloakTransaction() {
@@ -67,6 +68,26 @@ public class SignInLogEventListener implements EventListenerProvider {
                 // The logout did not happen - nothing to report.
             }
         });
+    }
+
+    /**
+     * Which account a Keycloak event is to be reported for, if any: only a {@code LOGOUT} with a
+     * session, of a user from the orchestrator's user storage ({@code storageComponentId}), whose
+     * external id is an account id. Everything else - another event, Keycloak's own admin, a
+     * malformed id - reports nothing.
+     */
+    static OptionalLong accountToReport(EventType type, String userId, String sessionId, String storageComponentId) {
+        if (type != EventType.LOGOUT || userId == null || sessionId == null) {
+            return OptionalLong.empty();
+        }
+        if (!storageComponentId.equals(StorageId.providerId(userId))) {
+            return OptionalLong.empty();
+        }
+        try {
+            return OptionalLong.of(Long.parseLong(StorageId.externalId(userId)));
+        } catch (NumberFormatException e) {
+            return OptionalLong.empty();
+        }
     }
 
     @Override

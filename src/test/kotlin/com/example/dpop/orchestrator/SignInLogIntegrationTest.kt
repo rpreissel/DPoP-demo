@@ -89,6 +89,24 @@ class SignInLogIntegrationTest : IntegrationTestSupport() {
             }
         }
 
+        given("a user signed in at loa1 who raises the level") {
+            then("the step-up is its own entry after the sign-in, with the level it reached (review 2026-09-26, T-1)") {
+                seedRegisteredAccount()
+                val channelSessionId = post("/orchestrator/api/v1/app/channels").channel()["channelSessionId"] as String
+                authenticateViaSms(channelSessionId)
+                post("/orchestrator/api/v1/channels/$channelSessionId/step-ups", """{"requiredAcr":"loa2"}""")
+                authenticateViaPassword(channelSessionId)
+                val accountId = accountOf(channelSessionId)
+
+                typesOf(accountId) shouldBe listOf("SIGNED_IN", "STEPPED_UP")
+                val steppedUp = signInLog.of(accountId).last()
+                steppedUp.acr shouldBe "loa2"
+                steppedUp.channel shouldBe "APP"
+                @Suppress("UNCHECKED_CAST")
+                (steppedUp.details["amr"] as List<String>) shouldContainAll listOf("sms", "password")
+            }
+        }
+
         given("someone guessing an account's password") {
             then("every wrong guess is logged, and the one that locks the account is logged as the lockout") {
                 val accountId = seedRegisteredAccount()

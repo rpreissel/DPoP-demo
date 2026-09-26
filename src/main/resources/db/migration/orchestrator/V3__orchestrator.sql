@@ -62,7 +62,6 @@ CREATE TABLE orchestrator.channel_session (
 );
 CREATE INDEX ix_channel_session_account_id ON orchestrator.channel_session (account_id);
 CREATE INDEX ix_channel_session_expires_at ON orchestrator.channel_session (expires_at);
-CREATE INDEX ix_channel_session_channel_expires_at ON orchestrator.channel_session (channel, expires_at);
 CREATE INDEX ix_channel_session_auth_context_id ON orchestrator.channel_session (auth_context_id);
 CREATE INDEX ix_channel_session_auth_evidence_id ON orchestrator.channel_session (auth_evidence_id);
 

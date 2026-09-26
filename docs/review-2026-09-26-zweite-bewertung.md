@@ -291,8 +291,23 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 **Phase L – Tests**
 
-18. T-1 fehlende Tests (Step-up, Listener, Start-Checks, Reset-Schutz).
-19. T-2 Retention als Datenbanktest; T-3 Scheduling im Testprofil aus, `Clock`-Bean, Parallelitätstests.
+18. ~~T-1 fehlende Tests~~ – erledigt 2026-09-26: `STEPPED_UP` im Anmeldeprotokoll,
+    `SignInLogEventListener` (Filter als reine Funktion), `DeploymentTopologyCheck`, `FlywayResetConfig`
+    (außerhalb des Demomodus gar nicht vorhanden).
+19. ~~T-2 Retention als Datenbanktest; T-3 Scheduling im Testprofil aus, Parallelitätstests~~ –
+    erledigt 2026-09-26: `RetentionDbTest` (Besitzkette gegen das echte Schema), `SchedulingConfig` mit
+    `scheduling.enabled=false` im Testprofil, `DpopReplayProtectionDbTest` und
+    `AttemptCounterConcurrencyDbTest`. Nicht umgesetzt: `Clock`-Bean (118 Aufrufe von `Instant.now()`,
+    eigener Umbau) und zwei gleichzeitige PATCH auf eine Tool-Session.
+
+    **Dabei gefunden – F-11 (kritisch, Code): Der Schutz vor wiederholten Proofs war wirkungslos.**
+    `DpopReplayProtectionService` schrieb per `saveAndFlush`; für eine selbst vergebene Id macht Spring
+    Data daraus `merge` (lesen, dann `UPDATE`), und ein wiederholter Proof ging ohne Fehler durch –
+    nacheinander immer, gleichzeitig sechs von acht. Betroffen: DPoP-Proofs, Geräte-Proofs,
+    Peer-Auth-Assertions von Keycloak. Die Unit-Tests sahen es nicht, weil ihr Fake `saveAndFlush` als
+    INSERT nachbildete. Behoben durch ein ausdrückliches `INSERT`; dasselbe Muster auch bei
+    `NodeSigningKey` (zweite Instanz hätte das Schlüsselpaar überschrieben) und beim Anlegen der
+    Drosselzähler (ein gleichzeitig angelegter Zähler konnte auf 0 zurückfallen).
 
 **Phase G – Frontends und Ausführungsumgebung** (unverändert aus der ersten Bewertung, Punkte 31–35)
 
