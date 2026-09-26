@@ -41,6 +41,15 @@ und gilt für alle Instanzen gemeinsam. Der Schlüssel ist SHA-256(`thumbprint:j
 (`VARCHAR(64)`). Ein vom Client gewähltes `jti` kann damit weder die Schlüssellänge überschreiten noch
 den Index aufblähen, in den dieses System am häufigsten schreibt.
 
+**Kein Server-Nonce (`DPoP-Nonce`, RFC 9449 Abschnitt 8) – bewusst.** Der Server gibt keinen Nonce
+vor, den der nächste Proof enthalten muss. Ein Proof ist deshalb nicht nur für den Moment gültig, in
+dem er entsteht: Wer den privaten Schlüssel kurz nutzen kann (etwa Schadcode im Browser), kann Proofs
+für die nächsten gut zwei Minuten im Voraus berechnen (`max-age-seconds` 120 plus Uhrenabweichung
+30) und später einsetzen – jeden nur einmal (D-6). Ein Nonce würde das auf einen Rundlauf verkürzen,
+kostet aber bei jeder Anfrage eine zusätzliche Antwort mit `use_dpop_nonce` und einen gemeinsamen
+Nonce-Speicher über alle Instanzen. Entschieden im Review 2026-09; ein Nonce lässt sich nachrüsten,
+ohne dass sich der Vertrag der Clients ändert (sie müssen nur den Header zurückgeben).
+
 Für den Produktivbetrieb bleibt eine Grenze bei der Skalierung: Die Tabelle erhält für jede
 angemeldete Anfrage eine neue Zeile; abgelaufene Einträge löscht ein geplanter Job jede Minute. Die
 Tabelle nach Zeit zu partitionieren oder durch einen dauerhaften Schlüssel-Wert-Speicher zu

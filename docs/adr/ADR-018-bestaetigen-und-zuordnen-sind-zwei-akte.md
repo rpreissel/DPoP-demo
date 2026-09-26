@@ -72,6 +72,15 @@ Interessent auf `loa1` statt auf `loa3`.
   Aufrufer muss deshalb den Fall ohne PersonId behandeln.
 - `id_eid` hängt an keinem Port zur Personensuche mehr.
 
+## Namensvetter: ohne Adresse (entschieden 2026-09-26)
+
+Die Zuordnung über die KVNR vergleicht Name, Vorname und Geburtsdatum mit den bezeugten Daten
+(`IdentityResolver.attestedIdentityMatches`), bewusst **nicht** die Adresse. Das trennende Merkmal ist
+die KVNR selbst: Wer eine fremde Nummer eintippt, muss zusätzlich Name, Vorname und Geburtsdatum
+dieser Person bezeugt haben. Ein Namensvetter mit gleichem Geburtsdatum hat eine andere KVNR. Die
+Adresse dazuzunehmen hätte vor allem echte Personen abgewiesen: Ausweisdaten und Register veralten
+unterschiedlich schnell (Umzug) und schreiben Straßen verschieden. Review 2026-09, Namensvetter-Risiko.
+
 ## Geschichte
 
 - Erst dieser ADR machte `requires` wirksam: `DefaultAuthPolicy.requiresSatisfied` war vorher fest

@@ -453,7 +453,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
   `DpopBindingKeyResolver.kt:45`), nicht an einem Filter. Ein neuer Handler ohne Parameter ist
   stillschweigend offen. Vorschlag: ArchUnit-Regel „jeder Handler unter `API_V1` hat `@BindingKey`
   oder steht in einer benannten Ausnahmeliste“.
-- **Kein `DPoP-Nonce`:** Proofs sind 150 s im Voraus berechenbar (`DpopValidator.kt:66`). Bewusst,
+- **Kein `DPoP-Nonce`** – *entschieden 2026-09-26, benannt in docs/09 Abschnitt 2:* Proofs sind 150 s im Voraus berechenbar (`DpopValidator.kt:66`). Bewusst,
   gehört aber in docs/09.
 - **Proxy-Header undeklariert:** `server.forward-headers-strategy` ist nirgends gesetzt
   (`tool_api/RequestUrls.kt:9-24`); auf OpenShift funktioniert `htu` nur durch Spring Boots
@@ -476,7 +476,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
   ist unerreichbar, würde aber mit einem künftigen Tool still aktiv. Entfernen oder als Regel erzwingen.
 - **Interessenten-Konto kann eine zweite Identität annehmen** – *behoben 2026-09-26: `IdentityResolver.attestationFits` (gleiche Person in Passform) vor dem Übernehmen:* `JourneyActionExecutor.kt:172`
   ohne Abgleich mit den schon bescheinigten Stammdaten des Kontos.
-- **Namensvetter-Risiko:** Korrelation vergleicht nur Name, Vorname, Geburtsdatum
+- **Namensvetter-Risiko** – *entschieden 2026-09-26: ohne Adresse, festgehalten in ADR-18:* Korrelation vergleicht nur Name, Vorname, Geburtsdatum
   (`IdentityMatchingService.kt:47-48`). Adresse bewusst ein- oder ausschließen und in ADR-18 festhalten.
 - **Zweitkonto-Zweig tot** – *behoben 2026-09-25 (Phase D 21): Zweig entfernt, Doku angeglichen.*
   `JourneyActionExecutor.kt:160-186` ist über FAST_ACCESS unerreichbar,
