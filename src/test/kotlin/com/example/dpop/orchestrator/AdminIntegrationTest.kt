@@ -50,6 +50,17 @@ class AdminIntegrationTest : IntegrationTestSupport() {
                 }
             }
 
+            then("a user name guessed five times is locked out with 429 - the operator's own login is not (review 2026-09-26, F-7)") {
+                val guess = HttpHeaders().apply { setBasicAuth("intruder", "falsch") }
+                repeat(5) {
+                    assertThrows<HttpClientErrorException> { adminGet("/orchestrator/admin/registration-order", guess) }
+                        .statusCode shouldBe HttpStatus.UNAUTHORIZED
+                }
+                assertThrows<HttpClientErrorException> { adminGet("/orchestrator/admin/registration-order", guess) }
+                    .statusCode shouldBe HttpStatus.TOO_MANY_REQUESTS
+                adminGet("/orchestrator/admin/registration-order", adminHeaders())
+            }
+
             then("the app channel and the public server info need no login") {
                 post("/orchestrator/api/v1/app/channels") // post() itself asserts the 2xx
                 restTemplate.getForObject("http://localhost:$port/orchestrator/demo/server-info", Map::class.java)!!["keycloak"] shouldBe null

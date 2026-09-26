@@ -2,6 +2,7 @@ package com.example.dpop.orchestrator.schema
 
 import org.slf4j.LoggerFactory
 import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
@@ -26,15 +27,18 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver
  * about what runs first.
  */
 @Configuration
-class ModuleMigrationLocations {
+class ModuleMigrationLocations(@Value("\${demo.mode:true}") private val demoMode: Boolean) {
 
     @Bean
     fun perModuleMigrationLocations(): FlywayConfigurationCustomizer = FlywayConfigurationCustomizer { configuration ->
-        val discovered = discoverModuleLocations()
+        val discovered = moduleLocations()
         if (discovered.isEmpty()) return@FlywayConfigurationCustomizer
         configuration.locations(*(configuration.locations.map { it.descriptor } + discovered).toTypedArray())
         log.info("Flyway: {} modulspezifische Migrationsverzeichnisse gefunden: {}", discovered.size, discovered)
     }
+
+    /** The module folders this instance migrates - all of them, minus the demo data outside demo mode. */
+    internal fun moduleLocations(): List<String> = discoverModuleLocations().filter { demoMode || it !in DEMO_ONLY_LOCATIONS }
 
     /**
      * Every immediate subdirectory of `db/migration` that actually contains a migration. The
@@ -55,6 +59,14 @@ class ModuleMigrationLocations {
             .map { "classpath:db/migration/$it" }
 
     private companion object {
+        /**
+         * The demo personas and their letters (V16): outside demo mode they would be real-looking
+         * people in a database meant for real ones (review 2026-09-26, B-1). A database that already
+         * ran them cannot be switched out of demo mode - Flyway then refuses the unknown applied
+         * migration, which is the intended outcome: a demo database is no production database.
+         */
+        val DEMO_ONLY_LOCATIONS = setOf("classpath:db/migration/demo_seed")
+
         private val log = LoggerFactory.getLogger(ModuleMigrationLocations::class.java)
     }
 }

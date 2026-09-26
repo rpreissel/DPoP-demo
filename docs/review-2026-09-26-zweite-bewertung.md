@@ -215,13 +215,14 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 2. ~~F-2 Namensvetter~~ – entschieden und umgesetzt 2026-09-26: alle drei Grundangaben Pflicht; die
    Adresse zusätzlich, wenn das Register einen Namensvetter kennt (`PersonDirectory.hasNamesake`).
    Restrisiko (Namensvetter außerhalb des Registers) in ADR-18 benannt und getragen.
-3. F-3 `ProductionModeCheck`: Start mit Demo-Voreinstellungen bei `demo.mode=false` verweigern; darin
-   auch B-2 (`FlywayResetConfig` nur im Demomodus) und F-7 (`demo-reset` hinter `@DemoSurface`).
+3. ~~F-3 `ProductionModeCheck`~~ – erledigt 2026-09-26, mit B-2 (`FlywayResetConfig` und `demo_seed` nur
+   im Demomodus) und F-7 (Kontenverwaltung hinter `@DemoSurface`, Admin-Drossel, Passwort als Hash).
 4. F-4 `PhoneNumber`-Wertobjekt, Drossel und Flow darüber.
 5. F-8 QR-Code mit Pepper; F-10 Kleinigkeiten (typ/ES256, `htu`-Pfad exakt, Pepper-Mindeststärke,
    E-Mail-Länge, 400 statt 500).
 6. F-5/F-6 als eine Entscheidung „Schlüssel und Vertrauensanker“: Antwort-Schlüssel pinnen, ADR-9 auf
-   einen Orchestrator-Schlüssel umstellen; Sperr-/Rotationspfad.
+   einen Orchestrator-Schlüssel umstellen; Sperr-/Rotationspfad. Festgestellt 2026-09-26: **Ein HSM ist
+   nicht geplant** – damit entfällt die Voraussetzung, unter der ein Schlüssel je Konto etwas bringt.
 
 **Phase I – Datenbank und Betrieb (trägt „10 Millionen“)**
 
@@ -241,8 +242,12 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 **Phase K – Vereinfachung**
 
-14. A-2 „Enrollment zuerst“ entscheiden.
-15. A-3 Tool-Helfer, tote Spalte, Naming; A-4 Verfügbarkeit und Flags auf einen Mechanismus.
+14. ~~A-2 „Enrollment zuerst“ entscheiden~~ – entschieden 2026-09-26: **Das Experiment bleibt**, beide
+    Reihenfolgen und der Schalter.
+15. A-3 – entschieden 2026-09-26: **Die Duplikation bei den Tools ist gewollt**, nichts Generisches
+    (keine Basisklassen, kein `@MappedSuperclass`, kein Dispatcher); höchstens eine Bibliothek kleiner,
+    explizit importierter Hilfsfunktionen. Bleibt: tote Spalte, falscher Kommentar in
+    `IdentEidToolController`, Naming. A-4 Verfügbarkeit und Flags auf einen Mechanismus.
 16. A-6 Zuschnitt (`ChannelResponseAssembler`, `ClaimLedger`/`AnchorRegistry`, `EvidenceTrail`), Totes weg.
 17. A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a.
 

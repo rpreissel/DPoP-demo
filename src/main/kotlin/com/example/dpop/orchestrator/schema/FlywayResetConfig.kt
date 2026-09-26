@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.api.FlywayException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -22,6 +23,9 @@ import javax.sql.DataSource
  * Never do this in front of a database anyone actually depends on.
  */
 @Configuration
+// Demo mode only (review 2026-09-26, B-2): outside it the H2 file IS the production database, and a
+// failed migration must stop the start rather than wipe accounts and the ten-year change log.
+@ConditionalOnProperty(name = ["demo.mode"], havingValue = "true")
 class FlywayResetConfig {
     private val log = LoggerFactory.getLogger(FlywayResetConfig::class.java)
 

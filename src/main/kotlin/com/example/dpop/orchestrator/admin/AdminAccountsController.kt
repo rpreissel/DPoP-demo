@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.admin
 
+import com.example.dpop.demo_mode.DemoSurface
 import com.example.dpop.account.AccountService
 import com.example.dpop.orchestrator.kc.LoginTheme
 import com.example.dpop.orchestrator.kernel.FeatureFlags
@@ -39,8 +40,12 @@ data class DemoResetResult(
  * Accounts from the operator's side: list, delete one, or put the whole demo back to its start.
  * Deletion goes through [AccountDeletionService], the same path an account's own DELETE_ACCOUNT
  * journey takes - no second, shorter way that could leave credentials of a method module behind.
+ *
+ * A demo surface (review 2026-09-26, F-7): listing every account and wiping them all fit a handful
+ * of demo personas, not a register of ten million - outside demo mode the controller does not exist.
  */
 @RestController
+@DemoSurface
 @RequestMapping(ADMIN_API)
 @Tag(name = "Admin: accounts", description = "List and delete accounts, reset the demo")
 class AdminAccountsController(

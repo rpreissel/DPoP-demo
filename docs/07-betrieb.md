@@ -307,6 +307,23 @@ prüft beim Start, ob der Code dafür geeignet ist. Wenn nicht, bricht der Start
 dessen ab, was fehlt. Sobald die Voraussetzungen erfüllt sind (eine gemeinsame Sperre für die Jobs,
 ein fest gesetzter Pepper), ist diese Prüfung die Stelle, an der man sie lockert.
 
+## 3c) Außerhalb des Demomodus: was gesetzt sein muss
+
+`demo.mode=false` heißt: Hier dürfen echte Personendaten liegen ([ADR-35](adr/ADR-035-betriebsanspruch-backend-kern-produktionsreif.md)).
+`ProductionModeCheck` bricht dann den Start ab, solange eine Demo-Voreinstellung übrig ist, und nennt
+alle auf einmal:
+
+- `demo.disclosure=false` – keine Demo-Werte (Klartext-TANs, Codes) in Antworten.
+- `demo.admin.password` gesetzt, nicht `admin`, und als Hash (`{bcrypt}…`, `{argon2}…`), nicht im Klartext.
+- `spring.h2.console.enabled=false`.
+- `dpop.secrets.otp-pepper` und `account.change-log.lookup-secret` mit mindestens 32 Zeichen.
+- Keycloak über https mit geprüftem Zertifikat (kein `trustSelfSignedCertificate`).
+
+Außerdem gibt es außerhalb des Demomodus die Demo-Oberflächen nicht (`@DemoSurface`: Mocks der
+Fremdsysteme, Kontenverwaltung mit Demo-Reset), keinen Flyway-Reset und keine Demo-Personen.
+Admin-Anmeldungen sind gedrosselt: fünf falsche Passwörter für einen Benutzernamen sperren ihn für
+15 Minuten (429), auch für das richtige Passwort.
+
 ## 4) Kontosperre, Mengenbegrenzung und Versanddrosselung (Schutz vor Ausprobieren und Massenversand)
 
 Gemeinsame Grundlage sind `AttemptThrottle` (Entität, Primärschlüssel `(scope, subject)`) und
@@ -427,8 +444,10 @@ Tabellen zeigt [02-domaenenmodell.md](02-domaenenmodell.md) Abschnitt 7.
 - **Migrationen:** grundsätzlich eine Datei je Modul unter `db/migration/<modul>/`; `orchestrator`
   hat zusätzlich `V14__node_signing_key.sql` und `V15__event_publication.sql`
   ([ADR-16](adr/ADR-016-ein-datenbankschema-je-modul-statt-namenspraefix.md)). Der heutige Stand ist eine neue Ausgangsbasis
-  ohne Produktivdaten. Passt eine lokale H2-Datei nicht mehr zu den Migrationen, löscht
-  `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf; `rm -rf data/` von
-  Hand ist nicht nötig. Das gilt ausschließlich für H2. Bei jeder anderen Datenbank bricht Flyway
-  ab, wie es soll. Ab dem ersten produktiven Einsatz sind Migrationen nur noch additiv, und Tabellen
+  ohne Produktivdaten. **Nur im Demomodus** gilt: Passt eine lokale H2-Datei nicht mehr zu den
+  Migrationen, löscht `orchestrator.schema.FlywayResetConfig` sie beim Start und baut sie neu auf;
+  `rm -rf data/` von Hand ist nicht nötig. Außerhalb des Demomodus gibt es die Klasse gar nicht,
+  und Flyway bricht den Start ab, wie es soll: Die H2-Datei ist dann die Betriebsdatenbank, und ein
+  Migrationsfehler darf nie Konten und Änderungsprotokoll löschen. Die Demo-Personen
+  (`demo_seed`) werden außerhalb des Demomodus nicht migriert. Ab dem ersten produktiven Einsatz sind Migrationen nur noch additiv, und Tabellen
   mit 10 Millionen Zeilen oder mehr werden in wiederholbaren Portionen umgestellt.

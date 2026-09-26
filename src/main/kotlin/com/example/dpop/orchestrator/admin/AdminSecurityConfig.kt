@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.admin
 
+import com.example.dpop.orchestrator.session.AttemptCounter
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -12,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
 
 /** The one operator login (`demo.admin.*` in application.yml) - demo values, overridable per environment. */
 @ConfigurationProperties(prefix = "demo.admin")
@@ -30,9 +32,10 @@ class AdminSecurityConfig {
 
     @Bean
     @Order(1)
-    fun adminChain(http: HttpSecurity): SecurityFilterChain =
+    fun adminChain(http: HttpSecurity, attemptCounter: AttemptCounter): SecurityFilterChain =
         http
             .securityMatcher("$ADMIN_API/**")
+            .addFilterBefore(AdminLoginThrottleFilter(attemptCounter), BasicAuthenticationFilter::class.java)
             .authorizeHttpRequests { it.anyRequest().hasRole(ADMIN_ROLE) }
             .httpBasic { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
             .csrf { it.disable() }
@@ -57,7 +60,9 @@ class AdminSecurityConfig {
     fun adminUsers(credentials: AdminCredentials): UserDetailsService =
         InMemoryUserDetailsManager(
             User.withUsername(credentials.username)
-                .password("{noop}${credentials.password}")
+                // An encoded value ("{bcrypt}...", "{argon2}...") is used as is; plain text only in
+                // demo mode - ProductionModeCheck refuses it outside (review 2026-09-26, F-7).
+                .password(if (credentials.password.startsWith("{")) credentials.password else "{noop}${credentials.password}")
                 .roles(ADMIN_ROLE)
                 .build()
         )

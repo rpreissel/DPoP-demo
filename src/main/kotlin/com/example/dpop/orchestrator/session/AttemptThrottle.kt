@@ -19,6 +19,9 @@ enum class ThrottleScope {
     /** AUTH attempts against one account (docs/04-orchestrierung.md). */
     ACCOUNT,
 
+    /** Wrong passwords for one admin user name (review 2026-09-26, F-7) - guessed like any other. */
+    ADMIN,
+
     /**
      * IDENT attempts against one person. Deliberately NOT folded into [ACCOUNT]: an
      * identification runs before any account is known (and may create one), so there is no
