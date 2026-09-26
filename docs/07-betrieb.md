@@ -188,7 +188,7 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
   außen und liegt deshalb außerhalb der Transaktion, genau wie der simulierte SMS-Versand. Unsere
   Zeile verschwindet in jedem Fall.
 - **Objekte des Kontos sind beim Aufräumen der Sitzungen tabu:** Die Credentials der Module
-  (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören
+  (`*_enrollment`), `account.auth_method`, `account.audit_event` (IDENTIFIED) und `DeviceAccountLink` gehören
   dem Konto bzw. dem Gerät, nicht der Sitzung.
 - **Wird ein Konto gelöscht, räumt das zusätzlich zwei Sitzungstabellen für diese `accountId` auf**,
   obwohl keine von beiden einen Fremdschlüssel auf `account` hat:

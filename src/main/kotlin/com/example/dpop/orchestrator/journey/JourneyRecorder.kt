@@ -125,15 +125,19 @@ class JourneyRecorder(
         tool: ToolDescriptor,
         outcome: ToolOutcome.Completed.Identified
     ) {
+        // Only the references, by name (ADR-39): whatever else a tool puts into auditDetails - a
+        // document number above all, which may not be kept (§ 20 PAuswG) - is not written.
+        val details = outcome.auditDetails.orEmpty()
+        val reference = listOf("provider", "providerTxId", "methodVersion")
+            .mapNotNull { key -> details[key]?.let { "$key=$it" } }
+            .joinToString(";").ifEmpty { null }
         accountService.addIdentification(
             checkNotNull(channel.accountId),
             tool.method,
             outcome.achievedAcr?.value,
-            outcome.auditDetails.orEmpty() + mapOf(
-                "role" to tool.role.name,
-                "channel" to channel.channel?.name,
-                "journeyId" to journey.journeyId.toString()
-            )
+            role = tool.role.name,
+            reference = reference,
+            evidenceHash = details["evidenceHash"]?.toString(),
         )
     }
 }

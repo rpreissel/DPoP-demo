@@ -72,7 +72,12 @@ internal object IdentEidFlow {
         else -> "pin" to MissingFields(PIN_FIELDS)
     }
 
-    fun evidenceHash(pinHash: String, documentNumber: String): String = "sha256:" + hash("$pinHash:$documentNumber")
+    /**
+     * A hash of exactly what the card showed - the pseudonym and the attested data - so the audit
+     * trail can later prove what an identification saw without keeping it (ADR-39). No document
+     * number: a real eID service does not hand one out, and it may not be kept (§ 20 PAuswG).
+     */
+    fun evidenceHash(attested: List<String?>): String = "sha256:" + hash(attested.joinToString("\u001F") { it.orEmpty() })
 
     private fun hasCardFields(state: IdentEidState) =
         !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank() && state.geburtsdatum != null &&

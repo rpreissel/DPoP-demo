@@ -276,7 +276,7 @@ Quellen: Online-Ausweis nach [§18 PAuswG](https://www.gesetze-im-internet.de/pa
   - *EUDI-Wallet:* optional
 - **Anker**
   - *Online-Ausweis:* Pseudonym der Karte – je Diensteanbieter verschieden, bei Nect also Nects eigenes (`NECT_RESTRICTED_ID`, nicht das von `ident-eid`)
-  - *Reisepass:* Dokumentnummer + Ausstellerstaat (noch nicht als Anker genutzt)
+  - *Reisepass:* keiner – die Dokumentnummer wird nicht angefordert (§ 20 PAuswG / § 16 PassG, docs/ideen/ident-nect.md)
   - *EUDI-Wallet:* ✗ – die PID trägt kein Pseudonym
 - **Niveau / Faktortypen**
   - *Online-Ausweis:* `loa3`, Besitz + Wissen

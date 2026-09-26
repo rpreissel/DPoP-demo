@@ -30,6 +30,16 @@ bestätigen** und deshalb einstellbar.
 - **`orchestrator.session_event` entfällt.** Es wurde nur geschrieben, nie gelesen; was darin Nachweis
   war, steht jetzt im Audit-Protokoll, der Rest ausführlicher im Journey-Log.
 - **Das Journey-Log bleibt Fehlersuche**, kein Nachweis, und lebt 14 statt 30 Tage.
+- **`account.identification` geht im Protokoll auf** (V27): Es wurde nur geschrieben, nie gelesen.
+  Das Ereignis `IDENTIFIED` trägt jetzt zusätzlich die Rolle (Identifizierung oder Zuordnung,
+  ADR-18), die Referenz beim Anbieter (`reference`: Anbieter, Vorgangsnummer, Version) und einen
+  Hash des Gesehenen (`evidence_hash`). Damit lassen sich nachträglich alle Konten ermitteln, die ein
+  bestimmtes Verfahren in einer bestimmten Version identifiziert hat, und ein einzelner Fall beim
+  Anbieter nachprüfen. Übernimmt ein Konto ein vorläufiges (ADR-20), wandern dessen
+  Identifizierungen mit, mit Herkunftsvermerk.
+- **Keine Dokument- oder Ausweisnummer**, weder im Protokoll noch angefordert: Sie darf nicht zum
+  Verknüpfen verwendet werden (§ 20 PAuswG), und ein echter eID-Dienst gibt sie gar nicht heraus.
+  Übernommen werden nur die genannten Referenzfelder, per Namen.
 
 **Erwogene Alternativen**:
 

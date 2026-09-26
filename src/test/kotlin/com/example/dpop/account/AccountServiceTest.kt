@@ -46,7 +46,7 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -89,7 +89,7 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -131,7 +131,7 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -168,7 +168,7 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>()
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
 
         every { accountRepository.save(any()) } answers { firstArg<Account>().apply { id = 7L } }
 
@@ -192,7 +192,7 @@ class AccountServiceTest : BehaviorSpec({
         // fabricated return cannot be cast back - so the retraction write gets a real stub.
         val accountRetractionRepository = mockk<AccountRetractionRepository>()
         every { accountRetractionRepository.save(any()) } answers { firstArg() }
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), accountRetractionRepository, eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), accountRetractionRepository, eventPublisher, mockk(relaxed = true))
 
         val account = Account(createdAt = Instant.now()).apply { id = 7L }
         every { accountRepository.findByIdOrNull(7L) } returns account
@@ -269,7 +269,7 @@ class AccountServiceTest : BehaviorSpec({
         then("they do not load an account or build a profile") {
             val accounts = mockk<AccountRepository>()
             val anchors = mockk<AccountAnchorRepository>()
-            val service = AccountService(accounts, mockk(), anchors, mockk(), mockk(), mockk(), mockk(), mockk(relaxed = true))
+            val service = AccountService(accounts, mockk(), anchors, mockk(), mockk(), mockk(), mockk(relaxed = true))
             every { anchors.findByAttributeTypeAndValue(AttributeType.EMAIL, "max@example.com") } returns
                 AccountAnchor(attributeType = AttributeType.EMAIL, value = "max@example.com", accountId = 7L, establishedAt = Instant.now())
             every { anchors.findByAttributeTypeAndValue(AttributeType.PERSON_ID, "P000000042") } returns
@@ -287,7 +287,7 @@ class AccountServiceTest : BehaviorSpec({
         val accountClaimRepository = mockk<AccountClaimRepository>(relaxed = true)
         val accountAnchorRepository = mockk<AccountAnchorRepository>(relaxed = true)
         val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
-        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
+        val service = AccountService(accountRepository, accountClaimRepository, accountAnchorRepository, mockk(relaxed = true), mockk(relaxed = true), eventPublisher, mockk(relaxed = true))
 
         then("KVNR changes follow ext_personenverzeichnis without creating or reading a local KVNR anchor") {
             val persons = mockk<PersonDirectory>()

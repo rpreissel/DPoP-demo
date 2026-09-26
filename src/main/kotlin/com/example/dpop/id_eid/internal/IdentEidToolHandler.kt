@@ -59,7 +59,6 @@ class IdentEidToolHandler(
                 if (!IdentEidFlow.pinMatchesMock(decision.pinHash)) {
                     return ToolOutcome.Failed.Identification(Text("eID-PIN ungueltig"), attemptedPersonId = null)
                 }
-                val documentNumber = mockDocumentNumber(toolSessionId)
                 ToolOutcome.Completed.Identified(
                     amr = listOf(descriptor.method),
                     achievedAcr = descriptor.maxAcr,
@@ -88,8 +87,12 @@ class IdentEidToolHandler(
                         "provider" to "eid-mock-service",
                         "providerTxId" to "EID-$toolSessionId",
                         "methodVersion" to "1.0",
-                        "documentNumber" to documentNumber,
-                        "evidenceHash" to IdentEidFlow.evidenceHash(decision.pinHash, documentNumber)
+                        "evidenceHash" to IdentEidFlow.evidenceHash(
+                            listOf(
+                                decision.restrictedId, decision.claimed.name, decision.claimed.vorname,
+                                decision.claimed.geburtsdatum?.toString(), decision.claimed.strasse, decision.claimed.plz, decision.claimed.ort,
+                            )
+                        )
                     )
                 )
             }
@@ -106,9 +109,6 @@ class IdentEidToolHandler(
         val (step, fields) = IdentEidFlow.describe(state)
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
-
-    private fun mockDocumentNumber(toolSessionId: UUID): String =
-        "MOCK" + toolSessionId.toString().replace("-", "").take(9).uppercase()
 
     private fun IdEidToolSession.toState(): IdentEidState =
         IdentEidState(name, vorname, geburtsdatum, strasse, plz, ort, restrictedId, pinHash)

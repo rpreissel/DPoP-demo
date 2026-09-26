@@ -511,7 +511,7 @@ class AccountServiceDbTest(
     // `ux_anchor_value` is global, so the yielding account's anchors must be gone before the
     // very same values are written on the absorbing one.
     given("a provisional account whose attestation resolves to another account") {
-        then("it yields: anchors, claims and the identification audit move, the account is gone") {
+        then("it yields: anchors and claims move, the identification proof is carried over, the account is gone") {
             val eid = ClaimSource.of(ToolId("ident-eid"))
             val provisional = accountService.createUnidentifiedAccount()
             accountService.recordClaims(provisional.accountId, listOf(
@@ -519,7 +519,7 @@ class AccountServiceDbTest(
                 Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
                 Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
             ), provenAcr = AcrLevel.LOA2)
-            accountService.addIdentification(provisional.accountId, "eid", "loa3", mapOf("provider" to "eid-mock-service"))
+            accountService.addIdentification(provisional.accountId, "eid", "loa3", role = "IDENTIFICATION", reference = "provider=eid-mock-service")
             val target = accountService.createUnidentifiedAccount()
             accountService.recordClaim(
                 target.accountId, Claim(AttributeType.PERSON_ID, "P000000001", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2
@@ -533,14 +533,15 @@ class AccountServiceDbTest(
                 "T0103005K1D5S0V8T9W6UM2RTX"
             accountService.establishedClaimValues(target.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME)) shouldBe
                 mapOf(AttributeType.NAME to "Muster", AttributeType.VORNAME to "Max")
+            // The proof of identity is the absorbing account's now (ADR-39): carried over, naming its origin.
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.identification WHERE account_id = ? AND method = 'eid'",
-                Int::class.java, target.accountId
-            ) shouldBe 1
-            jdbcTemplate.queryForObject(
-                "SELECT details FROM account.identification WHERE account_id = ? AND method = 'eid'",
+                "SELECT source FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
                 String::class.java, target.accountId
-            )!! shouldContain "absorbedFromAccountId"
+            )!! shouldContain "account:${provisional.accountId}"
+            jdbcTemplate.queryForObject(
+                "SELECT reference FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
+                String::class.java, target.accountId
+            ) shouldBe "provider=eid-mock-service"
         }
 
         then("an anchor the absorbing account already holds with the same value is a no-op, not a conflict") {

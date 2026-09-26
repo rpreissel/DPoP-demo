@@ -35,11 +35,14 @@ classDiagram
     string claimSource
     string establishedAcr
   }
-  class AccountIdentification {
-    string method
-    string achievedAcr
-    Instant identifiedAt
-    json details
+  class AuditEvent {
+    string eventType "IDENTIFIED, ..."
+    string subject "Verfahren"
+    string acr
+    string source "Rolle"
+    string reference "Anbieter, Vorgang, Version"
+    string evidenceHash
+    Instant occurredAt
   }
   class AccountAuthMethod {
     UUID id
@@ -57,7 +60,7 @@ classDiagram
 
   Account "1" --> "0..*" AccountAnchor : aktueller Wert je Ankertyp
   Account "1" --> "0..*" AccountClaim : Protokoll der Claims (nur anfügen)
-  Account "1" --> "0..*" AccountIdentification : Protokoll der Nachweise (nur anfügen)
+  Account "1" --> "0..*" AuditEvent : Audit-Protokoll (nur anfügen, überlebt das Konto)
   Account "1" --> "0..*" AccountAuthMethod : eingerichtete Verfahren
   AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms.enrollment, id)
 ```
@@ -99,10 +102,12 @@ Entscheidungen, die an diesem Modell hängen:
   liegen ausschließlich im jeweiligen Methodenmodul (bei SMS in
   `auth_sms.auth_tool_session`/`auth_sms.enroll_tool_session`).
 
-Regel für `account.identification.details`: Der Eintrag belegt, **dass und wie** geprüft wurde,
-nicht **was** geprüft wurde. Hinein gehören die Belege der Prüfung (`provider`, `providerTxId`), die
-Version des Verfahrens und ein Hash über die geprüften Merkmale. Nicht hinein gehören KVNR oder
-Name im Klartext und keine Geheimnisse.
+Regel für das Identifizierungs-Ereignis im Audit-Protokoll (`account.audit_event`, `IDENTIFIED`,
+[ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)): Es belegt, **dass und wie** geprüft
+wurde, nicht **was** geprüft wurde. Hinein gehören Rolle, die Belege der Prüfung (`provider`,
+`providerTxId`), die Version des Verfahrens und ein Hash über die geprüften Merkmale – nur diese
+Felder, per Namen übernommen (`JourneyRecorder`). Nicht hinein gehören KVNR, Name, eine Dokument-
+oder Ausweisnummer (§ 20 PAuswG) oder Geheimnisse.
 
 Ein Durchlauf kann **zwei** Zeilen hinterlassen, weil ADR-18 die Identifizierung in zwei Schritte
 teilt: bestätigen (`ident-eid`) und zuordnen (`ident-kvnr`). Beide werden protokolliert, die

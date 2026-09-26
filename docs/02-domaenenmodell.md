@@ -194,7 +194,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   werden (`id`, `createdAt`, `version`). Der aktuelle Zustand steht in eigenen Zeilen je Konto
   (`AccountAnchor`, `AccountAuthMethod`). Jede Änderung daran lädt die Kontozeile mit
   `OPTIMISTIC_FORCE_INCREMENT`; schreiben zwei Vorgänge gleichzeitig, bekommt der zweite
-  `409 CONCURRENT_MODIFICATION`. Die Historie (`AccountClaim`, `AccountIdentification`) wird nur
+  `409 CONCURRENT_MODIFICATION`. Die Historie (`AccountClaim`, `AuditEvent` (IDENTIFIED)) wird nur
   ergänzt und erhöht die Version nie.
 - `AccountProfile` ist die typisierte Sicht zum Lesen. `personId` (die Partnernummer, optional,
   [12-entscheidungen.md](12-entscheidungen.md) ADR-10/ADR-34) und `email`/`emailConfirmedAt`
@@ -232,9 +232,10 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   und Credential verknüpft sind. Die Zeile mit dem Credential gehört dem Methodenmodul;
   deaktivierte Einträge bleiben stehen. Die Methode `email` hat kein eigenes Credential im Modul:
   Ihre Referenz ist der EMAIL-Anker (`EMAIL_ANCHOR_ENROLLMENT`).
-- `AccountIdentification` protokolliert jede Identifizierung für die Revision: Verfahren,
-  erreichtes LoA, Zeitpunkt und den Nachweis, auf dem sie beruht
-  ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1). Für Entscheidungen wird es nie gelesen.
+- Das Audit-Protokoll (`account.audit_event`, [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md))
+  hält jede Identifizierung fest (Ereignis `IDENTIFIED`): Verfahren, erreichtes LoA, Rolle, Zeitpunkt
+  und die Referenz beim Anbieter ([06-ablaeufe.md](06-ablaeufe.md) Abschnitt 1) – dazu Widerrufe,
+  Methoden und Löschung. Für Entscheidungen wird es nie gelesen; es überlebt das Konto.
 - `AccountRetraction` (`account.retraction`) macht einen Wert ungültig. Jede Widerrufszeile nennt,
   wer widerruft (`RetractionAnchor`: `ACCOUNT_MANAGEMENT`, `PERSON_DIRECTORY`, `OPERATOR`), den
   Grund und den Zeitpunkt ([12-entscheidungen.md](12-entscheidungen.md) ADR-12). „Aktuell gültig"
@@ -345,7 +346,7 @@ erDiagram
   account.account ||--o{ account.anchor : "hat aktuellen Ankerwert"
   account.account ||--o{ account.auth_method : "hat eingerichtetes Verfahren"
   account.account ||--o{ account.claim : "bestätigt (nur anfügen)"
-  account.account ||--o{ account.identification : "identifiziert (nur anfügen)"
+  account.account ||--o{ account.audit_event : "Audit (nur anfügen, ohne FK)"
   account.account ||--o{ account.retraction : "widerruft (nur anfügen)"
   account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
   account.auth_method }o..o| auth_device.enrollment : "enrollment_type/_id"
@@ -386,11 +387,13 @@ erDiagram
     varchar normalized_value "macht passende Claims ungültig"
     varchar trust_anchor "wer widerruft"
   }
-  account.identification {
-    bigint account_id FK
-    varchar method "welches Verfahren"
-    varchar achieved_acr
-    json details "Nachweis"
+  account.audit_event {
+    bigint account_id "kein FK - überlebt das Konto"
+    varchar event_type "IDENTIFIED, METHOD_ADDED, ..."
+    varchar subject "Verfahren oder Attributtyp"
+    varchar acr
+    varchar reference "Anbieter, Vorgang, Version"
+    varchar evidence_hash
   }
   auth_sms.enrollment {
     bigint id PK

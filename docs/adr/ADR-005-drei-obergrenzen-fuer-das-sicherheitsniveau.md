@@ -31,10 +31,10 @@ Anmeldeverfahren ein Niveau erreichen, das ihre Identifizierung nie hergab.
 **Folgen und Kosten**: Ein Niveau kann an zwei Stellen sinken statt an einer. Welche gerade wirkt, lässt
 sich nur mit dem Nachweis der Sitzung (`AuthEvidence`, [ADR-15](ADR-015-nachweise-und-ausgestellte-tokens-in-getrennten-tabellen.md))
 und `account.auth_method.enrolled_under_acr` zusammen nachvollziehen. Die Tabelle
-`account.identification` mit `achieved_acr` ist nur ein Audit-Nachweis und wird für keine Entscheidung
+`account.audit_event` (IDENTIFIED) mit `achieved_acr` ist nur ein Audit-Nachweis und wird für keine Entscheidung
 gelesen.
 
-**Geschichte**: Ursprünglich waren es drei Grenzen; die erste sollte `account.identification.achieved_acr`
+**Geschichte**: Ursprünglich waren es drei Grenzen; die erste sollte `account.audit_event.acr` (IDENTIFIED)
 sein und begrenzen, was ein Konto überhaupt erreichen kann. Diese Grenze wurde nie gelesen. Seit
 2026-09-23 ist festgehalten, dass die Identifizierung nur noch über `enrolledUnderAcr` wirkt. Der
 Dateiname trägt noch die alte Zahl.

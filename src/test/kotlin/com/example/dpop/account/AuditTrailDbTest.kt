@@ -31,7 +31,7 @@ class AuditTrailDbTest(
         jdbcTemplate.queryForList("SELECT event_type, subject, acr, source FROM account.audit_event WHERE account_id = ? ORDER BY id", accountId)
 
     fun livedThrough(accountId: Long) {
-        accountService.addIdentification(accountId, "ident-fsc", "loa2", mapOf("ort" to "Musterstadt"))
+        accountService.addIdentification(accountId, "ident-fsc", "loa2", role = "IDENTIFICATION", reference = "provider=fsc-service;providerTxId=FSC-1")
         val method = accountService.addAuthenticationMethod(
             accountId, "sms", EnrollmentRef("auth_sms.enrollment", "1"), enrolledUnderAcr = "loa1", details = mapOf("phone" to "+491701234567")
         ).activeAuthenticationMethods.single()
@@ -49,10 +49,9 @@ class AuditTrailDbTest(
             events(accountId)[0]["ACR"] shouldBe "loa2"
             // No value of the account made it into the trail.
             jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM account.audit_event WHERE account_id = ? AND (COALESCE(subject,'') LIKE '%Musterstadt%' OR COALESCE(source,'') LIKE '%+49%')",
+                "SELECT COUNT(*) FROM account.audit_event WHERE account_id = ? AND COALESCE(source,'') LIKE '%+49%'",
                 Int::class.java, accountId
             ) shouldBe 0
-            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.identification WHERE account_id = ?", Int::class.java, accountId) shouldBe 0
             jdbcTemplate.queryForObject("SELECT COUNT(*) FROM account.auth_method WHERE account_id = ?", Int::class.java, accountId) shouldBe 0
         }
     }

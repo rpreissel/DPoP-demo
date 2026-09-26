@@ -630,7 +630,7 @@ Ende zu dem `acr`-Wert zusammen, der nach außen sichtbar ist:
 
 - **IAL** (`identityAssuranceLevel`, „Wer ist das?"): das höchste `loa`, das ein Verfahren mit der
   Rolle IDENTIFICATION (`ident-fsc`, `ident-eid`, `ident-nect`) **in dieser Sitzung** erbracht hat.
-  Es wird bewusst NICHT aus `account.identification` einer früheren Sitzung nachgeladen, denn die
+  Es wird bewusst NICHT aus `account.audit_event` (IDENTIFIED) einer früheren Sitzung nachgeladen, denn die
   `AuthEvidence` gibt es „einmal je Kanal, gelöscht beim Abmelden"
   (`orchestrator.session.AuthEvidence`).
 - **AAL** (`authenticatorAssuranceLevel`, „Wie stark ist der Nachweis bei DIESEM Login?"): die
@@ -667,7 +667,7 @@ In einem Zustand zum Anmelden lautet die Frage „Reicht das *jetzt*?" (`isSatis
 Zustand zum Einrichten „Kommt der Nutzer damit *künftig wieder herein*?" (`reachability`). Eine
 Identifizierung ist kein dauerhaftes Verfahren: `ident-fsc` zählt zwar für die
 `AuthEvidence.currentFactorTypes` dieser Sitzung, landet aber im Protokoll
-`account.identification`, nicht in `account.auth_method`.
+`account.audit_event` (IDENTIFIED), nicht in `account.auth_method`.
 
 Daraus folgt eine Kette von Obergrenzen:
 

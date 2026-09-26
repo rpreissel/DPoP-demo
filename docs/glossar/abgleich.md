@@ -111,7 +111,7 @@ unterschiedlich lange leben. Keiner davon entspricht allein der Identität des G
    Quelle und Niveau, das nur ergänzt und nie überschrieben wird. Daraus ergibt sich der aktuelle
    Stand der Anker; Widerrufe (`AccountRetraction`) nehmen Werte zurück, auch wenn das
    Personenverzeichnis eine KVNR oder Versicherungsnummer ändert (ADR-34).
-6. **`AccountIdentification` ist Nachweis für die Prüfung, nicht Identität.** Es hält fest, dass und
+6. **`AuditEvent` (IDENTIFIED) ist Nachweis für die Prüfung, nicht Identität.** Es hält fest, dass und
    wie identifiziert wurde, wird aber für Entscheidungen nie gelesen.
 
 **Einordnung:** Der aktuelle Stand der Anker entspricht zu jedem Zeitpunkt der „Identität“ des

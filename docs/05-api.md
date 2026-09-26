@@ -533,7 +533,7 @@ Liest den stabilen Kanalzustand. Neben `state` stehen im `channel`-Block zwei we
 - `activeMethods`: alle eingerichteten Verfahren des Kontos als Objekte
   `{id, method, label, factorTypes, maxAcr, enrolledUnderAcr, effectiveAcr}`, unabhängig davon, was
   diese Sitzung geprüft hat. `fsc` ist nie dabei, denn eine Identifizierung steht im Protokoll
-  `account.identification`, nicht in `account.auth_method`. `id` adressiert den Eintrag für
+  `account.audit_event` (IDENTIFIED), nicht in `account.auth_method`. `id` adressiert den Eintrag für
   `DELETE`. `label` ist nur bei Methoden gesetzt, die mehrere Einträge haben können (derzeit
   `device` und `kobil`). `auth-device` wird zum Anmelden nur auf dem Gerät mit dem passenden
   Schlüssel angeboten (`docs/04-orchestrierung.md`); deaktivieren lässt es sich von überall.

@@ -35,7 +35,9 @@ internal val NECT_REQUESTED = setOf(
     NectAttribute.BIRTH_DATE,
     NectAttribute.ADDRESS,
     NectAttribute.EID_PSEUDONYM,
-    NectAttribute.DOCUMENT_ID
+    // Not DOCUMENT_ID: the document number and issuing state were only ever written into the audit
+    // blob, and a document number may not be kept (§ 20 PAuswG) - what is not needed is not asked for
+    // (review 2026-09, Phase F).
 )
 
 /**
@@ -132,8 +134,8 @@ class IdentNectToolHandler(
             put("providerTxId", caseId.toString())
             put("toolSessionId", toolSessionId.toString())
             put("procedure", procedure.wireName)
-            a.documentNumber?.let { put("documentNumber", it) }
-            a.issuingState?.let { put("issuingState", it) }
+            // No document number: it may not be kept (§ 20 PAuswG), and the case id already
+            // lets Nect answer for this run (review 2026-09, Phase F).
         }
 
     private companion object {

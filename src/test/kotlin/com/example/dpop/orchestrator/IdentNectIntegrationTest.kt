@@ -72,7 +72,7 @@ class IdentNectIntegrationTest : IntegrationTestSupport() {
             then("the return reports the case, the backend redeems it, and ident-kvnr follows") {
                 val run = start()
                 get("/mock-nect/cases/${run.caseId}")["requested"] shouldBe
-                    listOf("family_name", "given_names", "birth_date", "address", "eid_pseudonym", "document_id")
+                    listOf("family_name", "given_names", "birth_date", "address", "eid_pseudonym")
                 val redirectUri = finishAtNect(run.caseId, "eid", "$max,$maxAddress,\"restrictedId\":\"NECT-EID-MAX\"", pin = "123456")
                 redirectUri shouldBe "/app/?nectCaseId=${run.caseId}"
 

@@ -216,7 +216,7 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 // The attestation came along - the card's own anchor now recognizes this account.
                 restrictedIdAnchorsOf(existing) shouldBe 1
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account.identification WHERE account_id = ? AND method = 'eid'",
+                    "SELECT COUNT(*) FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
                     Int::class.java, existing
                 ) shouldBe 1
 
@@ -263,18 +263,18 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                     // row would read like a procedure that reached loa2 by itself.
                     jdbcTemplate.queryForList(
                         """
-                        SELECT i.method FROM account.identification i
-                        JOIN orchestrator.channel_session cs ON cs.account_id = i.account_id
-                        WHERE cs.id = CAST(? AS UUID) ORDER BY i.identified_at
+                        SELECT e.subject FROM account.audit_event e
+                        JOIN orchestrator.channel_session cs ON cs.account_id = e.account_id
+                        WHERE cs.id = CAST(? AS UUID) AND e.event_type = 'IDENTIFIED' ORDER BY e.occurred_at
                         """,
                         String::class.java,
                         channelSessionId
                     ) shouldBe listOf("eid", "kvnr")
                     jdbcTemplate.queryForObject(
                         """
-                        SELECT i.details FROM account.identification i
-                        JOIN orchestrator.channel_session cs ON cs.account_id = i.account_id
-                        WHERE cs.id = CAST(? AS UUID) AND i.method = 'kvnr'
+                        SELECT e.source FROM account.audit_event e
+                        JOIN orchestrator.channel_session cs ON cs.account_id = e.account_id
+                        WHERE cs.id = CAST(? AS UUID) AND e.event_type = 'IDENTIFIED' AND e.subject = 'kvnr'
                         """,
                         String::class.java,
                         channelSessionId

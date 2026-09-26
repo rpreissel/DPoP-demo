@@ -9,8 +9,6 @@ import com.example.dpop.account.internal.AccountClaim
 import com.example.dpop.account.internal.AccountClaimRepository
 import com.example.dpop.account.internal.AccountAuthMethod
 import com.example.dpop.account.internal.AccountAuthMethodRepository
-import com.example.dpop.account.internal.AccountIdentification
-import com.example.dpop.account.internal.AccountIdentificationRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
@@ -72,7 +70,6 @@ class AccountService(
     private val accountClaimRepository: AccountClaimRepository,
     private val accountAnchorRepository: AccountAnchorRepository,
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
-    private val accountIdentificationRepository: AccountIdentificationRepository,
     private val accountRetractionRepository: AccountRetractionRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val auditLog: AuditLog,
@@ -248,7 +245,7 @@ class AccountService(
      *
      * The log is a change log, not a run log: a claim whose (type, value, source, method) is
      * already established leaves no new row - WHEN identity was re-proven is
-     * `AccountIdentification`'s story, and re-attesting the same card eight times must not cost
+     * the audit trail's story (IDENTIFIED events, ADR-39), and re-attesting the same card eight times must not cost
      * eight log rows. The method instance is part of the key so a fresh enrollment of a known
      * value still logs: revoking the OLD instance retracts only what THAT instance asserted.
      *
@@ -462,8 +459,8 @@ class AccountService(
      * What stays behind on purpose: retracted claims (they were withdrawn, and
      * [AccountClaimRepository.findEstablished] never returns them) and the claim rows' original
      * timestamps - the absorbing account records WHEN it took them on, while WHEN identity was
-     * proven stays in the [AccountIdentification] rows, which are replayed with their original
-     * `identifiedAt` and details.
+     * proven stays in the audit trail: its IDENTIFIED events are carried over with their original
+     * time ([AuditLog.carryIdentifications]).
      */
     @Transactional
     fun absorbProvisionalAccount(from: Long, into: Long) {
@@ -485,7 +482,6 @@ class AccountService(
             anchor.attributeType?.let { type -> type to (anchor.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE) }
         }.toMap()
         val claims = accountClaimRepository.findEstablished(from).sortedBy { it.establishedAt }
-        val identifications = accountIdentificationRepository.findByAccountIdOrderByIdentifiedAt(from)
 
         // Release the unique anchor values BEFORE the same values are written on `into`, and
         // flush it: Hibernate orders insertions before deletions within one flush, so without
@@ -493,6 +489,7 @@ class AccountService(
         // from (the same ordering trap `recordAnchor`'s in-place rebind documents).
         accountAnchorRepository.deleteAll(anchors)
         accountAnchorRepository.flush()
+        auditLog.carryIdentifications(from, into)
         deleteAccount(from)
 
         claims.forEach { claim ->
@@ -508,21 +505,8 @@ class AccountService(
                 provenAcr = anchorAcr[type] ?: claim.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE
             )
         }
-        identifications.forEach { identification ->
-            accountIdentificationRepository.save(
-                AccountIdentification(
-                    accountId = into,
-                    method = identification.method,
-                    achievedAcr = identification.achievedAcr,
-                    identifiedAt = identification.identifiedAt,
-                    // The run's own audit details stay as they were - plus where it was recorded
-                    // first, so the absorbed account id stays traceable after its row is gone.
-                    details = identification.details.orEmpty() + mapOf("absorbedFromAccountId" to from)
-                )
-            )
-        }
         auditLog.record(into, AuditEventType.ACCOUNT_ABSORBED, source = "account:$from")
-        log.info("Account {} absorbed provisional account {} ({} claims, {} identifications)", into, from, claims.size, identifications.size)
+        log.info("Account {} absorbed provisional account {} ({} claims)", into, from, claims.size)
     }
 
     /** Every withdrawal goes through here, so none escapes the audit trail (ADR-39) - the value stays in the retraction row, which goes with the account. */
@@ -535,19 +519,13 @@ class AccountService(
         return accountRetractionRepository.save(retraction)
     }
 
-    /** Appends the audit record of one identification run - see [AccountIdentification]. */
+    /**
+     * The audit record of one identification run (ADR-39): which procedure, at which level, in which
+     * role (identifying or only correlating, ADR-18), and where to check it - never what it saw.
+     */
     @Transactional
-    fun addIdentification(accountId: Long, method: String, loa: String?, details: Map<String, Any?>?) {
-        auditLog.record(accountId, AuditEventType.IDENTIFIED, subject = method, acr = loa)
-        accountIdentificationRepository.save(
-            AccountIdentification(
-                accountId = accountId,
-                method = method,
-                achievedAcr = loa,
-                identifiedAt = Instant.now(),
-                details = details
-            )
-        )
+    fun addIdentification(accountId: Long, method: String, loa: String?, role: String? = null, reference: String? = null, evidenceHash: String? = null) {
+        auditLog.record(accountId, AuditEventType.IDENTIFIED, subject = method, acr = loa, source = role, reference = reference, evidenceHash = evidenceHash)
     }
 
     /**

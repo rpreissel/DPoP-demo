@@ -69,7 +69,9 @@ class IdentEidToolHandlerTest : BehaviorSpec({
             then("the audit blob carries only what no claim can - provider, tx ids, evidence hash") {
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
                 outcome.auditDetails?.get("ort").shouldBeNull()
-                outcome.auditDetails?.get("documentNumber").shouldBeInstanceOf<String>().shouldStartWith("MOCK")
+                // Never the document number (§ 20 PAuswG) - it only goes into the evidence hash.
+                outcome.auditDetails?.get("documentNumber").shouldBeNull()
+                outcome.auditDetails?.get("evidenceHash").shouldBeInstanceOf<String>().shouldStartWith("sha256:")
             }
         }
 

@@ -123,7 +123,7 @@ class AccountFixtures(
             ),
             provenAcr = IDENT_ACR
         )
-        accountService.addIdentification(accountId, "fsc", IDENT_ACR.value, emptyMap())
+        accountService.addIdentification(accountId, "fsc", IDENT_ACR.value, role = "IDENTIFICATION")
     }
 
     /** What confirm-email leaves behind: an EMAIL anchor and NO login method (ADR-17). */

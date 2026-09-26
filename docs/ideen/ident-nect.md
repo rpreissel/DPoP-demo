@@ -63,7 +63,12 @@ Offene Frage: A oder B? Das hängt davon ab, wer ext-ident sonst noch nutzt.
 
 ## 3) Anker für den Reisepass
 
-Beim Reisepass fragt `ident-nect` schon die Dokumentnummer an (`DOCUMENT_ID`), legt daraus aber keinen
+> **Verworfen (2026-09-26):** `ident-nect` fragt die Dokumentnummer nicht mehr an. Ausweis- und
+> Passnummern dürfen nicht zum Verknüpfen von Daten verwendet werden (§ 20 PAuswG, für den Pass
+> entsprechend § 16 PassG – vor einer Wiederaufnahme rechtlich zu prüfen); der Anker bleibt beim
+> kartenspezifischen Pseudonym.
+
+Beim Reisepass fragte `ident-nect` früher die Dokumentnummer an (`DOCUMENT_ID`), legte daraus aber keinen
 Anker an. Ein Anker aus **Dokumentnummer + Ausstellerstaat** würde ein Konto beim nächsten Lauf mit
 demselben Pass wiedererkennen. Er wechselt mit jedem neuen Pass, wie das Pseudonym bei einer neuen
 Karte (ADR-19). Nötig wären ein eigener `AttributeType` mit Normalisierung, eine Ankerregel in

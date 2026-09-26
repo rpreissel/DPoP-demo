@@ -44,9 +44,22 @@ class AuditEvent(
     @Column(name = "acr", updatable = false, length = 16)
     val acr: String? = null,
 
-    /** Who or what caused it: a trust anchor (`ACCOUNT_HOLDER`), a reason code, or the other account of an absorption. */
+    /** Who or what caused it: a trust anchor (`ACCOUNT_HOLDER`), a reason code, the identification role, or the other account of an absorption. */
     @Column(name = "source", updatable = false, length = 64)
     val source: String? = null,
+
+    /**
+     * Where to ask about it: for an identification the provider, its transaction id and the
+     * procedure version (`provider=…;tx=…;version=…`) - what makes a flawed procedure traceable to
+     * the accounts it identified, and a single case checkable with the provider. Never a value of
+     * the person.
+     */
+    @Column(name = "reference", updatable = false, length = 255)
+    val reference: String? = null,
+
+    /** A hash of what the identification saw - proves it without keeping it. */
+    @Column(name = "evidence_hash", updatable = false, length = 128)
+    val evidenceHash: String? = null,
 
     @Column(name = "occurred_at", nullable = false, updatable = false)
     val occurredAt: Instant = Instant.now(),
@@ -60,6 +73,8 @@ class AuditEvent(
 interface AuditEventRepository : JpaRepository<AuditEvent, Long> {
     fun findByAccountIdOrderByOccurredAt(accountId: Long): List<AuditEvent>
 
+    fun findByAccountIdAndEventTypeOrderByOccurredAt(accountId: Long, eventType: AuditEventType): List<AuditEvent>
+
     @Query("select e.accountId from AuditEvent e where e.eventType = com.example.dpop.account.internal.AuditEventType.ACCOUNT_DELETED and e.occurredAt < :cutoff")
     fun accountsDeletedBefore(cutoff: Instant, pageable: Pageable): List<Long>
 
@@ -72,8 +87,34 @@ interface AuditEventRepository : JpaRepository<AuditEvent, Long> {
 @Component
 class AuditLog(private val repository: AuditEventRepository) {
     @Transactional(propagation = Propagation.MANDATORY)
-    fun record(accountId: Long, type: AuditEventType, subject: String? = null, acr: String? = null, source: String? = null, at: Instant = Instant.now()) {
-        repository.save(AuditEvent(accountId, type, subject, acr, source?.take(64), at))
+    fun record(
+        accountId: Long, type: AuditEventType, subject: String? = null, acr: String? = null, source: String? = null,
+        at: Instant = Instant.now(), reference: String? = null, evidenceHash: String? = null,
+    ) {
+        repository.save(
+            AuditEvent(
+                accountId = accountId, eventType = type, subject = subject, acr = acr, source = source?.take(64),
+                reference = reference?.take(255), evidenceHash = evidenceHash?.take(128), occurredAt = at,
+            )
+        )
+    }
+
+    /**
+     * The identifications [from] had, now [into]'s (an absorbed provisional account, ADR-20) - the
+     * proof of identity belongs to the account the person ended up in. Copied, not moved: the
+     * trail stays append-only; the copies name where they came from.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun carryIdentifications(from: Long, into: Long) {
+        repository.findByAccountIdAndEventTypeOrderByOccurredAt(from, AuditEventType.IDENTIFIED).forEach { e ->
+            repository.save(
+                AuditEvent(
+                    accountId = into, eventType = AuditEventType.IDENTIFIED, subject = e.subject, acr = e.acr,
+                    source = listOfNotNull(e.source, "account:$from").joinToString("|").take(64),
+                    reference = e.reference, evidenceHash = e.evidenceHash, occurredAt = e.occurredAt,
+                )
+            )
+        }
     }
 }
 
