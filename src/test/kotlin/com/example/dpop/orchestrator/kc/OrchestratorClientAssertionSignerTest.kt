@@ -55,7 +55,7 @@ class OrchestratorClientAssertionSignerTest : BehaviorSpec({
         val signer = signer()
         then("it has no key and gets no assertion") {
             signer.publicKeyOf("some-other-client") shouldBe null
-            shouldThrow<IllegalArgumentException> { signer.assertionFor("some-other-client", "https://kc/realms/Demo") }
+            shouldThrow<IllegalStateException> { signer.assertionFor("some-other-client", "https://kc/realms/Demo") }
         }
     }
 })

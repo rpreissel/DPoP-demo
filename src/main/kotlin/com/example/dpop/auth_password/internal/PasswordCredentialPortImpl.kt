@@ -31,7 +31,7 @@ internal class PasswordCredentialPortImpl(
 
     @Transactional
     override fun setNew(password: String): EnrollmentRef {
-        PasswordPolicy.check(password)?.let { throw IllegalArgumentException(PasswordPolicy.message(it)) }
+        PasswordPolicy.check(password)?.let(PasswordPolicy::reject)
         val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(password)))
         return EnrollmentRef(type = PASSWORD_ENROLLMENT_TYPE, id = enrollment.id.toString())
     }

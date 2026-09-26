@@ -47,18 +47,19 @@ class OrchestratorExceptionHandler {
     /**
      * A value the CLIENT sent was rejected (a malformed phone number, an unknown acr level) -
      * docs/07-betrieb.md #1: 400. An [InvalidInputException] carries the words for the user; any
-     * other rejection (a plain `require`) names only the technical fault, as `{detail}`.
+     * other rejection gets a neutral text, and its message goes to the log only - it may come from a
+     * library and name classes or internals (review 2026-09, Phase F: it used to be sent as `{detail}`).
      *
      * The rule this relies on: `require`/`IllegalArgumentException` only for rejected input,
      * `check`/`error()` for a broken internal assumption. Internal lookups ("Account not found")
      * used to throw this too and reached the client as a 400 with an internal id in the text.
      */
     @ExceptionHandler(IllegalArgumentException::class)
-    fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ErrorResponse> =
-        respond(
-            ErrorCode.BAD_REQUEST,
-            (e as? InvalidInputException)?.text ?: Text("Die Eingabe ist ungültig ({detail}).", "detail" to e.message)
-        )
+    fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ErrorResponse> {
+        if (e is InvalidInputException) return respond(ErrorCode.BAD_REQUEST, e.text)
+        log.info("Rejected input: {}", e.message)
+        return respond(ErrorCode.BAD_REQUEST, Text("Die Eingabe ist ungültig."))
+    }
 
     /** The body is not valid JSON or does not fit the request type. Spring's own shape otherwise. */
     @ExceptionHandler(HttpMessageNotReadableException::class)

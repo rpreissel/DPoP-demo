@@ -51,7 +51,7 @@ class OrchestratorClientAssertionSigner(
         if (clientId in clientIds) keyOf(clientId).toPublicJWK() else null
 
     private fun keyOf(clientId: String): ECKey {
-        require(clientId in clientIds) { "Fuer Client '$clientId' signiert dieser Orchestrator nicht" }
+        check(clientId in clientIds) { "Fuer Client '$clientId' signiert dieser Orchestrator nicht" }
         return nodeKeys.keyFor(NodeSigningKey.keycloakClientAuth(clientId), clientId)
     }
 

@@ -84,11 +84,11 @@ class OrchestratorExceptionHandlerTest : BehaviorSpec({
             response.body?.text.toString() shouldNotContain "42"
         }
 
-        then("rejected client input is a 400 that tells the caller what was wrong") {
-            val response = handler.handleIllegalArgument(IllegalArgumentException("Unknown acr level: loa9"))
+        then("rejected input without words of its own is a 400 with a neutral text - the message stays in the log") {
+            val response = handler.handleIllegalArgument(IllegalArgumentException("Invalid UUID string: com.example.Internal"))
             response.statusCode shouldBe HttpStatus.BAD_REQUEST
             response.body?.error shouldBe ErrorCode.BAD_REQUEST
-            response.body?.text?.args shouldBe mapOf("detail" to "Unknown acr level: loa9")
+            response.body?.text?.args shouldBe emptyMap()
         }
 
         then("input rejected in the user's words keeps those words") {

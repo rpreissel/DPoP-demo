@@ -496,7 +496,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
 - **Personenverzeichnis-Verwaltung ohne Login:** `PersonenverzeichnisController.kt:40-84` stellt
   Freischaltcodes im Klartext aus und ändert Stammdaten. Als Fremdsystem-Mock deklariert; in einer
   erreichbaren Instanz trotzdem ein Kontoübernahme-Pfad – hinter Admin-Auth legen oder per Profil abschalten.
-- **Fehlerantworten:** `OrchestratorExceptionHandler.kt:56-61` reicht jede
+- **Fehlerantworten** – *behoben 2026-09-26: eine `IllegalArgumentException` ohne eigene Worte bekommt einen neutralen Text, die Meldung geht nur ins Log; nutzerlesbare Ablehnungen (Rufnummer, E-Mail, Passwortregeln, unbekanntes Niveau) sind `InvalidInputException` mit übersetztem Text; CSP gehört zu Phase G:* `OrchestratorExceptionHandler.kt:56-61` reicht jede
   `IllegalArgumentException.message` durch (Klassennamen aus Bibliotheken). Kein CSP-Header.
 - **Keycloak-Kleinkram:** kein `jti`-Replay-Schutz für die Konto-Assertion
   (`AccountTokenGrantType.java:162-188`); unbekannte `kid` erzwingt ohne Backoff einen JWKS-Abruf

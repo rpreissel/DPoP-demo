@@ -115,7 +115,7 @@ class ChannelService(
         // updated again, unlike the backend-wide kill-switch which is read live on every step.
         channel.availableClientTools = availableTools.toMutableSet()
         sessionManagementService.updateChannelSession(channel)
-        requestedAcrFloor?.let { sessionManagementService.raiseChannelAcrFloor(channel.channelSessionId!!, it) }
+        requestedAcrFloor?.let { sessionManagementService.raiseChannelAcrFloor(channel.channelSessionId!!, AcrLevel.requested(it).value) }
 
         return resumeChannel(sessionManagementService.findChannelSessionById(channel.channelSessionId!!)!!)
     }
@@ -257,7 +257,7 @@ class ChannelService(
 
     fun raiseRequiredAcr(channelSessionId: UUID, bindingKeyRef: String, requiredAcr: String): ChannelResponse {
         val live = channelAccessGuard.requireLiveChannel(channelSessionId, bindingKeyRef)
-        sessionManagementService.raiseChannelAcrFloor(channelSessionId, requiredAcr)
+        sessionManagementService.raiseChannelAcrFloor(channelSessionId, AcrLevel.requested(requiredAcr).value)
         val refreshed = live.session
 
         // Not logged in yet: there is nothing to step up FROM. The raised floor simply applies to the

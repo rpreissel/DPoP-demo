@@ -1,4 +1,5 @@
 package com.example.dpop.auth_sms.internal.enrollsms
+import com.example.dpop.tool_spi.InvalidInputException
 import com.example.dpop.sms_mock.SmsGateway
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_sms.internal.AuthSmsEnrollment
@@ -58,7 +59,7 @@ class EnrollSmsToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown enroll-sms tool session: $toolSessionId" }
 
         return when (val decision = EnrollSmsFlow.decide(data.toState(), EnrollSmsInput(phoneNumber, tan), tanGenerator)) {
-            is EnrollSmsDecision.InvalidPhoneNumber -> throw IllegalArgumentException("Ungueltige Telefonnummer")
+            is EnrollSmsDecision.InvalidPhoneNumber -> throw InvalidInputException(Text("Bitte eine Mobilnummer mit Ländervorwahl aus der EU oder dem EWR angeben, z. B. +49 170 1234567"))
 
             is EnrollSmsDecision.WrongTan -> ToolOutcome.Failed.NothingGuessed(Text("TAN ungueltig oder abgelaufen"))
 

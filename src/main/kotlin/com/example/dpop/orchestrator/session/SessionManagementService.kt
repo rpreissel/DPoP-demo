@@ -146,7 +146,7 @@ class SessionManagementService(
      * just abandoned, so toolId matching alone can't tell the old and the fresh session apart.
      */
     fun endToolSession(toolSessionId: UUID, status: ToolSessionStatus) {
-        require(status != ToolSessionStatus.RUNNING) { "endToolSession needs a final status" }
+        check(status != ToolSessionStatus.RUNNING) { "endToolSession needs a final status" }
         toolSessionRepository.findByIdOrNull(toolSessionId)?.let { session ->
             session.status = status
             toolSessionRepository.save(session)

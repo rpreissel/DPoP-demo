@@ -99,7 +99,7 @@ class ConfirmQrLoginToolHandler(
                     ToolOutcome.Failed.NothingGuessed(Text("Anfrage wurde bereits bearbeitet oder ist abgelaufen"))
                 }
             }
-            else -> throw IllegalArgumentException("Unbekannte decision: $decision")
+            else -> error("Unbekannte decision: $decision")
         }
     }
 

@@ -47,7 +47,7 @@ class EnrollPasswordToolHandler(
         return when (val decision = EnrollPasswordFlow.decide(EnrollPasswordInput(password))) {
             EnrollPasswordDecision.Unchanged -> outcomeFor()
             is EnrollPasswordDecision.Rejected ->
-                throw IllegalArgumentException(PasswordPolicy.message(decision.rejection))
+                PasswordPolicy.reject(decision.rejection)
 
             is EnrollPasswordDecision.Enroll -> {
                 val enrollment = enrollmentRepository.save(AuthPasswordEnrollment(passwordHash = PasswordHasher.hash(decision.password)))

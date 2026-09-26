@@ -53,6 +53,14 @@ value class AcrLevel(val value: String) : Comparable<AcrLevel> {
          */
         fun of(raw: String?): AcrLevel = if (raw != null && raw in KNOWN) AcrLevel(raw) else NONE
 
+        /**
+         * A level a CLIENT asked for (`requiredAcr`) - an unknown one is the caller's mistake, a 400
+         * in words it can act on, not the internal construction check above.
+         */
+        fun requested(raw: String): AcrLevel =
+            if (raw in KNOWN) AcrLevel(raw)
+            else throw InvalidInputException(com.example.dpop.texts.Text("Unbekanntes Sicherheitsniveau '{acr}' - bekannt sind {known}", "acr" to raw, "known" to KNOWN.joinToString()))
+
         /** Position in [KNOWN]; `null` counts as "nothing established" (rank 0, like [NONE]). */
         fun rank(acr: AcrLevel?): Int = acr?.let { KNOWN.indexOf(it.value) }?.takeIf { it >= 0 } ?: 0
 

@@ -254,7 +254,7 @@ class JourneyService(
     fun endSession(channel: LiveChannel, finalState: ChannelState) = endSession(channel.session, finalState)
 
     private fun endSession(channel: ChannelSession, finalState: ChannelState) {
-        require(finalState.isTerminal) { "endSession needs a terminal state, got $finalState" }
+        check(finalState.isTerminal) { "endSession needs a terminal state, got $finalState" }
         channel.authContextId?.let { authContextService.getAuthContext(it) }?.let { context ->
             if (channel.channel == ChannelType.APP) {
                 // Published, not called: this runs inside the caller's transaction, and the Admin

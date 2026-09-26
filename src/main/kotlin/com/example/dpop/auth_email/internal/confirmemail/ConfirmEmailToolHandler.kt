@@ -1,4 +1,5 @@
 package com.example.dpop.auth_email.internal.confirmemail
+import com.example.dpop.tool_spi.InvalidInputException
 import com.example.dpop.mail_mock.MailServer
 import com.example.dpop.texts.Text
 import com.example.dpop.auth_email.internal.EmailCodeGenerator
@@ -66,7 +67,7 @@ class ConfirmEmailToolHandler(
         val data = checkNotNull(toolDataRepository.findByIdOrNull(toolSessionId)) { "Unknown confirm-email tool session: $toolSessionId" }
 
         return when (val decision = ConfirmEmailFlow.decide(data.toState(), ConfirmEmailInput(email, code), emailCodeGenerator)) {
-            is ConfirmEmailDecision.InvalidEmail -> throw IllegalArgumentException("Ungueltige E-Mail-Adresse")
+            is ConfirmEmailDecision.InvalidEmail -> throw InvalidInputException(Text("Ungueltige E-Mail-Adresse"))
 
             is ConfirmEmailDecision.WrongCode -> ToolOutcome.Failed.NothingGuessed(Text("Code ungueltig oder abgelaufen"))
 
