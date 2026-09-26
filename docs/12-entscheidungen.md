@@ -44,7 +44,7 @@ als Diff mitten im Fließtext.
 | [ADR-28](adr/ADR-028-demo-werte-abschaltbar.md) | Demo-Werte lassen sich abschalten |
 | [ADR-29](adr/ADR-029-event-publication-registry-statt-eigener-outbox.md) | Die Event Publication Registry von Spring Modulith statt einer eigenen Outbox-Tabelle |
 | [ADR-30](adr/ADR-030-eine-migration-je-modul.md) | Ein Flyway-Migrationsordner je Modul *(aufgegangen in ADR-16)* |
-| [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt |
+| [ADR-31](adr/ADR-031-freischaltcode-liegt-im-fremdsystem.md) | Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es über einen Port |
 | [ADR-32](adr/ADR-032-tool-sperre-und-reihenfolge-je-kanal.md) | Tool-Sperre und Reihenfolge je Kanaltyp |
 | [ADR-33](adr/ADR-033-texte-als-vorlage-im-code.md) | Texte als deutsche Vorlage im Code, ausgeliefert als Referenz, formuliert per Prompt |
 | [ADR-34](adr/ADR-034-personenverzeichnis-meldet-aenderungen.md) | Personenverzeichnis – Partnernummer, drei Rollen, Änderungen per Event ans Konto |

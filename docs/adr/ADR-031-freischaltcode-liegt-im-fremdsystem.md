@@ -1,4 +1,4 @@
-# ADR-31: Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es direkt
+# ADR-31: Der Freischaltcode liegt im Personenverzeichnis, `id_fsc` fragt es über einen Port
 
 > **Nachtrag 2026-09-26: `id_fsc` fragt das Register jetzt über einen Port** (`tool_api.ActivationCodes`
 > mit `digest` und `isValid`, implementiert von `Freischaltcodes`). Der Grund für „direkt“ trug nicht:
@@ -10,8 +10,8 @@
 > liest der Orchestrator über den eigenen Port `DemoPersonDirectory` statt über `Personenverzeichnis`
 > und `Freischaltcodes`. Der Rest dieses ADR beschreibt den Stand vor dem Nachtrag.
 
-**Entscheidung** (**umgesetzt**): Die Freischaltcodes liegen in `ext_personenverzeichnis.freischaltcode`,
-nicht mehr in `id_fsc.code`. `ext_personenverzeichnis` stellt sie über die öffentliche Klasse
+**Ursprüngliche Entscheidung** (den direkten Aufruf hat der Nachtrag abgelöst): Die Freischaltcodes
+liegen in `ext_personenverzeichnis.freischaltcode`, nicht mehr in `id_fsc.code`. `ext_personenverzeichnis` stellt sie über die öffentliche Klasse
 `Freischaltcodes` aus, widerruft sie und prüft sie. `id_fsc` ruft `Freischaltcodes.pruefe` direkt
 auf und deklariert dafür `ext_personenverzeichnis` als erlaubte Abhängigkeit.
 
@@ -22,7 +22,7 @@ prüft ihn nur. Solange die Codes im Schema von `id_fsc` lagen, war das Tool zug
 Prüfer. In der Demo ließ sich das Ausstellen deshalb nicht als Vorgang im Fremdsystem zeigen,
 etwa auf der Oberfläche `/personenverzeichnis/`.
 
-## Warum direkt statt über einen Port
+## Warum anfangs direkt statt über einen Port
 
 Das Muster gibt es im Projekt schon: `auth_kobil` fragt `kobil_mock.KobilSsms` direkt
 (`allowedDependencies` enthält `kobil_mock`). So bildet es auch das echte System ab: Das

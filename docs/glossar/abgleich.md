@@ -90,7 +90,7 @@ unterschiedlich lange leben. Keiner davon entspricht allein der Identität des G
    eine reine Lesesicht ohne eigenen gespeicherten Zustand. `personId` und `email` werden aus den
    Ankern gelesen, nicht aus eigenen Spalten (`account/AccountService.kt:710`;
    `docs/02-domaenenmodell.md`, Abschnitt „Konto-Identität: Claims, Anker, Konsolidierung“). Anker
-   gibt es für die Partnernummer (`PERSON_ID`), die Versicherungsnummer (`VERSNR`), die Kennung des
+   gibt es für die Partnernummer (`PERSON_ID`), die Versicherungsnummer (`INSURANCE_NUMBER`), die Kennung des
    Online-Ausweises (`EID_RESTRICTED_ID`, über Nect `NECT_RESTRICTED_ID`) und die E-Mail-Adresse (`EMAIL`).
 2. **Das Konto trägt bewusst keine Identität.** `Account` hat nur `id`, `createdAt` und `version`
    (`account/internal/Account.kt:23-40`). Es ist die Identität des Kontos und die Stelle, über die

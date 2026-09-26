@@ -104,13 +104,19 @@ Was sonst noch dazugehört:
 
 ### Texte (`GET /orchestrator/api/v1/texts/{lang}`)
 
-Keine Antwort enthält fertigen Wortlaut. Wo Menschen etwas lesen (`ErrorResponse.text`,
-`FailedAttemptStep.error`, `MessageStep.message`, `SelectMethodStep.title/description`, `Prompt.*`,
+Eine Antwort enthält fertigen Wortlaut nur als Notbehelf (siehe `template` unten). Wo Menschen
+etwas lesen (`ErrorResponse.text`, `FailedAttemptStep.error`, `MessageStep.message`, `SelectMethodStep.title/description`, `Prompt.*`,
 `JourneyDebugStep.note`), steht eine Text-Referenz:
 `{ "key": "3f9a1c0b2e7d", "args": {"n": "3"}, "texts": {"grund": [{ "key": … }]} }`. Der Client
 schlägt `key` im Bundle nach und setzt die Platzhalter `{name}` ein: aus `args` unverändert, aus
 `texts` nachdem er sie selbst aufgelöst hat (mehrere mit „, " verbunden). Eine unbekannte ID zeigt
 er so, wie sie ist.
+
+Solange ein Text noch nicht in jeder Sprache übersetzt ist, trägt die Referenz zusätzlich
+`template`: die deutsche Vorlage aus dem Code (`Text.toRef`, geprüft über
+`TextBundle.wordedEverywhere`). Der Client zeigt dann diese Vorlage statt der ID. Nach
+`/translate-texts` fällt das Feld von selbst weg; eine vollständig übersetzte Referenz trägt nur
+`key`, `args` und `texts`.
 
 Das Bundle holt der Client beim Start: `GET /orchestrator/api/v1/texts/{lang}` (ohne DPoP; `de` oder
 `en`, sonst `de`; `Content-Language` nennt die gelieferte Sprache) liefert `{ id: Wortlaut }` mit
@@ -321,7 +327,7 @@ Versicherungsnummer; beide kommen live aus dem Personenverzeichnis.
 
 - Ist `personId` vorhanden, ist `name` „Vorname Name" der Person (`PersonDirectory.displayName`).
 - Fehlt `personId` (Interessent, ADR-10/18), nimmt `name` die eigenen bestätigten Claims des
-  Kontos: den stärksten noch gültigen NAME/VORNAME-Claim. `null` ist `name` nur, wenn es auch davon
+  Kontos: den stärksten noch gültigen `FAMILY_NAME`-/`GIVEN_NAMES`-Claim. `null` ist `name` nur, wenn es auch davon
   keinen gibt.
 
 Aus `personId` und `versnr` leitet das Frontend die Rolle ab (ADR-34): Mit `versnr` ist es ein
@@ -354,7 +360,7 @@ unabhängig von `REGISTER` und `STEP_UP` ([Orchestrierung](04-orchestrierung.md)
 - `DELETE .../attributes/{attribute}` nimmt ein **Attribut des Kontos** zurück statt eines
   Credentials; das ist nur die bestätigte E-Mail-Adresse (`email`). Welches Attribut der Inhaber
   selbst zurücknehmen darf, sagt `AnchorRule.retractableByHolder`; Identitätsanker (`person_id`,
-  `versnr`, die Karten-Pseudonyme) sind es nicht und werden mit 409 abgelehnt. Es ist das Gegenstück zu
+  `insurance_number`, die Karten-Pseudonyme) sind es nicht und werden mit 409 abgelehnt. Es ist das Gegenstück zu
   `DELETE .../methods/{id}` und durchläuft dieselbe Prüfung. Der Unterschied liegt in den Folgen:
   Jedes Credential, das dieses Attribut per `requires` verlangt hat, wird mit entzogen, und zwar
   über alle Stufen hinweg. Eine zurückgenommene Adresse nimmt also ein darauf eingerichtetes
@@ -727,7 +733,14 @@ Statt mit einem DPoP-Proof weist sich Keycloak mit einer signierten Peer-Auth-As
   gegen den Kanal prüft.
 
 Geprüft wird die Signatur gegen Keycloaks JWKS; es gibt ein Schlüsselpaar je Client, nicht je
-Nutzer.
+Nutzer. Der Orchestrator hält das JWKS zwischengespeichert (`KeycloakJwkSource`, standardmäßig
+600 Sekunden, `kc.peer-auth.jwks-cache-ttl-seconds`). Nennt eine Assertion eine unbekannte
+Schlüssel-ID (`kid`), holt er das JWKS einmal neu, denn Keycloak kann den Schlüssel gewechselt
+haben; ein Neustart ist dafür nicht nötig. Das geschieht aber höchstens alle 30 Sekunden. So
+kann niemand mit erfundenen `kid`s jede Anfrage in einen Abruf bei Keycloak verwandeln. Umgekehrt
+holt die Keycloak-Erweiterung das Antwort-JWKS des Orchestrators einmal je Orchestrator und hält
+es ebenfalls zwischengespeichert (`OrchestratorResponseVerifier`, Nimbus `JWKSourceBuilder` mit
+Wiederholung), nicht bei jedem Aufruf.
 
 Jede Antwort an einen `KEYCLOAK`-Kanal enthält zusätzlich `authData` (`accountId`/`acr`/`amr`, nie
 bei `APP`). Keycloaks `OrchestratorAuthenticator` schreibt es sofort in seine Session-Notes. `amr`

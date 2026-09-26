@@ -47,12 +47,22 @@ anhand des Textes, und müssen mit Codes rechnen, die sie noch nicht kennen.
 **Welche Exception wozu führt.** Auf diese Regel verlässt sich die zentrale Fehlerbehandlung:
 
 - `require` bzw. `IllegalArgumentException` nur, wenn eine **Eingabe des Clients** abgelehnt wird.
-  Das ergibt `400`, und der Text geht unverändert hinaus.
+  Das ergibt `400`. Einen eigenen Text für den Nutzer trägt nur `InvalidInputException` (etwa
+  „Das Passwort ist zu kurz“); jede andere Ablehnung bekommt den festen Text „Die Eingabe ist
+  ungültig.“, ihre Meldung steht nur im Log.
 - `check`, `checkNotNull` und `error()`, wenn eine **interne Annahme** verletzt ist. Das ergibt
   `500` mit festem Text. Früher wurde daraus pauschal `409 INVALID_STATE_TRANSITION` mit dem
   Originaltext. Interne Prüfungen sahen damit wie ein fachlicher Konflikt aus und verrieten Interna.
 - Ein echter fachlicher Konflikt wird immer ausdrücklich gemeldet:
   `OrchestratorException.invalidState(...)`.
+
+**Keine Framework-Texte in Fehlerantworten.** Was in `text` steht, ist immer ein eigener Text des
+Projekts (`Text("…")`), nie die Meldung einer Exception aus Spring, Hibernate, Jackson oder einer
+anderen Bibliothek. Solche Meldungen nennen oft Klassen, Spalten, Constraints oder interne IDs.
+`OrchestratorExceptionHandler` hält das so: Ein nicht lesbarer Body wird zu „Die Anfrage ist nicht
+lesbar.“, ein falsch geformter Pfad- oder Query-Wert nennt nur den Namen des Parameters, eine
+Constraint-Verletzung beim Binden eines Kontos wird zu einem festen Konflikttext, und alles andere
+landet mit festem Text in `500`. Die Originalmeldung geht jeweils nur ins Log.
 
 Ausdrücklich **kein** Fehler sind fehlende Pflichtfelder und Fehlversuche, nach denen noch weitere
 Versuche erlaubt sind. Sie liefern `200` und ein `next` (Regel für Wiederholungen in

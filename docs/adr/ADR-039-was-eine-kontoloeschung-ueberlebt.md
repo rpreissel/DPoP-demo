@@ -17,9 +17,9 @@ Ereignisse: `IDENTIFIED`, `ATTRIBUTE_RETRACTED`, `METHOD_ADDED`, `METHOD_DEACTIV
 `ACCOUNT_DELETED`, `ACCOUNT_ABSORBED`. Geschrieben in derselben Transaktion wie die Änderung selbst
 (`ChangeLog`, `Propagation.MANDATORY`): Ein Ereignis gibt es genau dann, wenn es die Änderung gibt.
 
-**Warum nicht einfach die Kaskaden entfernen** (so der Vorschlag im Review): Die bisherigen
-Tabellen tragen Werte – `claim` die Attributwerte, `identification.details` etwa Dokumentnummer und
-Ort, `auth_method.details` Schlüssel-Thumbprints. Sie über die Löschung hinaus zu behalten, hieße
+**Warum nicht einfach die Kaskaden entfernen** (so der Vorschlag im Review): Die Tabellen des Kontos
+trugen damals Werte – `claim` die Attributwerte, das inzwischen entfallene `identification.details`
+etwa Dokumentnummer und Ort, `auth_method.details` Schlüssel-Thumbprints. Sie über die Löschung hinaus zu behalten, hieße
 genau das aufzubewahren, was die Datenminimierung (Art. 5 DSGVO) verbietet. Sie verschwinden deshalb
 weiter mit dem Konto; überlebt nur, was als Nachweis nötig ist.
 
@@ -68,7 +68,7 @@ bestätigen** und deshalb einstellbar.
   `account.sign_in_log` (Anmeldungen, 6 Monate, geht mit dem Konto),
   `orchestrator.journey_trace` (Fehlersuche, 14 Tage) – Nachweise enden auf `_log`, die Spur zur
   Fehlersuche auf `_trace`.
-- **Anmeldungen gehören nicht hierher** (siehe Offen): Sie sind um Größenordnungen häufiger, und
+- **Anmeldungen gehören nicht hierher** (eigenes Protokoll, siehe Nachtrag unten): Sie sind um Größenordnungen häufiger, und
   eine Anmeldehistorie über Jahre nach der Löschung ließe sich mit der Speicherbegrenzung nicht
   begründen.
 

@@ -179,6 +179,21 @@ an, einschließlich `enrolledUnderAcr` aus dem aktuellen Nachweis der Sitzung (`
 
 Zusätzlicher Fehlerfall zum allgemeinen Vertrag: ungültige Telefonnummer (Formatfehler) -> `400`.
 
+**Passwort speichern und prüfen** (`auth_password`):
+
+- **Nur als Hash:** Argon2id mit den OWASP-Werten (19 MiB Speicher, 2 Durchläufe, 1 Spur;
+  `PasswordHasher`). Ein älteres Format gibt es nicht; der frühere PBKDF2-Weg ist entfernt.
+- **Umhashen bei der Anmeldung:** Werden die Werte später angehoben, erkennt `needsRehash` einen
+  schwächeren Hash. Nach einer **erfolgreichen** Prüfung schreibt `PasswordHasher.upgrade` den neuen
+  Hash in derselben Transaktion. Niemand muss dafür sein Passwort neu setzen.
+- **Gleicher Aufwand ohne Passwort:** Hat das Konto kein Passwort, rechnet `matches` trotzdem einmal
+  Argon2id gegen einen Platzhalter-Hash. Sonst verriete die Antwortzeit, ob es zu einer Adresse ein
+  Passwort gibt.
+- **Regeln für ein neues Passwort** (`PasswordPolicy`, gleich für `enroll-password` und den
+  Passwortwechsel über Keycloak): mindestens 8, höchstens 128 Zeichen und keines aus der Liste der
+  gängigsten Passwörter (`auth_password/common-passwords.txt`, ohne Beachtung von
+  Groß-/Kleinschreibung). Verstöße sind `400` mit einem Text, der die Regel nennt.
+
 ---
 
 ## 5) `enroll-device` / `auth-device`
@@ -262,7 +277,7 @@ Wert an derselben Stelle, ein fremdes Konto hält ihn nie). Eine PersonId behaup
 beide, zählt die KVNR. Das geschieht im Controller, nicht im Handler, denn `id_kvnr` darf
 `ext_personenverzeichnis` nicht direkt kennen ([Projektrahmen](08-projektrahmen.md) Abschnitt 3).
 Danach behauptet das Tool unter `PERSON_DIRECTORY` die `PERSON_ID`, bei angegebener KVNR auch die
-`KVNR` und bei Versicherten die `VERSNR` (ADR-34). Es hat die Rolle `CORRELATION` (Kategorie
+`KVNR` und bei Versicherten die `INSURANCE_NUMBER` (ADR-34). Es hat die Rolle `CORRELATION` (Kategorie
 `IDENT`, ADR-18). Das sagt ausdrücklich, dass eine eingetippte Nummer für sich nichts beweist;
 `factorTypes={}` folgt daraus, definiert es aber nicht. Sicher wird der Schritt durch zwei Dinge:
 `requires` (die bestätigten Identitätsattribute müssen im Konto vorliegen, sonst lässt sich das
@@ -348,6 +363,12 @@ Ein `activated` ohne Gerät bei KOBIL ist **kein** Fehlschlag, sondern `Unchange
 geladen hat, hat nichts geraten, also wird auch kein Versuchsbudget verbraucht. Deshalb gibt der
 Schritt seine Werte bei jedem Lesen erneut heraus: Solange die Einrichtung läuft, muss der Client
 sie noch abholen können.
+
+Sobald das Credential geschrieben ist, löscht das Backend die Aktivierungswerte aus der
+Tool-Sitzung: Aktivierungscode, PIN und `unlockSecret` werden sofort geleert
+(`EnrollKobilToolHandler.patch`), nicht erst beim Aufräumen der Tool-Sitzungen bis zu 24 Stunden
+später. Der PIN lebt danach nur noch im Credential, das `unlockSecret` nur als Hash. Auch KOBIL
+selbst nimmt einen Aktivierungscode nur einmal an und vergisst ihn danach (`KobilSsms.activate`).
 
 ### Nutzung (`auth-kobil`, Schritte `unlock` und `otp`)
 

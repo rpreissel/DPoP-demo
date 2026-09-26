@@ -224,7 +224,7 @@ wechselt direkt auf `CONSUMED`, und ob sie abgelaufen ist, wird nur über `expir
   KVNR gibt es nur zusammen mit einer Versicherungsnummer (`ck_person_kvnr_nur_versichert`), und
   jede Versicherungsnummer gibt es nur einmal (`ux_person_versnr`). Die Anwendung fragt das
   Personenverzeichnis über den Port `PersonDirectory` ab (`findPersonIdByKvnr`,
-  `findPersonIdByPartnernr`, `versnrOf`, `matchesStammdaten`, `matchesPersonalien`,
+  `findPersonIdByPartnernr`, `insuranceNumberOf`, `matchesMasterData`, `matchesPersonalDetails`, `hasNamesake`,
   `displayName`).
 - `AccountAuthMethod` ist ein eingerichtetes Verfahren eines Kontos (`method`,
   `active`/`deactivatedAt`, `enrolledUnderAcr`, `label`, `details`). Die `EnrollmentRef` steht darin
@@ -351,7 +351,7 @@ erDiagram
   account.account ||--o{ account.retraction : "widerruft (nur anfügen)"
   account.auth_method }o..o| auth_sms.enrollment : "enrollment_type/_id"
   account.auth_method }o..o| auth_device.enrollment : "enrollment_type/_id"
-  account.anchor }o..o| ext_personenverzeichnis.person : "PERSON_ID-/VERSNR-Anker"
+  account.anchor }o..o| ext_personenverzeichnis.person : "PERSON_ID-/INSURANCE_NUMBER-Anker"
   ext_personenverzeichnis.person ||--o{ ext_personenverzeichnis.freischaltcode : "stellt aus"
   ext_personenverzeichnis.person ||--o{ ext_personenverzeichnis.brief : "verschickt"
 

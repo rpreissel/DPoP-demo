@@ -4,7 +4,7 @@
 
 **Entscheidung**: `IdentityMatchingService.resolve` sucht zu einer bestätigten Identität das Konto
 **nur über lokale Anker** (`resolveByAnchor`, in der Rangfolge von `AnchorRule.bindingStrength`). Lokale
-Anker sind heute `PERSON_ID`, `VERSNR`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID` (das Kartenpseudonym, wenn Nect die Karte liest, § 18 PAuswG) und `EMAIL`. Passt keiner, lautet das
+Anker sind heute `PERSON_ID`, `INSURANCE_NUMBER`, `EID_RESTRICTED_ID`, `NECT_RESTRICTED_ID` (das Kartenpseudonym, wenn Nect die Karte liest, § 18 PAuswG) und `EMAIL`. Passt keiner, lautet das
 Ergebnis `Unresolved`.
 
 Die frühere zweite Stufe, die die Kombination aus Name, Vorname und Geburtsdatum mit der
@@ -51,6 +51,6 @@ Wiedererkennen.
 
 **Geschichte**: Entfernt wurden mit diesem ADR `Resolution.Ambiguous`, `MatchedVia.Attributes`,
 `BindingStrength.ATTRIBUTE_COMBINATION`, `findAccountIdsMatchingAllThree` und der Index
-`ix_claim_type_value`. Die Hausnummer, anfangs ein eigener Claim, ist inzwischen in `strasse`
-aufgegangen. `VERSNR` kam mit [ADR-34](ADR-034-personenverzeichnis-meldet-aenderungen.md) als weiterer
+`ix_claim_type_value`. Die Hausnummer, anfangs ein eigener Claim, ist inzwischen in `STREET_ADDRESS`
+aufgegangen. `INSURANCE_NUMBER` kam mit [ADR-34](ADR-034-personenverzeichnis-meldet-aenderungen.md) als weiterer
 lokaler Anker hinzu.

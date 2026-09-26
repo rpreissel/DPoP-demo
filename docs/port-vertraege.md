@@ -19,8 +19,8 @@ Mit `demo.mode=false` ist es der einzige Weg zu einer Identifizierung, also ist 
 wichtigste.
 
 - **Suche nur über Kennungen.** KVNR und Partnernummer führen zur Partnernummer; Stammdaten gehen nie
-  über den Port, nur die Antwort auf „passen diese Angaben“ (`matchesStammdaten`,
-  `matchesPersonalien`). Ausnahmen, ausdrücklich: der Anzeigename und die Versicherungsnummer (ADR-34).
+  über den Port, nur die Antwort auf „passen diese Angaben“ (`matchesMasterData`,
+  `matchesPersonalDetails`). Ausnahmen, ausdrücklich: der Anzeigename und die Versicherungsnummer (ADR-34).
 - **Namensvergleich in Ausweisform** (MRZ): Groß-/Kleinschreibung, Umlautschreibung und Diakritika
   zählen nicht. Ein echtes System muss denselben Vergleich liefern, sonst scheitern echte Personen.
 - **Freischaltcode** (ADR-31): nur vom Verzeichnis ausgegeben, per Post an die hinterlegte Anschrift;
@@ -65,7 +65,7 @@ Genutzt von `ident-eid` (loa3).
 - **`restricted_id`** (Sperrmerkmal je Dienstanbieter) ist der Anker ([ADR-19](adr/ADR-019-aufloesung-nur-ueber-anker-die-eid-restricted-id.md)):
   stabil je Karte und Anbieter.
 - **Keine Personenkennung auf der Karte:** Der Abgleich mit dem Personenverzeichnis läuft über die
-  Ausweisdaten (`matchesStammdaten`), nicht über eine Nummer.
+  Ausweisdaten (`matchesMasterData`), nicht über eine Nummer.
 
 ## Zustellung von TAN und Code (`sms_mock`, `mail_mock`)
 

@@ -147,7 +147,7 @@ Die Entscheidungen dahinter:
   (`ToolControllerSupport.validatePreconditions`). Sonst ließe sich die Kandidatenliste durch
   einen direkten Aufruf umgehen. Drei Tools nutzen `requires` heute: `enroll-password` und
   `enroll-email` verlangen `ClaimRequirement(EMAIL, PROVEN)`, `ident-kvnr` die bestätigten
-  Identitätsattribute NAME, VORNAME und GEBURTSDATUM (ADR-18).
+  Identitätsattribute `FAMILY_NAME`, `GIVEN_NAMES` und `BIRTH_DATE` (ADR-18).
 - `requires` entscheidet **nicht nur über das Angebot, sondern gilt dauerhaft** (ADR-24): Was ein
   Credential brauchte, um zu entstehen, braucht es auch, um weiter zu bestehen. Fällt die Angabe
   weg, fällt das Credential mit – und mit ihm alles, was daran hängt. Das wird aus denselben
@@ -456,7 +456,7 @@ nächsten Zustand, Effekte (z. B. „TAN senden") und ein neutrales `FlowOutcome
 Der `@RestController` eines Tools liegt **im selben Modul wie sein Handler** (z. B.
 `id_fsc.api.v1.IdentFscToolController`, `auth_sms.api.v1.AuthSmsToolController`), nicht im
 `orchestrator`. Der Orchestrator kennt kein Methodenmodul beim Namen: `orchestrator/ModuleMetadata.kt`
-deklariert `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis", "kcmigrate", "demo_seed", "texts"]`,
+deklariert `allowedDependencies = ["tool_spi", "tool_api", "account", "kcmigrate", "demo_seed", "texts", "demo_mode"]`,
 also kein einziges Methodenmodul (`id_*`, `auth_*`).
 
 Möglich macht das das gemeinsame Modul `tool_api` (`allowedDependencies = ["tool_spi", "texts"]`),

@@ -19,7 +19,7 @@ import com.example.dpop.orchestrator.session.forLog
 
 /**
  * Everything a completed step writes OUTSIDE the state machine's own tables: native evidence
- * syncs, per-tool evidence updates, session events and the account's identification log.
+ * syncs, per-tool evidence updates, session events and the account's change log (IDENTIFIED).
  * Deliberately split off [JourneyService] so the service itself stays the state machine and
  * nothing else; this class records what already happened, it never decides anything.
  */

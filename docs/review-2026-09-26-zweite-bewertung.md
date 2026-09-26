@@ -256,10 +256,9 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
 
 11. ~~A-1 Doku-Drift Keycloak und tote Reste~~ – erledigt 2026-09-26: `KeycloakAccountRemovalListener`
     (umbenannt, ohne eigenen Executor), `KeycloakSyncExecutorConfig` und `KEYCLOAK_ATTRIBUTE_TYPES`
-    entfernt; `AccountChanged` entfernt (kein Abnehmer seit ADR-38, Entscheidung); Keycloak-Migration V5
-    entzieht `orchestrator-admin` die Rolle `view-realm`; 03, 04, 05, 07, 08, 10, ADR-8/9/29/34/38 und
-    die Kommentare auf ADR-38 gezogen. Die Kommentare in `V1__realm.kc.kts` bleiben, weil eine
-    geänderte Migration das Realm neu aufbauen würde.
+    entfernt; `AccountChanged` entfernt (kein Abnehmer seit ADR-38, Entscheidung); `orchestrator-admin`
+    ohne `view-realm` (direkt in `V1__realm.kc.kts`, samt dessen veralteten Kommentaren); 03, 04, 05,
+    07, 08, 10, ADR-8/9/29/34/38 und die Kommentare auf ADR-38 gezogen.
 12. D-1 veraltete Namen, D-2 fehlende Beschreibungen, A-5 ADR-Widersprüche (ADR-31-Titel, ADR-5, ADR-20).
 13. D-3 Review-Dokumente archivieren, README kürzen, Lesepfad einmal.
 
@@ -269,8 +268,12 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
     Reihenfolgen und der Schalter.
 15. A-3 – entschieden 2026-09-26: **Die Duplikation bei den Tools ist gewollt**, nichts Generisches
     (keine Basisklassen, kein `@MappedSuperclass`, kein Dispatcher); höchstens eine Bibliothek kleiner,
-    explizit importierter Hilfsfunktionen. Bleibt: tote Spalte, falscher Kommentar in
-    `IdentEidToolController`, Naming. A-4 Verfügbarkeit und Flags auf einen Mechanismus.
+    explizit importierter Hilfsfunktionen. ~~Bleibt: tote Spalte, falscher Kommentar in
+    `IdentEidToolController`, Naming~~ – erledigt 2026-09-26: `enrollment_ref_type` aus den vier
+    Anmelde-Sessions entfernt, Kommentar weg, `authsmsuse`/`authpassworduse`/`authemailuse` → `authsms`/`authpassword`/`authemail`
+    (Tool-Ids `auth-sms`/`auth-password`/`auth-email`), Tool-Sessions der Identifizierungsmodule heißen nach dem Tool
+    (`IdentFsc…`), Retention-Jobs nach dem Modul (`IdFsc…`). A-4 Verfügbarkeit und Flags auf einen
+    Mechanismus.
 16. A-6 Zuschnitt (`ChannelResponseAssembler`, `ClaimLedger`/`AnchorRegistry`, `EvidenceTrail`), Totes weg.
 17. A-5 ADRs zusammenlegen und archivieren; A-7 Texte Stufe a.
 

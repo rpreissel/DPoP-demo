@@ -12,7 +12,10 @@ einen **eigenen OAuth2-Grant** aus (`urn:dpop-demo:account-token`, `AccountToken
   öffentliche Browser-Client, bekommt `unauthorized_client`.
 - **Der Orchestrator weist sich mit einer Signatur aus, nicht mit einem Geheimnis.** Der Client meldet
   sich per `private_key_jwt` an ([ADR-25](ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md)):
-  Keycloak prüft die Client-Assertion gegen das JWKS des Orchestrators. Das ist der Grundsatz
+  Keycloak prüft die Client-Assertion gegen das JWKS des Orchestrators. Jede Assertion ist 60 Sekunden
+  gültig und trägt eine neue, zufällige `jti` (`OrchestratorClientAssertionSigner`); dass dieselbe
+  `jti` nicht zweimal angenommen wird, prüft Keycloak selbst bei `private_key_jwt`, nicht Code
+  dieses Projekts. Das ist der Grundsatz
   „Signatur statt gemeinsames Geheimnis“ aus
   [ADR-7](ADR-007-web-kanal-ohne-mtls-signierte-request-assertion-statt.md), angewendet auf die
   Richtung Orchestrator → Keycloak.

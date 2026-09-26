@@ -19,7 +19,7 @@ brauchen, rufen sie auf.
 | Auslöser | Was zurückgenommen wird | Vertrauensanker |
 |---|---|---|
 | Ein Verfahren wird entfernt (`AccountDeletionService.revokeMethod` → `retractClaimsOf`) | die Angaben dieser Methodeninstanz, aber nur die mit `AttributeAuthority.MethodModule` (etwa `PHONE_NUMBER`, `PASSWORD_EXISTS`) | `ACCOUNT_MANAGEMENT` |
-| Ein Anker wird an derselben Stelle ersetzt (`EMAIL`, `EID_RESTRICTED_ID`, `VERSNR`) | der alte Wert, Grund „anker-ersetzt“ ([ADR-19](ADR-019-aufloesung-nur-ueber-anker-die-eid-restricted-id.md)) | `ACCOUNT_MANAGEMENT` |
+| Ein Anker wird an derselben Stelle ersetzt (`EMAIL`, `EID_RESTRICTED_ID`, `INSURANCE_NUMBER`) | der alte Wert, Grund „anker-ersetzt“ ([ADR-19](ADR-019-aufloesung-nur-ueber-anker-die-eid-restricted-id.md)) | `ACCOUNT_MANAGEMENT` |
 | Ein Attribut wird direkt zurückgenommen (`AccountService.retractAttribute`, `DELETE /channels/{id}/attributes/{attribute}`) | das Attribut samt Anker-Zeile ([ADR-24](ADR-024-eine-methode-haengt-von-einer-anderen-ab-indem.md)) | `ACCOUNT_MANAGEMENT` |
 | Das Personenverzeichnis meldet eine neue oder entfernte KVNR bzw. Versicherungsnummer (`AccountService.applyDirectoryChange`) | der alte Wert ([ADR-34](ADR-034-personenverzeichnis-meldet-aenderungen.md)) | `PERSON_DIRECTORY` |
 

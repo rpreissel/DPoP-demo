@@ -111,7 +111,7 @@ Anmeldung mit DPoP abgesichert werden. Das System besteht aus:
        └─────────────┘   └─────────────┘      └───────────────────┘
 ```
 
-- Kein Methodenmodul verweist auf den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "ext_personenverzeichnis", "kcmigrate", "demo_seed", "texts"]`; `kcmigrate` ist das Keycloak-Migrationsprojekt, `demo_seed` wird nur über `DemoAccountSeed` angesprochen). Die einzige gemeinsame Abhängigkeit ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Klasse des Orchestrators.
+- Kein Methodenmodul verweist auf den `orchestrator` und umgekehrt (`orchestrator/ModuleMetadata.kt`: `allowedDependencies = ["tool_spi", "tool_api", "account", "kcmigrate", "demo_seed", "texts", "demo_mode"]`; `kcmigrate` ist das Keycloak-Migrationsprojekt, `demo_seed` wird nur über `DemoAccountSeed` angesprochen). Die einzige gemeinsame Abhängigkeit ist `tool_api` — ein Methodenmodul kennt nur dessen Interfaces, nie eine konkrete Klasse des Orchestrators.
 - Die HTTP-Pfade (`/orchestrator/api/v1/tools/...`) sind unabhängig vom Kotlin-Paket des jeweiligen `@RestController` (`id_fsc.api.v1`, `id_eid.api.v1`, `id_kvnr.api.v1`, `auth_sms.api.v1`, `auth_password.api.v1`, `auth_email.api.v1`, `auth_device.api.v1`, `auth_qr.api.v1`, `auth_kobil.api.v1`, `id_nect.api.v1`) — Spring leitet nach `@RequestMapping` weiter, nicht nach Paket. Ausnahmen: `kobil_mock.api.v1`, `nect_mock.api.v1` und `ext_personenverzeichnis.api.v1` liegen bewusst NICHT unter `/orchestrator/api`, sondern unter `/mock-kobil`, `/mock-nect` bzw. `/mock-personenverzeichnis` — sie sind die Fremdsysteme, nicht diese Anwendung.
 - Die Methodenmodule sind voneinander und von `account` entkoppelt, einschließlich `auth_email`. Abhängigkeiten zu simulierten Fremdsystemen sind ausdrücklich erlaubt, nicht nur geduldet: `auth_kobil → kobil_mock`, `id_nect → nect_mock` (nur `NectIdent`); das Personenverzeichnis nur über Ports (ADR-31, Nachtrag). Konten werden über `tool_api.AccountDirectory` nachgeschlagen. Geschrieben wird nur über Claims im `ToolOutcome`, die die Journey übernimmt. Hilfsfunktionen, die ein Konto über die E-Mail-Adresse suchen, sind Kotlin-Erweiterungsfunktionen des Ports.
 - `auth_sms` versteckt seine internen Datenbank-IDs hinter einer undurchsichtigen `EnrollmentRef` ([06-ablaeufe.md](06-ablaeufe.md)).
@@ -175,7 +175,7 @@ freigegeben, und jeder, der ihn erreicht, bekäme vollen Lese- und Schreibzugrif
 - **P-3** — Auf Personen wird über Spring Data JPA zugegriffen.
   - *Kriterium:* `PersonRepository extends JpaRepository`
 - **P-4** — Die Adresse einer Person ist in einzelne Attribute aufgeteilt.
-  - *Kriterium:* Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bestätigt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STRASSE`), so wie eID und PID sie liefern; das Personenverzeichnis setzt `strassenzeile` an seiner Schnittstelle zusammen
+  - *Kriterium:* Entität enthält `strasse`, `hausnummer`, `plz`, `ort`. Bestätigt wird die Straße dagegen als **eine** Zeile mit Hausnummer (`AttributeType.STREET_ADDRESS`), so wie eID und PID sie liefern; das Personenverzeichnis setzt `strassenzeile` an seiner Schnittstelle zusammen
 - **P-5** — Testdaten werden beim Start eingespielt.
   - *Kriterium:* Flyway-Migration oder Initialisierungsroutine vorhanden
 - **P-6** — Freischaltcodes zum Testen stehen beim Start zur Verfügung.

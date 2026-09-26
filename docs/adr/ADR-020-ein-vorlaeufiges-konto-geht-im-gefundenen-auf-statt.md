@@ -85,7 +85,7 @@ besteht.
   Anker: ersetzen samt Widerruf (`EMAIL`, `EID_RESTRICTED_ID`) oder abweisen (`PERSON_ID`).
 - Zurückgenommene Claims werden nicht übernommen. Übernommene Zeilen im Claim-Log tragen den
   Zeitpunkt der Übernahme; wann die Identität bewiesen wurde, steht weiter in `account.change_log` (IDENTIFIED)
-  (mit ursprünglichem `identified_at` und dem Vermerk `absorbedFromAccountId`).
+  (mit ursprünglichem Zeitpunkt `occurred_at` und dem Vermerk `carriedFromAccountId` in `details`).
 
 ## Geschichte
 

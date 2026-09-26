@@ -19,7 +19,7 @@ Konto. Die Kennungen und die drei Rollen im Einzelnen beschreibt
 2. **Eine KVNR gibt es nur zusammen mit einer Versicherungsnummer.** Die Regel steht im Schema
    (`ck_person_kvnr_nur_versichert`) und im Verzeichnis selbst. Umgekehrt darf die KVNR zeitweise
    fehlen, weil sie sich ab und zu ändert. Die Versicherungsnummer ist im Konto ein ersetzbarer Anker
-   (`VERSNR`), die KVNR ein Claim.
+   (`INSURANCE_NUMBER`), die KVNR ein Claim.
 3. **Die Rolle wird abgeleitet, nicht gespeichert**: Versicherter mit Versicherungsnummer, Partner nur
    mit Partnernummer, Interessent ohne zugeordnete Person. Die ID-Claims enthalten dafür `personId`
    und `versnr`, beide bei jeder Abfrage aus dem Verzeichnis gelesen; die App leitet die Rolle daraus
@@ -56,13 +56,13 @@ enthält es nie.
 **Ausdrücklich benannte Ausnahme: Anker ohne Sitzung.** Sonst setzt ein Anker ein Mindestniveau der
 Sitzung voraus (`AnchorRule.acrFloor`). Eine Änderung im Verzeichnis hat aber keine Sitzung; für seine
 Kennungen ist das Verzeichnis selbst maßgeblich. `AccountService.applyDirectoryChange` schreibt deshalb
-den KVNR-Claim und den `VERSNR`-Anker mit dem Niveau des Verzeichnisses (loa2). Das gilt nur auf diesem
+den KVNR-Claim und den `INSURANCE_NUMBER`-Anker mit dem Niveau des Verzeichnisses (loa2). Das gilt nur auf diesem
 einen Weg, nur für diese zwei Arten und nur für das Konto, das über `PERSON_ID` an genau diese Person
 gebunden ist. Wie der alte Wert dabei zurückgenommen wird, steht in der Liste der Auslöser in
 [ADR-12](ADR-012-ein-widerruf-ist-eine-eigene-zeile-mit-eigenem.md). Eine entfernte Kennung wird nur
 zurückgenommen: Eine fehlende KVNR ist ein Zwischenzustand, und ohne Versicherungsnummer ist die Person
-Partner. Beim Zuordnen entsteht der `VERSNR`-Anker dagegen auf dem normalen Weg mit der Sitzung; die
-Kennung liefert `PersonDirectory.versnrOf`.
+Partner. Beim Zuordnen entsteht der `INSURANCE_NUMBER`-Anker dagegen auf dem normalen Weg mit der Sitzung; die
+Kennung liefert `PersonDirectory.insuranceNumberOf`.
 
 **Folgen**:
 
