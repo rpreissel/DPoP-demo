@@ -546,8 +546,8 @@ auch bei abgeschlossener Journey
 
 ### Journey-Log
 
-Eine Ansicht zur Fehlersuche und für die Demo, kein Revisionsprotokoll (`SessionEvent`,
-[Betrieb](07-betrieb.md) Abschnitt 2). Es gehört nicht zum App-Vertrag: Es gibt das Journey-Log nur
+Eine Ansicht zur Fehlersuche und für die Demo, kein Revisionsprotokoll (das ist `account.audit_event`,
+[Betrieb](07-betrieb.md) Abschnitt 2; Frist 14 Tage). Es gehört nicht zum App-Vertrag: Es gibt das Journey-Log nur
 als Betriebsendpunkt `GET /orchestrator/admin/journey-log` (hinter der Admin-Anmeldung, über alle
 Konten und Kanäle). Die früheren Varianten je Kanal, `GET /journey-log` (je Gerät) und
 `GET /channels/{channelSessionId}/journey-log` (je Konto), sind entfernt. Das war ein bewusster

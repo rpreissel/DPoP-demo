@@ -62,7 +62,7 @@ Versuche erlaubt sind. Sie liefern `200` und ein `next` (Regel für Wiederholung
 - Eine `AuthJourney` darf nur in gültige Folgezustände wechseln, sowohl im Lebenszyklus als auch im
   Zustand ihres Intents (`JourneyState`).
 - `AuthContext` wird nur aktualisiert, wenn eine Journey erfolgreich abgeschlossen ist.
-- Jeder wichtige Übergang erzeugt einen Audit-Eintrag (`SessionEvent`).
+- Jede Identifizierung, jeder Widerruf und jede eingerichtete oder deaktivierte Methode erzeugt einen Eintrag im Audit-Protokoll des Kontos (`account.audit_event`, [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); jeder Übergang einer Journey einen Eintrag im Journey-Log.
 - **Eine Transaktion für alles:** Verarbeitet der Orchestrator ein `ToolOutcome.Completed`
   ([Orchestrierung](04-orchestrierung.md)), speichert er in einer einzigen Transaktion den neuen
   Journey-Zustand, den Konto-Eintrag, das Claim-Log und den Nachweis der Sitzung (`AuthEvidence`).
@@ -131,14 +131,14 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
   - *Frist beginnt mit:* `expiresAt` / `LOGGED_OUT`
   - *Richtwert:* 30 Tage
   - *Grund:* `JourneyLogEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5)
-- **`SessionEvent`**
-  - *Frist beginnt mit:* `createdAt`
-  - *Richtwert:* 90 Tage
-  - *Grund:* eigene Frist für das Audit, überlebt die Sitzungen bewusst
 - **`JourneyLogEntry`**
   - *Frist beginnt mit:* `createdAt`
-  - *Richtwert:* 30 Tage
-  - *Grund:* bewusst so lang wie `ChannelSession`, weil nur über die Menge der Kanäle abgefragt. Ablaufprotokoll für Fehlersuche und Demo, NICHT das Audit — das bleibt `SessionEvent`
+  - *Richtwert:* 14 Tage
+  - *Grund:* Ablaufprotokoll für Fehlersuche, Support und Demo, NICHT das Audit. Mit Abstand die volumenstärkste Tabelle (eine Zeile je Schritt); 14 Tage decken Support-Fälle ab, länger ist über den Zweck nicht zu begründen
+- **`account.audit_event`**
+  - *Frist beginnt mit:* Löschung des Kontos (`ACCOUNT_DELETED`)
+  - *Richtwert:* 10 Jahre (`account.audit.retention-years`, von der Datenschutzbeauftragten zu bestätigen)
+  - *Grund:* Nachweis, dass und wie ein Konto identifiziert wurde und welche Methoden es hatte – ohne Werte, ohne Fremdschlüssel, überlebt die Löschung bewusst ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)); `AuditRetention` räumt ab
 - **`*Enrollment` (Credentials der Module)**
   - *Frist beginnt mit:* —
   - *Richtwert:* kein Aufräumen mit der Sitzung
@@ -146,7 +146,7 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
 - **`account.*` (Anker, Methoden, Claim-, Identifizierungs- und Widerrufs-Log)**
   - *Frist beginnt mit:* —
   - *Richtwert:* kein Aufräumen mit der Sitzung
-  - *Grund:* gehört dem Konto und wird mit ihm gelöscht. **Offen** ([12-entscheidungen.md](12-entscheidungen.md) ADR-12): Die Frist, nach der Claim- und Widerrufszeile gemeinsam gelöscht werden, ist noch nicht entschieden
+  - *Grund:* gehört dem Konto und wird mit ihm gelöscht – mit allen Werten. Was die Löschung überlebt, ist nur `account.audit_event` (ADR-39)
 - **`DeviceAccountLink`**
   - *Frist beginnt mit:* —
   - *Richtwert:* kein Aufräumen mit der Sitzung
@@ -179,10 +179,9 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 
   Scheitert der Aufräumlauf eines Moduls, laufen die übrigen trotzdem. Sonst würden Daten länger
   aufbewahrt als erlaubt, nur weil an anderer Stelle ein Fehler auftrat.
-- **Das Audit hängt an keiner anderen Tabelle:** `SessionEvent` speichert `channelSessionId` und
-  `journeyId` als historische Werte, nicht als Fremdschlüssel. Das Audit muss die Sitzungen
-  überleben und speichert statt der Nutzdaten nur deren Hash (`payloadHash`). IDs, die auf nichts
-  mehr zeigen, sind deshalb erwartet und kein Fehler.
+- **Das Audit hängt an keiner anderen Tabelle:** `account.audit_event` speichert die `accountId` als
+  historischen Wert, nicht als Fremdschlüssel – das Protokoll muss die Löschung des Kontos
+  überleben. Eine Id, die auf kein Konto mehr zeigt, ist deshalb erwartet und kein Fehler.
 - **Bei KOBIL betrifft das Widerrufen eines Verfahrens auch den Anbieter.** `KobilEnrollmentCleanup`
   löscht nicht nur unsere Zeile, sondern entfernt auch den Nutzer beim Anbieter. Sonst bliebe dort
   ein gebundenes Gerät stehen, von dem bei uns niemand mehr weiß. Dieser zweite Aufruf wirkt nach
@@ -190,8 +189,7 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
   Zeile verschwindet in jedem Fall.
 - **Objekte des Kontos sind beim Aufräumen der Sitzungen tabu:** Die Credentials der Module
   (`*_enrollment`), `account.auth_method`, `account.identification` und `DeviceAccountLink` gehören
-  dem Konto bzw. dem Gerät, nicht der Sitzung. `account.identification` überlebt damit bewusst auch
-  die Audit-Frist der `SessionEvent`s.
+  dem Konto bzw. dem Gerät, nicht der Sitzung.
 - **Wird ein Konto gelöscht, räumt das zusätzlich zwei Sitzungstabellen für diese `accountId` auf**,
   obwohl keine von beiden einen Fremdschlüssel auf `account` hat:
   - `orchestrator.journey_log`, und zwar über **zwei** Schlüssel: das Konto **und** seine

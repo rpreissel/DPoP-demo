@@ -474,7 +474,7 @@ Gerät einem anderen Konto wegzunehmen. Neu verknüpfen kann nur der ausdrückli
 des Durchlaufs).
 
 Zentral und für Strategien unerreichbar bleiben: den Nachweis in die `AuthEvidence` übernehmen,
-`SessionEvent` und Journey-Log schreiben und die Begrenzung `min(achievedAcr, enrolledUnderAcr)`.
+das Audit-Protokoll des Kontos und das Journey-Log schreiben und die Begrenzung `min(achievedAcr, enrolledUnderAcr)`.
 
 Die Entscheidungen dahinter:
 

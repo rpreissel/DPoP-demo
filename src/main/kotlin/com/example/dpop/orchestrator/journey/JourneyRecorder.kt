@@ -8,7 +8,6 @@ import com.example.dpop.orchestrator.policy.evidenceAxis
 import com.example.dpop.orchestrator.kernel.AmrSource
 import com.example.dpop.orchestrator.session.AuthEvidenceService
 import com.example.dpop.orchestrator.session.ChannelSession
-import com.example.dpop.orchestrator.session.SessionManagementService
 import com.example.dpop.tool_spi.AcrLevel
 import com.example.dpop.tool_spi.MethodRole
 import com.example.dpop.tool_spi.ToolDescriptor
@@ -25,7 +24,6 @@ import com.example.dpop.orchestrator.session.forLog
 @Component
 class JourneyRecorder(
     private val authEvidenceService: AuthEvidenceService,
-    private val sessionManagementService: SessionManagementService,
     private val accountService: AccountService,
     private val journeyLogService: JourneyLogService,
     private val journeyLogDetails: JourneyLogDetails,
@@ -51,7 +49,6 @@ class JourneyRecorder(
         val after = updates.map { Triple(it.method.value, it.loa.value, it.amrSourceId) }.toSet()
 
         authEvidenceService.attachToChannel(channel, source, updates)
-        sessionManagementService.recordEvent(channel.channelSessionId, journey.journeyId, "EVIDENCE_UPDATE_APPLIED", source)
         if (before != after) {
             // The generic advance() call right after this logs the EvidenceReported transition
             // itself (with acrFloor/resolvedAcr), but not WHAT changed - this records that
@@ -106,9 +103,6 @@ class JourneyRecorder(
             )
         }
         if (updates.isNotEmpty()) authEvidenceService.applyEvidence(authEvidenceId, updates)
-        sessionManagementService.recordEvent(
-            channel.channelSessionId, journey.journeyId, "TOOL_COMPLETED:${tool.toolId}", "orchestrator"
-        )
     }
 
     /**

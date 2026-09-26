@@ -44,7 +44,6 @@ classDiagram
     string accessToken
     string refreshToken
   }
-  class SessionEvent { UUID channelSessionId; UUID journeyId; string eventType }
 
   ChannelSession "1" --> "0..*" AuthJourney : führt
   AuthJourney "0..1" --> "0..*" AuthJourney : Sub-Journey von
@@ -52,7 +51,6 @@ classDiagram
   ChannelSession "1" --> "0..1" AuthContext : Tokens (nur APP)
   AuthContext "0..1" --> "1" AuthEvidence : gehört zu
   AuthJourney "0..1" --> "1" AuthEvidence : ergänzt
-  ChannelSession "1" --> "0..*" SessionEvent : protokolliert
 ```
 
 `DeviceAccountLink`, die **Geräteverknüpfung**, hängt bewusst **nicht** an `ChannelSession`. Es ist
@@ -505,8 +503,7 @@ Jedes Methodenmodul ist gleich aufgebaut: ein langlebiges `<modul>.enrollment` u
 eine kurzlebige `<modul>.<tool-rolle>_tool_session`. Die Tabellen eines Moduls stehen in seiner
 eigenen Migration unter `db/migration/<modul>/`.
 
-Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.session_event` und
-`orchestrator.journey_log` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
+Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.journey_log` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
 Aufzeichnung überlebt die Sitzungen), `orchestrator.attempt_throttle`,
 `orchestrator.dpop_proof_replay`, `orchestrator.tool_availability`, `orchestrator.feature_flag`,
 `orchestrator.keycloak_keypair`, `orchestrator.node_signing_key` und `orchestrator.event_publication`

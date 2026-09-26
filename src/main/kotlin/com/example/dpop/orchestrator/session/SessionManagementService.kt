@@ -5,7 +5,6 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -16,7 +15,6 @@ import com.example.dpop.orchestrator.kernel.AcrLevels
 class SessionManagementService(
     private val channelSessionRepository: ChannelSessionRepository,
     private val toolSessionRepository: ToolSessionRepository,
-    private val sessionEventRepository: SessionEventRepository,
     private val deviceAccountLinkRepository: DeviceAccountLinkRepository
 ) {
 
@@ -154,21 +152,4 @@ class SessionManagementService(
             toolSessionRepository.save(session)
         }
     }
-
-    // Audit ------------------------------------------------------------------
-
-    fun recordEvent(
-        channelSessionId: UUID?,
-        journeyId: UUID?,
-        eventType: String,
-        source: String,
-        payload: Any? = null
-    ) {
-        val payloadHash = payload?.let { hashPayload(it.toString()) }
-        sessionEventRepository.save(SessionEvent(channelSessionId, journeyId, eventType, source, payloadHash))
-    }
-
-    private fun hashPayload(payload: String): String =
-        MessageDigest.getInstance("SHA-256").digest(payload.toByteArray())
-            .joinToString("") { "%02x".format(it) }
 }

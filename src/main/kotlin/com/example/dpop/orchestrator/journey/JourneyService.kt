@@ -156,9 +156,6 @@ class JourneyService(
             journeyRepository.save(journey)
         }
 
-        sessionManagementService.recordEvent(
-            channel.channelSessionId, journey.journeyId, "JOURNEY_STARTED:$intent", "orchestrator"
-        )
         return advance(journey, channel, JourneyEvent.Started)
     }
 
@@ -298,9 +295,6 @@ class JourneyService(
         // Flushed: a parent resumed or a new journey started next must not meet this one still
         // STARTED in the database (ux_journey_running_per_channel).
         journeyRepository.saveAndFlush(journey)
-        sessionManagementService.recordEvent(
-            channel.channelSessionId, journey.journeyId, "JOURNEY_CANCELLED", "orchestrator"
-        )
         journeyLogService.record(channel.forLog(), journey.forLog(), "CANCELLED", journeyState = codec.read(journey)::class.simpleName)
     }
 

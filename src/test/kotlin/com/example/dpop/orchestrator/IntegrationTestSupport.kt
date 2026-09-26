@@ -100,7 +100,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             "kobil_mock.ssms_assertion", "kobil_mock.ssms_user",
             "auth_qr.enroll_tool_session", "auth_qr.auth_tool_session", "auth_qr.lookup_tool_session", "auth_qr.confirm_tool_session",
             "auth_qr.login_request", "auth_qr.enrollment",
-            "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.session_event", "orchestrator.journey_log",
+            "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.journey_log",
             "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
             "orchestrator.device_account_link", "orchestrator.attempt_throttle", "orchestrator.tool_availability", "orchestrator.dpop_proof_replay",
             "orchestrator.feature_flag"

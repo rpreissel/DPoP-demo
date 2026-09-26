@@ -467,7 +467,7 @@ Schweregrade: **hoch** – ausnutzbar oder bricht eine dokumentierte Sicherheits
   (`findByThumbprint ?: save`); Löschung bei einem Konto lässt das andere mit 500 zurück.
 - **Mehrinstanz-Methoden:** `performAcceptProof` liest `enrolledUnderAcr` von der ersten aktiven
   Instanz, nicht von der genutzten (`JourneyActionExecutor.kt:464-467`).
-- **Audit:** `established_acr` im Claim-Log ist der ungedeckelte Tool-Wert (Widerspruch zu ADR-5);
+- **Audit** – *Löschung/Methodenlebenszyklus gelöst 2026-09-26 (ADR-39); `established_acr` offen:* `established_acr` im Claim-Log ist der ungedeckelte Tool-Wert (Widerspruch zu ADR-5);
   Audit-Tabellen hängen per `ON DELETE CASCADE` am Konto (`V2__account.sql`); Methodenlebenszyklus
   ohne Append-only-Eintrag. Entscheiden, was eine Kontolöschung überleben muss.
 - **Widerruf zum selben Zeitpunkt:** `AccountClaimRepository.kt:49` (`>=`) plus abweichende

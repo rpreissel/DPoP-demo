@@ -15,10 +15,9 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Rich, per-step trace of a journey's path (docs/04-orchestrierung.md), distinct from
- * [com.example.dpop.orchestrator.session.SessionEvent]: that one is a minimized audit trail
- * (hashed payloads), this one exists to make a journey's actual path reconstructable for
- * debugging/demo purposes - not a replacement, a different tradeoff.
+ * Rich, per-step trace of a journey's path (docs/04-orchestrierung.md) for debugging, support and
+ * the demo - kept 14 days. Not the audit trail: that is the account's value-free
+ * `account.audit_event` (ADR-39), which outlives even the account. A different tradeoff, not a copy.
  */
 @Entity
 @Table(schema = "orchestrator", name = "journey_log")

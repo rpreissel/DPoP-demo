@@ -10,8 +10,8 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 
 /**
- * The rich, per-step journey trace (docs/04-orchestrierung.md), distinct from the minimized
- * orchestrator.session_event audit trail - see JourneyLogEntry's own doc. Read the only way it
+ * The rich, per-step journey trace (docs/04-orchestrierung.md), distinct from the account's audit
+ * trail - see JourneyLogEntry's own doc. Read the only way it
  * can be read now: the operator's view across all accounts (`GET /orchestrator/admin/journey-log`),
  * narrowed here to the channel under test.
  */

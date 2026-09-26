@@ -128,7 +128,7 @@ in [07-betrieb.md](07-betrieb.md).
 ## Umsetzungsstand
 
 1. **Domänenmodell** ✅: `ChannelSession`, `AuthJourney` (mit einem `JourneyState` je Intent),
-   `AuthEvidence`, `AuthContext`, `SessionEvent`, `ToolSession`, `DeviceAccountLink`.
+   `AuthEvidence`, `AuthContext`, `ToolSession`, `DeviceAccountLink`; dazu das Audit-Protokoll je Konto (`account.audit_event`).
 2. **Tool-Architektur** ✅: `ToolDescriptor` und `ToolOutcome` (Modul `tool_spi`); die Handler
    liegen innerhalb ihrer Module. Jedes Tool hat einen eigenen Controller – `ident-fsc`,
    `ident-eid`, `ident-nect`, `ident-kvnr`, `confirm-email`,

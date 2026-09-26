@@ -14,6 +14,8 @@ import com.example.dpop.account.internal.AccountIdentificationRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
+import com.example.dpop.account.internal.AuditEventType
+import com.example.dpop.account.internal.AuditLog
 import com.example.dpop.account.internal.strongestEstablishedValues
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
@@ -72,7 +74,8 @@ class AccountService(
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
     private val accountIdentificationRepository: AccountIdentificationRepository,
     private val accountRetractionRepository: AccountRetractionRepository,
-    private val eventPublisher: ApplicationEventPublisher
+    private val eventPublisher: ApplicationEventPublisher,
+    private val auditLog: AuditLog,
 ) : AccountDirectory {
 
     private val log = LoggerFactory.getLogger(AccountService::class.java)
@@ -156,7 +159,7 @@ class AccountService(
 
         val now = Instant.now()
         established.forEach { value ->
-            accountRetractionRepository.save(
+            saveRetraction(
                 AccountRetraction(
                     accountId = accountId,
                     attributeType = attributeType,
@@ -191,7 +194,7 @@ class AccountService(
             .toSet()
         val kept = ownedBy(replacement)
         replaced.flatMap { ownedBy(it) }.distinct().filterNot { it in kept }.forEach { (type, value) ->
-            accountRetractionRepository.save(
+            saveRetraction(
                 AccountRetraction(
                     accountId = accountId,
                     attributeType = type,
@@ -219,7 +222,7 @@ class AccountService(
             .mapNotNull { claim -> claim.attributeType?.let { type -> type to claim.normalizedValue } }
             .distinct()
         retractable.forEach { (type, value) ->
-            accountRetractionRepository.save(
+            saveRetraction(
                 AccountRetraction(
                     accountId = accountId,
                     attributeType = type,
@@ -360,7 +363,7 @@ class AccountService(
             // ADR-19: the replaced value verfaellt - a retraction makes the log agree with the
             // anchor instead of keeping the old value established forever. Claim-log
             // normalization applies (the anchor's own differs for case-preserving types).
-            accountRetractionRepository.save(
+            saveRetraction(
                 AccountRetraction(
                     accountId = accountId,
                     attributeType = type,
@@ -508,12 +511,24 @@ class AccountService(
                 )
             )
         }
+        auditLog.record(into, AuditEventType.ACCOUNT_ABSORBED, source = "account:$from")
         log.info("Account {} absorbed provisional account {} ({} claims, {} identifications)", into, from, claims.size, identifications.size)
+    }
+
+    /** Every withdrawal goes through here, so none escapes the audit trail (ADR-39) - the value stays in the retraction row, which goes with the account. */
+    private fun saveRetraction(retraction: AccountRetraction): AccountRetraction {
+        auditLog.record(
+            checkNotNull(retraction.accountId), AuditEventType.ATTRIBUTE_RETRACTED,
+            subject = retraction.attributeType?.name, source = listOfNotNull(retraction.trustAnchor?.name, retraction.reason).joinToString(":"),
+            at = checkNotNull(retraction.retractedAt)
+        )
+        return accountRetractionRepository.save(retraction)
     }
 
     /** Appends the audit record of one identification run - see [AccountIdentification]. */
     @Transactional
     fun addIdentification(accountId: Long, method: String, loa: String?, details: Map<String, Any?>?) {
+        auditLog.record(accountId, AuditEventType.IDENTIFIED, subject = method, acr = loa)
         accountIdentificationRepository.save(
             AccountIdentification(
                 accountId = accountId,
@@ -556,7 +571,10 @@ class AccountService(
             // Re-enrolling a SINGLETON method (e.g. a new phone number) REPLACES the old credential
             // rather than shadowing it - two active entries for the same method would be seen
             // inconsistently by canAccountReach/authCandidates/resolveAcr.
-            active.forEach { it.deactivate(now) }
+            active.forEach {
+                it.deactivate(now)
+                auditLog.record(accountId, AuditEventType.METHOD_DEACTIVATED, subject = it.method, source = "ersetzt", at = now)
+            }
             // Flushed before the new instance is inserted: the database allows one active instance
             // of a singleton method per account (ux_auth_method_active_singleton), and Hibernate
             // would otherwise insert before it updates.
@@ -568,6 +586,7 @@ class AccountService(
             // docs/09-dpop.md) - a second row would match every future lookup alike.
             return getProfileOrThrow(accountId)
         }
+        auditLog.record(accountId, AuditEventType.METHOD_ADDED, subject = method, acr = enrolledUnderAcr, at = now)
         accountAuthMethodRepository.save(
             AccountAuthMethod(
                 accountId = accountId,
@@ -592,7 +611,10 @@ class AccountService(
     @Transactional
     fun deactivateAuthenticationMethod(accountId: Long, methodInstanceId: String): AccountProfile {
         lockForUpdate(accountId)
-        findMethodInstance(accountId, methodInstanceId)?.takeIf { it.active }?.deactivate(Instant.now())
+        findMethodInstance(accountId, methodInstanceId)?.takeIf { it.active }?.let {
+            it.deactivate(Instant.now())
+            auditLog.record(accountId, AuditEventType.METHOD_DEACTIVATED, subject = it.method, source = "verwaltung")
+        }
         announceChanged(accountId)
         return getProfileOrThrow(accountId)
     }
@@ -606,13 +628,16 @@ class AccountService(
     fun allAccountIds(): List<Long> = accountRepository.findAllIds()
 
     /**
-     * Deletes the account row; its anchors, methods and both audit logs cascade with it. This
+     * Deletes the account row; its anchors, methods, claims and identification details cascade with
+     * it - the values go. What survives is the audit trail without values (ADR-39): this very
+     * deletion is its last entry, and the retention period counts from it. This
      * module must never depend on a method module (see [ModuleMetadata]), so the caller is
      * responsible for first cleaning up the credentials [allEnrollmentRefs] points at
      * (docs/05-api.md, Account löschen) and for the account-adjacent orchestrator state.
      */
     @Transactional
     fun deleteAccount(accountId: Long) {
+        auditLog.record(accountId, AuditEventType.ACCOUNT_DELETED)
         accountRepository.deleteById(accountId)
         eventPublisher.publishEvent(AccountDeleted(accountId))
     }

@@ -6,7 +6,6 @@ import com.example.dpop.orchestrator.session.AuthEvidenceRepository
 import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
-import com.example.dpop.orchestrator.session.SessionEventRepository
 import com.example.dpop.orchestrator.session.ToolSessionRepository
 
 import com.example.dpop.orchestrator.journey.AuthJourneyRepository
@@ -101,7 +100,6 @@ class SessionRetentionSweeper(
     private val channelSessionRepository: ChannelSessionRepository,
     private val authContextRepository: AuthContextRepository,
     private val authEvidenceRepository: AuthEvidenceRepository,
-    private val sessionEventRepository: SessionEventRepository,
     private val journeyLogRepository: JourneyLogRepository,
     private val attemptThrottleRepository: AttemptThrottleRepository
 ) {
@@ -121,7 +119,6 @@ class SessionRetentionSweeper(
 
         deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
 
-        sessionEventRepository.deleteByCreatedAtBefore(now.minus(SESSION_EVENT_RETENTION))
 
         val journeyLogEntries = journeyLogRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_LOG_RETENTION))
         val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
@@ -186,16 +183,15 @@ class SessionRetentionSweeper(
         private val TOOL_SESSION_RETENTION: Duration = Duration.ofHours(24)
         private val JOURNEY_RETENTION: Duration = Duration.ofDays(7)
         private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(30)
-        private val SESSION_EVENT_RETENTION: Duration = Duration.ofDays(90)
 
         /**
          * The journey log is read per channel session (the admin view groups by it), so
          * outliving [CHANNEL_SESSION_RETENTION] buys nothing while
          * this is by far the highest-volume table in the system - one row per journey step, each
          * with a JSON `detail`. It is a debugging/demo trace, NOT the audit trail; that is
-         * SessionEvent, which keeps its own, longer window.
+         * `account.audit_event` (ADR-39), which keeps its own, much longer window.
          */
-        private val JOURNEY_LOG_RETENTION: Duration = Duration.ofDays(30)
+        private val JOURNEY_LOG_RETENTION: Duration = Duration.ofDays(14)
 
         /**
          * Two orders of magnitude beyond the longest window or lockout any throttle service uses

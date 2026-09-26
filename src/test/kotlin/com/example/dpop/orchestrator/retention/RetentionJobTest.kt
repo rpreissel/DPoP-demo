@@ -56,7 +56,6 @@ class RetentionJobTest : BehaviorSpec({
             channelSessionRepository = channelSessionRepository,
             authContextRepository = authContextRepository,
             authEvidenceRepository = authEvidenceRepository,
-            sessionEventRepository = mockk(relaxed = true),
             journeyLogRepository = journeyLogRepository,
             attemptThrottleRepository = attemptThrottleRepository
         ),
@@ -203,7 +202,7 @@ class RetentionJobTest : BehaviorSpec({
 
             // Both cutoffs are ages, not "now" - a sweep that passed the current instant would
             // delete the whole table including counters whose lock still runs.
-            logCutoff.captured shouldBeLessThan before.minus(Duration.ofDays(29))
+            logCutoff.captured shouldBeLessThan before.minus(Duration.ofDays(13))
             throttleCutoff.captured shouldBeLessThan before.minus(Duration.ofDays(6))
             // The longest lockout any throttle service uses is 15 minutes; the retention window
             // must stay far beyond it so a sweep can never shorten an active budget.

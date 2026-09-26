@@ -342,7 +342,10 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     Namensvetter-Entscheidung (ADR-18), PBKDF2-Iterationen, KOBIL-Geheimnisse kürzer, `DPoP-Nonce`
     in docs/09, Fehlerantworten ohne Bibliotheksmeldungen, `jti` in der Konto-Assertion,
     JWKS-Backoff.
-29. **ADR „Audit“** und Umsetzung (Kaskaden entfernen, Append-only-Zeilen).
+29. ~~ADR „Audit“~~ – erledigt 2026-09-26 ([ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)):
+    append-only Audit-Protokoll ohne Werte, überlebt die Löschung 10 Jahre (von der DSB zu
+    bestätigen); die Wertetabellen bleiben kaskadiert (Datenminimierung). `session_event` entfällt,
+    das Journey-Log lebt 14 statt 30 Tage.
 30. Text-Schlüssel lesbar machen; Historie aus KDocs in ADRs verschieben.
 
 **Phase G – Frontends und Ausführungsumgebung (später, nach ADR-35)**
