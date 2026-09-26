@@ -21,8 +21,10 @@ class OrchestratorClientAssertionSignerTest : BehaviorSpec({
         val stored = mutableMapOf<String, NodeSigningKey>()
         val repository = mockk<NodeSigningKeyRepository>()
         every { repository.findById(any()) } answers { Optional.ofNullable(stored[firstArg()]) }
-        every { repository.save(any<NodeSigningKey>()) } answers {
-            firstArg<NodeSigningKey>().also { stored[it.purpose] = it }
+        every { repository.insert(any(), any(), any(), any()) } answers {
+            val purpose = firstArg<String>()
+            check(purpose !in stored) { "duplicate purpose $purpose" }
+            stored[purpose] = NodeSigningKey(purpose = purpose, publicKeyJwk = secondArg(), privateKeyJwk = thirdArg())
         }
         return OrchestratorClientAssertionSigner(repository, "orchestrator-admin", "orchestrator-app-token")
     }

@@ -31,12 +31,11 @@ class NodeKeys(private val repository: NodeSigningKeyRepository) {
             .keyUse(KeyUse.SIGNATURE)
             .generate()
         return try {
-            repository.save(
-                NodeSigningKey(
-                    purpose = purpose,
-                    publicKeyJwk = generated.toPublicJWK().toJSONString(),
-                    privateKeyJwk = generated.toJSONString(),
-                ),
+            repository.insert(
+                purpose = purpose,
+                publicKeyJwk = generated.toPublicJWK().toJSONString(),
+                privateKeyJwk = generated.toJSONString(),
+                createdAt = Instant.now(),
             )
             generated
         } catch (e: DataIntegrityViolationException) {

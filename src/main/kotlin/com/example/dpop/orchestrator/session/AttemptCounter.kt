@@ -1,5 +1,6 @@
 package com.example.dpop.orchestrator.session
 
+import org.springframework.dao.DataIntegrityViolationException
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -46,7 +47,7 @@ class AttemptCounter(
         val now = Instant.now()
         val lockUntil = now.plus(lockout)
         if (repository.incrementFailure(scope, subject, maxFailures, lockUntil, now) == 0) {
-            rowInitializer.createIfAbsent(scope, subject)
+            ensureRow(scope, subject)
             repository.incrementFailure(scope, subject, maxFailures, lockUntil, now)
         }
     }
@@ -75,12 +76,21 @@ class AttemptCounter(
         val now = Instant.now()
         val windowStart = now.minus(window)
         if (repository.incrementWithinWindow(scope, subject, windowStart, now) == 0) {
-            rowInitializer.createIfAbsent(scope, subject)
+            ensureRow(scope, subject)
             repository.incrementWithinWindow(scope, subject, windowStart, now)
         }
         // Fails closed: a counter that cannot be read cannot be shown to be within budget.
         val count = repository.findFailedCount(scope, subject) ?: return false
         return (count <= maxPerWindow).also { if (!it) countBlocked(scope) }
+    }
+
+    /** A concurrent request that created the row first is exactly the outcome wanted here. */
+    private fun ensureRow(scope: ThrottleScope, subject: String) {
+        try {
+            rowInitializer.createIfAbsent(scope, subject)
+        } catch (_: DataIntegrityViolationException) {
+            // The row exists now - created by the rival.
+        }
     }
 
     /** `dpop.throttle.blocked` by scope (docs/07-betrieb.md Abschnitt 7) - a rise is an attack or a bug. */

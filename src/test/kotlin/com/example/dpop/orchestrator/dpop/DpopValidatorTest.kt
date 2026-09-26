@@ -226,18 +226,18 @@ class DpopValidatorTest : BehaviorSpec({
 
 /**
  * The smallest stub that still makes replay detection real: a set plus the primary-key
- * violation. Only `saveAndFlush` is stubbed because that is the only method the service calls -
- * the check IS the insert.
+ * violation. Only `insert` is stubbed because that is the only method the service calls -
+ * the check IS the insert. The real one is pinned by `DpopReplayProtectionDbTest`: this fake once
+ * modelled `saveAndFlush` as an insert, which the real merge is not, and hid a replay hole.
  */
 private fun inMemoryReplayRepository(): DpopProofReplayRepository {
     val seen = mutableSetOf<String>()
     val repository = mockk<DpopProofReplayRepository>()
-    every { repository.saveAndFlush(any()) } answers {
-        val entry = firstArg<DpopProofReplay>()
-        if (!seen.add(entry.proofHash!!)) {
-            throw DataIntegrityViolationException("duplicate proof_hash ${entry.proofHash}")
+    every { repository.insert(any(), any()) } answers {
+        val proofHash = firstArg<String>()
+        if (!seen.add(proofHash)) {
+            throw DataIntegrityViolationException("duplicate proof_hash $proofHash")
         }
-        entry
     }
     return repository
 }

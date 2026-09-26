@@ -27,6 +27,19 @@ class DpopProofReplay(
 )
 
 interface DpopProofReplayRepository : JpaRepository<DpopProofReplay, String> {
+    /**
+     * An INSERT and nothing else - the primary key violation on a second call IS the replay
+     * detection. Not `save`: for an entity with an assigned id Spring Data merges, i.e. reads first
+     * and UPDATEs a row it finds, so a replayed proof would pass silently (review 2026-09-26, found
+     * by `DpopReplayProtectionDbTest`).
+     */
+    @Modifying
+    @Query(
+        value = "INSERT INTO orchestrator.dpop_proof_replay (proof_hash, expires_at) VALUES (:proofHash, :expiresAt)",
+        nativeQuery = true,
+    )
+    fun insert(@Param("proofHash") proofHash: String, @Param("expiresAt") expiresAt: Instant)
+
     @Modifying
     @Query("delete from DpopProofReplay p where p.expiresAt < :cutoff")
     fun deleteExpired(@Param("cutoff") cutoff: Instant): Int

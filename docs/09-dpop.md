@@ -41,6 +41,13 @@ und gilt für alle Instanzen gemeinsam. Der Schlüssel ist SHA-256(`thumbprint:j
 (`VARCHAR(64)`). Ein vom Client gewähltes `jti` kann damit weder die Schlüssellänge überschreiten noch
 den Index aufblähen, in den dieses System am häufigsten schreibt.
 
+Das Einfügen ist ein ausdrückliches `INSERT` (`DpopProofReplayRepository.insert`), nicht
+`save`/`saveAndFlush`. Bei einer selbst vergebenen Id liest Spring Data zuerst und macht aus dem
+Schreiben ein `UPDATE`, wenn die Zeile schon existiert – ein wiederholter Proof ginge dann ohne Fehler
+durch. Genau das war bis 2026-09-26 der Fall (zweite Bewertung, F-11); `DpopReplayProtectionDbTest`
+prüft es jetzt gegen die echte Tabelle, nacheinander und gleichzeitig. Derselbe Schutz gilt für
+Geräte-Proofs und die Peer-Auth-Assertions von Keycloak.
+
 **Kein Server-Nonce (`DPoP-Nonce`, RFC 9449 Abschnitt 8) – bewusst.** Der Server gibt keinen Nonce
 vor, den der nächste Proof enthalten muss. Ein Proof ist deshalb nicht nur für den Moment gültig, in
 dem er entsteht: Wer den privaten Schlüssel kurz nutzen kann (etwa Schadcode im Browser), kann Proofs

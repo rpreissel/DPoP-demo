@@ -250,12 +250,11 @@ class PeerAuthValidatorTest : BehaviorSpec({
 private fun inMemoryReplayRepository(): DpopProofReplayRepository {
     val seen = mutableSetOf<String>()
     val repository = mockk<DpopProofReplayRepository>()
-    every { repository.saveAndFlush(any()) } answers {
-        val entry = firstArg<DpopProofReplay>()
-        if (!seen.add(entry.proofHash!!)) {
-            throw DataIntegrityViolationException("duplicate proof_hash ${entry.proofHash}")
+    every { repository.insert(any(), any()) } answers {
+        val proofHash = firstArg<String>()
+        if (!seen.add(proofHash)) {
+            throw DataIntegrityViolationException("duplicate proof_hash $proofHash")
         }
-        entry
     }
     return repository
 }

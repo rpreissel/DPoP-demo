@@ -1,9 +1,9 @@
 package com.example.dpop.orchestrator.session
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 /**
  * Creates a missing counter row for [AttemptCounter], in its own transaction and nowhere else.
@@ -25,18 +25,14 @@ import org.springframework.transaction.annotation.Transactional
 class AttemptThrottleRowInitializer(private val repository: AttemptThrottleRepository) {
 
     /**
-     * Idempotent and race-tolerant: the loser of a concurrent creation sees the unique violation
-     * its rival caused and treats it as success, because the only thing the caller needs is that
-     * the row EXISTS before it retries its increment.
+     * Idempotent; a concurrent creation surfaces as the unique violation its rival caused. That
+     * violation leaves this method's own transaction (it cannot commit after it anyway) and is
+     * treated as success by [AttemptCounter] - the only thing the caller needs is that the row
+     * EXISTS before it retries its increment.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun createIfAbsent(scope: ThrottleScope, subject: String) {
-        val id = AttemptThrottleId(scope, subject)
-        if (repository.existsById(id)) return
-        try {
-            repository.saveAndFlush(AttemptThrottle(id))
-        } catch (_: DataIntegrityViolationException) {
-            // A concurrent request created it first - exactly the outcome this method wants.
-        }
+        if (repository.existsById(AttemptThrottleId(scope, subject))) return
+        repository.insertAtZero(scope.name, subject, Instant.now())
     }
 }

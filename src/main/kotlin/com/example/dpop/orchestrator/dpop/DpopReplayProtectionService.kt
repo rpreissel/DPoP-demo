@@ -33,7 +33,7 @@ class DpopReplayProtectionService(private val repository: DpopProofReplayReposit
     fun validateAndStore(thumbprint: String, jti: String?, expiresAt: Instant) {
         val key = sha256Hex("$thumbprint:$jti")
         try {
-            repository.saveAndFlush(DpopProofReplay(key, expiresAt))
+            repository.insert(key, expiresAt)
         } catch (_: DataIntegrityViolationException) {
             throw DpopValidationException("DPoP proof replay detected")
         }

@@ -17,6 +17,18 @@ import java.time.Instant
 interface AttemptThrottleRepository : JpaRepository<AttemptThrottle, AttemptThrottleId> {
 
     /**
+     * A new counter at zero - an INSERT and nothing else. Not `save`: with an assigned id Spring
+     * Data merges, and a merge that finds a row a concurrent request just created would UPDATE it
+     * back to zero, losing that request's count (review 2026-09-26).
+     */
+    @Modifying
+    @Query(
+        value = "INSERT INTO orchestrator.attempt_throttle (scope, subject, failed_count, updated_at) VALUES (:scope, :subject, 0, :now)",
+        nativeQuery = true,
+    )
+    fun insertAtZero(@Param("scope") scope: String, @Param("subject") subject: String, @Param("now") now: Instant)
+
+    /**
      * One atomic increment plus the lockout decision derived from that SAME post-increment value.
      * The row lock this takes is held until the surrounding transaction commits, so the follow-up
      * read in [AttemptCounter] observes a value no concurrent attempt can still move.
