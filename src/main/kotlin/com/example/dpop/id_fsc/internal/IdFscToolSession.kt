@@ -23,9 +23,9 @@ class IdFscToolSession(
     @Column(name = "person_id")
     var personId: String? = null,
 
-    var name: String? = null,
-    var vorname: String? = null,
-    var geburtsdatum: LocalDate? = null,
+    var familyName: String? = null,
+    var givenNames: String? = null,
+    var birthDate: LocalDate? = null,
     /** SHA-256 of the submitted code - the code itself is never persisted. */
     @Column(name = "fsc_hash")
     var fscHash: String? = null

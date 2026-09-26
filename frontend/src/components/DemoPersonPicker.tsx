@@ -45,7 +45,7 @@ export function DemoPersonPicker({ demoPersons, selectedPersonId, onSelect }: De
           )}
           {demoPersons.map((person) => (
             <option key={person.personId} value={person.personId}>
-              {person.vorname} {person.name} ({person.kvnr ?? person.personId})
+              {person.givenNames} {person.familyName} ({person.kvnr ?? person.personId})
             </option>
           ))}
         </select>

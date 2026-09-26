@@ -9,12 +9,12 @@ import com.example.dpop.tool_spi.MissingFields
 class IdentEidFlowTest : BehaviorSpec({
 
     val cardFields = EidPatchFields(
-        name = "Muster",
-        vorname = "Max",
-        geburtsdatum = LocalDate.of(1990, 1, 1),
-        strasse = "Musterstr. 1",
-        plz = "12345",
-        ort = "Musterstadt",
+        familyName = "Muster",
+        givenNames = "Max",
+        birthDate = LocalDate.of(1990, 1, 1),
+        streetAddress = "Musterstr. 1",
+        postalCode = "12345",
+        locality = "Musterstadt",
         restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"
     )
     val pinField = EidPatchFields(pin = IdentEidFlow.MOCK_PIN)
@@ -75,8 +75,8 @@ class IdentEidFlowTest : BehaviorSpec({
         then("a later PATCH does not overwrite fields it doesn't mention") {
             val afterCard = IdentEidFlow.merge(IdentEidState(), cardFields)
             val afterPin = IdentEidFlow.merge(afterCard, pinField)
-            afterPin.name shouldBe "Muster"
-            afterPin.geburtsdatum shouldBe LocalDate.of(1990, 1, 1)
+            afterPin.familyName shouldBe "Muster"
+            afterPin.birthDate shouldBe LocalDate.of(1990, 1, 1)
         }
     }
 })

@@ -123,7 +123,7 @@ Verfahren, das dieses Niveau allein erreicht hat. Zeilen desselben Durchlaufs ha
 
 ## 2) `ident-fsc`
 
-`id_fsc` prüft `kvnr`, `name`, `vorname`, `geburtsdatum` und `fsc` gegen das Personenverzeichnis:
+`id_fsc` prüft `kvnr`, `familyName`, `givenNames`, `birthDate` und `fsc` gegen das Personenverzeichnis:
 Name und Geburtsdatum gegen die dort geführte Person, den Code gegen die dort ausgestellten
 Freischaltcodes. Ein Partner ohne KVNR gibt statt `kvnr` seine Partnernummer `partnernr` an
 (ADR-34). Der Client fragt zuerst nach der KVNR; kommen beide Nummern, zählt die KVNR, und das Tool
@@ -136,7 +136,7 @@ der Orchestrator her, wenn er `Completed.Identified` verarbeitet
 Was hier vom allgemeinen Muster in [05-api.md](05-api.md) abweicht:
 
 - Die `missingFields` kommen gestaffelt in einem einzigen Schritt `input`: zuerst
-  `kvnr`/`name`/`vorname`/`geburtsdatum`, danach `fsc`.
+  `kvnr`/`familyName`/`givenNames`/`birthDate`, danach `fsc`.
 - Die Personendaten werden geprüft, sobald sie vollständig sind. Erst wenn sie zum
   Personenverzeichnis passen, fragt das Tool nach dem Freischaltcode.
 - Abgelehnte Personendaten werden verworfen; danach fehlen wieder alle vier. Bei einem abgelehnten
@@ -234,8 +234,8 @@ Es gibt zwei `PATCH`-Schritte mit je eigenem `nextStep`, damit der Client zwei v
 Bildschirme zeigen kann:
 
 1. **`card`**: Die simulierte eID-Karte liefert ihre vollständigen Ausweisdaten auf einmal:
-   `name`, `vorname`, `geburtsdatum`, `strasse` (Straße **und** Hausnummer in einer Zeile, wie im
-   Kartenfeld `Street`), `plz`, `ort` und `restrictedId`. Vorher wird **nichts** eingetippt: Eine
+   `familyName`, `givenNames`, `birthDate`, `streetAddress` (Straße **und** Hausnummer in einer Zeile,
+   wie im Kartenfeld `Street`), `postalCode`, `locality` und `restrictedId`. Vorher wird **nichts** eingetippt: Eine
    Karte trägt weder KVNR noch PersonId, also gibt es auch keinen Suchschritt davor. Die
    `restrictedId` ist das an die Karte gebundene Pseudonym (in der Demo ein Platzhalter für den
    echten Restricted Identifier). Im Kartenformular lässt sie sich ändern, obwohl eine echte Karte

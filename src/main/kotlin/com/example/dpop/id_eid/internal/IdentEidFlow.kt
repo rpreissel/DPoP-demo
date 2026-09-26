@@ -19,13 +19,13 @@ import com.example.dpop.tool_spi.MissingFields
  * against the register.
  */
 internal data class IdentEidState(
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
+    val familyName: String? = null,
+    val givenNames: String? = null,
+    val birthDate: LocalDate? = null,
     /** Street and house number in one line - the card's `Street` carries both. */
-    val strasse: String? = null,
-    val plz: String? = null,
-    val ort: String? = null,
+    val streetAddress: String? = null,
+    val postalCode: String? = null,
+    val locality: String? = null,
     val restrictedId: String? = null,
     val pinHash: String? = null
 )
@@ -40,12 +40,12 @@ internal object IdentEidFlow {
 
     /** Applies one PATCH's fields on top of the current state. */
     fun merge(state: IdentEidState, fields: EidPatchFields): IdentEidState = IdentEidState(
-        name = fields.name ?: state.name,
-        vorname = fields.vorname ?: state.vorname,
-        geburtsdatum = fields.geburtsdatum ?: state.geburtsdatum,
-        strasse = fields.strasse ?: state.strasse,
-        plz = fields.plz ?: state.plz,
-        ort = fields.ort ?: state.ort,
+        familyName = fields.familyName ?: state.familyName,
+        givenNames = fields.givenNames ?: state.givenNames,
+        birthDate = fields.birthDate ?: state.birthDate,
+        streetAddress = fields.streetAddress ?: state.streetAddress,
+        postalCode = fields.postalCode ?: state.postalCode,
+        locality = fields.locality ?: state.locality,
         restrictedId = fields.restrictedId ?: state.restrictedId,
         pinHash = fields.pin?.let { hash(it.trim()) } ?: state.pinHash
     )
@@ -53,12 +53,12 @@ internal object IdentEidFlow {
     fun decide(state: IdentEidState): IdentEidDecision {
         if (!hasCardFields(state) || state.pinHash.isNullOrBlank()) return IdentEidDecision.Incomplete
         val claimed = ClaimedIdentity(
-            familyName = state.name.orEmpty(),
-            givenNames = state.vorname.orEmpty(),
-            birthDate = checkNotNull(state.geburtsdatum),
-            streetAddress = state.strasse.orEmpty(),
-            postalCode = state.plz.orEmpty(),
-            locality = state.ort.orEmpty()
+            familyName = state.familyName.orEmpty(),
+            givenNames = state.givenNames.orEmpty(),
+            birthDate = checkNotNull(state.birthDate),
+            streetAddress = state.streetAddress.orEmpty(),
+            postalCode = state.postalCode.orEmpty(),
+            locality = state.locality.orEmpty()
         )
         return IdentEidDecision.Verify(claimed, checkNotNull(state.restrictedId), checkNotNull(state.pinHash))
     }
@@ -80,16 +80,16 @@ internal object IdentEidFlow {
     fun evidenceHash(attested: List<String?>): String = "sha256:" + hash(attested.joinToString("\u001F") { it.orEmpty() })
 
     private fun hasCardFields(state: IdentEidState) =
-        !state.name.isNullOrBlank() && !state.vorname.isNullOrBlank() && state.geburtsdatum != null &&
-            !state.strasse.isNullOrBlank() &&
-            !state.plz.isNullOrBlank() && !state.ort.isNullOrBlank() &&
+        !state.familyName.isNullOrBlank() && !state.givenNames.isNullOrBlank() && state.birthDate != null &&
+            !state.streetAddress.isNullOrBlank() &&
+            !state.postalCode.isNullOrBlank() && !state.locality.isNullOrBlank() &&
             !state.restrictedId.isNullOrBlank()
 
     private fun hash(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     /** Everything the card itself shows - read in one go, nothing typed by the user beforehand. */
-    val CARD_FIELDS = listOf("name", "vorname", "geburtsdatum", "strasse", "plz", "ort", "restrictedId")
+    val CARD_FIELDS = listOf("familyName", "givenNames", "birthDate", "streetAddress", "postalCode", "locality", "restrictedId")
     val PIN_FIELDS = listOf("pin")
 
     /** Fixed test PIN for the mock, same role as `ident-fsc`'s `VALIDCODE` (docs/08-projektrahmen.md P-5/P-6). */

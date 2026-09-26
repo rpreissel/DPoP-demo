@@ -303,7 +303,7 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
         val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         return patch(
             "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-            """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+            """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
         )
     }
 

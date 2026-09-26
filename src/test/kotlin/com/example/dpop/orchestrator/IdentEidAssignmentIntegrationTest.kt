@@ -34,7 +34,7 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 .nextRaw()["toolSessionId"] as String
             patch(
                 "/orchestrator/api/v1/tools/$toolSessionId/ident-eid",
-                """{"name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","strasse":"Musterstraße 1","plz":"12345","ort":"Musterstadt","restrictedId":"T0103005K1D5S0V8T9W6UM2RTX"}"""
+                """{"familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","streetAddress":"Musterstraße 1","postalCode":"12345","locality":"Musterstadt","restrictedId":"T0103005K1D5S0V8T9W6UM2RTX"}"""
             )
             return patch("/orchestrator/api/v1/tools/$toolSessionId/ident-eid", """{"pin":"123456"}""")
         }
@@ -45,7 +45,7 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 .nextRaw()["toolSessionId"] as String
             patch(
                 "/orchestrator/api/v1/tools/$toolSessionId/ident-eid",
-                """{"name":"Beispiel","vorname":"Erika","geburtsdatum":"1990-11-02","strasse":"Beispielweg 42","plz":"54321","ort":"Beispielhausen","restrictedId":"T0208011X7Y2Q4M6B3LT0T28WJ"}"""
+                """{"familyName":"Beispiel","givenNames":"Erika","birthDate":"1990-11-02","streetAddress":"Beispielweg 42","postalCode":"54321","locality":"Beispielhausen","restrictedId":"T0208011X7Y2Q4M6B3LT0T28WJ"}"""
             )
             return patch("/orchestrator/api/v1/tools/$toolSessionId/ident-eid", """{"pin":"123456"}""")
         }

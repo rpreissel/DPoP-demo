@@ -106,7 +106,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val identified = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
                 identified.next() shouldBe mapOf("type" to "orchestrator", "context" to "authentication", "step" to "authenticated")
 
@@ -136,7 +136,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$firstChannelId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$firstIdentToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
 
                 // Second account: a fresh device/channel, enrolls independently, then tries to identify
@@ -152,7 +152,7 @@ class RegisterEnrollFirstFlowIntegrationTest : IntegrationTestSupport() {
                 val exception = assertThrows<HttpClientErrorException> {
                     patch(
                         "/orchestrator/api/v1/tools/$secondIdentToolSessionId/ident-fsc",
-                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                        """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
                     )
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT

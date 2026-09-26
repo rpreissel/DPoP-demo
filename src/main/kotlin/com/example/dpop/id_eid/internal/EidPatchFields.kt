@@ -8,13 +8,13 @@ import java.time.LocalDate
  * fields being supplied or corrected need to be sent").
  */
 data class EidPatchFields(
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
+    val familyName: String? = null,
+    val givenNames: String? = null,
+    val birthDate: LocalDate? = null,
     /** Street and house number in one line, as the card's `Street` carries them. */
-    val strasse: String? = null,
-    val plz: String? = null,
-    val ort: String? = null,
+    val streetAddress: String? = null,
+    val postalCode: String? = null,
+    val locality: String? = null,
     val restrictedId: String? = null,
     val pin: String? = null
 )

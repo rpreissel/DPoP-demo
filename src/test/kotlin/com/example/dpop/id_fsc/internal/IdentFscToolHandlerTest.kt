@@ -39,9 +39,9 @@ class IdentFscToolHandlerTest : BehaviorSpec({
         toolSessionId = toolSessionId,
         kvnr = "A123456789",
         personId = "P000000007",
-        name = "Muster",
-        vorname = "Max",
-        geburtsdatum = birthdate
+        familyName = "Muster",
+        givenNames = "Max",
+        birthDate = birthdate
     ).also { data ->
         every { repository.findById(toolSessionId) } returns Optional.of(data)
         every { repository.save(any()) } returns data
@@ -54,7 +54,7 @@ class IdentFscToolHandlerTest : BehaviorSpec({
 
         `when`("the code is submitted") {
             then("it identifies, asserting the master-data attributes as claims under PERSON_DIRECTORY") {
-                val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = null, fsc = "VALIDCODE", personId = null, throttled = false)
+                val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, familyName = null, givenNames = null, birthDate = null, fsc = "VALIDCODE", personId = null, throttled = false)
 
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
                 (outcome as ToolOutcome.Completed.Identified).claims shouldBe listOf(
@@ -75,12 +75,12 @@ class IdentFscToolHandlerTest : BehaviorSpec({
                 val data = sessionWithVerifiedPersonalien()
                 every { personDirectory.matchesPersonalDetails("P000000007", "Muster", "Max", birthdate.plusDays(1)) } returns false
 
-                val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
+                val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, familyName = null, givenNames = null, birthDate = birthdate.plusDays(1), fsc = null, personId = null, throttled = false)
 
                 outcome shouldBe ToolOutcome.Failed.Identification(Text("Die Angaben passen zu keiner Person, die wir kennen"), attemptedPersonId = "P000000007")
                 verify(exactly = 0) { freischaltcodes.pruefe(any(), any()) }
                 data.kvnr shouldBe null
-                data.geburtsdatum shouldBe null
+                data.birthDate shouldBe null
             }
         }
     }
@@ -89,14 +89,14 @@ class IdentFscToolHandlerTest : BehaviorSpec({
         then("the code identifies, and no KVNR claim is asserted") {
             val data = IdFscToolSession(
                 toolSessionId = toolSessionId, partnernr = "P000000004", personId = "P000000004",
-                name = "Schulz", vorname = "Paula", geburtsdatum = birthdate
+                familyName = "Schulz", givenNames = "Paula", birthDate = birthdate
             )
             every { repository.findById(toolSessionId) } returns Optional.of(data)
             every { repository.save(any()) } returns data
             every { personDirectory.insuranceNumberOf(any()) } returns null
             every { freischaltcodes.pruefe("P000000004", any()) } returns true
 
-            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, name = null, vorname = null, geburtsdatum = null, fsc = "PAULA2026", personId = null, throttled = false)
+            val outcome = handler.patch(toolSessionId, kvnr = null, partnernr = null, familyName = null, givenNames = null, birthDate = null, fsc = "PAULA2026", personId = null, throttled = false)
 
             outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
             (outcome as ToolOutcome.Completed.Identified).claims.map { it.attributeType } shouldBe

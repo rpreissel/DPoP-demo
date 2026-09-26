@@ -12,34 +12,34 @@
         <form id="kc-orchestrator-tool-form" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
             <#if step == "card">
                 <p class="orchestrator-hint">${t.of("Demo-Modus: Das Auslesen der Karte wird simuliert.")}</p>
-                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"name":"name","vorname":"vorname","geburtsdatum":"geburtsdatum","strasse":"strasse","plz":"plz","ort":"ort"}' />
+                <@demoPerson.personPicker personsJson=demoPersonsJson! fieldMapJson='{"familyName":"familyName","givenNames":"givenNames","birthDate":"birthDate","streetAddress":"streetAddress","postalCode":"postalCode","locality":"locality"}' />
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="name" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
-                        <input type="text" id="name" name="name" class="${properties.kcInputClass!}"/>
+                        <label for="familyName" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
+                        <input type="text" id="familyName" name="familyName" class="${properties.kcInputClass!}"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="vorname" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
-                        <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}"/>
+                        <label for="givenNames" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
+                        <input type="text" id="givenNames" name="givenNames" class="${properties.kcInputClass!}"/>
                     </div>
                 </div>
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="geburtsdatum" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
-                    <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}"/>
+                    <label for="birthDate" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
+                    <input type="date" id="birthDate" name="birthDate" class="${properties.kcInputClass!}"/>
                 </div>
                 <#-- Die Karte liefert Straße und Hausnummer in einem Feld (Street). -->
                 <div class="${properties.kcFormGroupClass!}">
-                    <label for="strasse" class="${properties.kcLabelClass!}">${t.of("Straße und Hausnummer")}</label>
-                    <input type="text" id="strasse" name="strasse" class="${properties.kcInputClass!}"/>
+                    <label for="streetAddress" class="${properties.kcLabelClass!}">${t.of("Straße und Hausnummer")}</label>
+                    <input type="text" id="streetAddress" name="streetAddress" class="${properties.kcInputClass!}"/>
                 </div>
                 <div class="orchestrator-grid-2">
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="plz" class="${properties.kcLabelClass!}">${t.of("PLZ")}</label>
-                        <input type="text" id="plz" name="plz" class="${properties.kcInputClass!}"/>
+                        <label for="postalCode" class="${properties.kcLabelClass!}">${t.of("PLZ")}</label>
+                        <input type="text" id="postalCode" name="postalCode" class="${properties.kcInputClass!}"/>
                     </div>
                     <div class="${properties.kcFormGroupClass!}">
-                        <label for="ort" class="${properties.kcLabelClass!}">${t.of("Ort")}</label>
-                        <input type="text" id="ort" name="ort" class="${properties.kcInputClass!}"/>
+                        <label for="locality" class="${properties.kcLabelClass!}">${t.of("Ort")}</label>
+                        <input type="text" id="locality" name="locality" class="${properties.kcInputClass!}"/>
                     </div>
                 </div>
             <#elseif step == "pin">

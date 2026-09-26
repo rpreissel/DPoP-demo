@@ -29,7 +29,7 @@ import java.util.UUID
  * Pure business logic; self-description lives in [IdentFscDescriptor].
  * Delegates field-merging and the ready-to-verify decision to [IdentFscFlow].
  */
-private val PERSONALIEN_REJECTED = Text("Die Angaben passen zu keiner Person, die wir kennen")
+private val PERSONAL_DETAILS_REJECTED = Text("Die Angaben passen zu keiner Person, die wir kennen")
 
 @Component
 class IdentFscToolHandler(
@@ -57,16 +57,16 @@ class IdentFscToolHandler(
         toolSessionId: UUID,
         kvnr: String?,
         partnernr: String?,
-        name: String?,
-        vorname: String?,
-        geburtsdatum: LocalDate?,
+        familyName: String?,
+        givenNames: String?,
+        birthDate: LocalDate?,
         fsc: String?,
         personId: String?,
         throttled: Boolean
     ): ToolOutcome {
         val data = checkNotNull(repository.findByIdOrNull(toolSessionId)) { "Unknown ident-fsc tool session: $toolSessionId" }
 
-        val input = IdentFscInput(kvnr, partnernr, name, vorname, geburtsdatum, fsc, personId)
+        val input = IdentFscInput(kvnr, partnernr, familyName, givenNames, birthDate, fsc, personId)
         val merged = IdentFscFlow.merge(data.toState(), input)
 
         // Every personal-data rejection answers alike, whether the KVNR is unknown or a
@@ -75,17 +75,17 @@ class IdentFscToolHandler(
             IdentFscDecision.Incomplete -> merged to outcomeFor(merged)
 
             IdentFscDecision.PersonNotFound ->
-                IdentFscFlow.rejectPersonalien() to ToolOutcome.Failed.Identification(PERSONALIEN_REJECTED, attemptedPersonId = null)
+                IdentFscFlow.rejectPersonalDetails() to ToolOutcome.Failed.Identification(PERSONAL_DETAILS_REJECTED, attemptedPersonId = null)
 
-            is IdentFscDecision.VerifyPersonalien -> {
+            is IdentFscDecision.VerifyPersonalDetails -> {
                 // Name and birthdate are CHECKED, not merely collected - and before the code is
                 // even asked for, so nobody types a code for data that could never match.
                 val matches = personDirectory.matchesPersonalDetails(
-                    decision.personId, decision.name, decision.vorname, decision.geburtsdatum
+                    decision.personId, decision.familyName, decision.givenNames, decision.birthDate
                 )
                 when {
-                    !matches -> IdentFscFlow.rejectPersonalien() to
-                        ToolOutcome.Failed.Identification(PERSONALIEN_REJECTED, attemptedPersonId = decision.personId)
+                    !matches -> IdentFscFlow.rejectPersonalDetails() to
+                        ToolOutcome.Failed.Identification(PERSONAL_DETAILS_REJECTED, attemptedPersonId = decision.personId)
                     // All five in one PATCH: the personal data holds, so the code is next.
                     merged.fscHash != null -> verifyCode(toolSessionId, merged, decision.personId, merged.fscHash, throttled)
                     else -> merged to outcomeFor(merged)
@@ -122,11 +122,11 @@ class IdentFscToolHandler(
                 Claim(AttributeType.PERSON_ID, personId, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // A Partner identifies by Partnernummer and has no KVNR (ADR-34).
                 state.kvnr?.let { Claim(AttributeType.KVNR, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) },
-                Claim(AttributeType.FAMILY_NAME, checkNotNull(state.name), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
-                Claim(AttributeType.GIVEN_NAMES, checkNotNull(state.vorname), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.FAMILY_NAME, checkNotNull(state.familyName), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.GIVEN_NAMES, checkNotNull(state.givenNames), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Checked against the register like the name (matchesPersonalDetails) - and one of the
                 // three things that find this identification in the change log (ADR-39).
-                Claim(AttributeType.BIRTH_DATE, checkNotNull(state.geburtsdatum).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
+                Claim(AttributeType.BIRTH_DATE, checkNotNull(state.birthDate).toString(), ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr),
                 // Insured with us: the Versicherungsnummer becomes an anchor too (ADR-34).
                 personDirectory.insuranceNumberOf(personId)?.let { Claim(AttributeType.INSURANCE_NUMBER, it, ClaimSource.PERSON_DIRECTORY, descriptor.maxAcr) }
             ),
@@ -150,14 +150,14 @@ class IdentFscToolHandler(
         return ToolOutcome.InProgress(nextStep = step, stepData = fields)
     }
 
-    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, partnernr, name, vorname, geburtsdatum, fscHash, personId)
+    private fun IdFscToolSession.toState(): IdentFscState = IdentFscState(kvnr, partnernr, familyName, givenNames, birthDate, fscHash, personId)
 
     private fun IdFscToolSession.applyState(state: IdentFscState) {
         kvnr = state.kvnr
         partnernr = state.partnernr
-        name = state.name
-        vorname = state.vorname
-        geburtsdatum = state.geburtsdatum
+        familyName = state.familyName
+        givenNames = state.givenNames
+        birthDate = state.birthDate
         fscHash = state.fscHash
         personId = state.personId
     }

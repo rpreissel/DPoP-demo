@@ -16,9 +16,9 @@ internal data class IdentFscState(
     val kvnr: String? = null,
     /** Only without a KVNR (a Partner, ADR-34) - at most one of the two is set, see [IdentFscFlow.merge]. */
     val partnernr: String? = null,
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
+    val familyName: String? = null,
+    val givenNames: String? = null,
+    val birthDate: LocalDate? = null,
     val fscHash: String? = null,
     val personId: String? = null
 )
@@ -27,14 +27,14 @@ internal data class IdentFscState(
 internal data class IdentFscInput(
     val kvnr: String? = null,
     val partnernr: String? = null,
-    val name: String? = null,
-    val vorname: String? = null,
-    val geburtsdatum: LocalDate? = null,
+    val familyName: String? = null,
+    val givenNames: String? = null,
+    val birthDate: LocalDate? = null,
     val fsc: String? = null,
     val personId: String? = null
 ) {
     /** Whether this PATCH touched the personal data - which is then checked again, right away. */
-    val touchesPersonalien: Boolean get() = kvnr != null || partnernr != null || name != null || vorname != null || geburtsdatum != null
+    val touchesPersonalDetails: Boolean get() = kvnr != null || partnernr != null || familyName != null || givenNames != null || birthDate != null
 }
 
 /**
@@ -49,11 +49,11 @@ internal sealed interface IdentFscDecision {
     data object PersonNotFound : IdentFscDecision
 
     /** The personal data was just (re-)supplied: check it against the register first. */
-    data class VerifyPersonalien(
+    data class VerifyPersonalDetails(
         val personId: String,
-        val name: String,
-        val vorname: String,
-        val geburtsdatum: LocalDate
+        val familyName: String,
+        val givenNames: String,
+        val birthDate: LocalDate
     ) : IdentFscDecision
 
     /** The personal data stands verified and a code is present: check the code. */
@@ -80,9 +80,9 @@ internal object IdentFscFlow {
         return IdentFscState(
             kvnr = mergedKvnr,
             partnernr = mergedPartnernr,
-            name = input.name ?: state.name,
-            vorname = input.vorname ?: state.vorname,
-            geburtsdatum = input.geburtsdatum ?: state.geburtsdatum,
+            familyName = input.familyName ?: state.familyName,
+            givenNames = input.givenNames ?: state.givenNames,
+            birthDate = input.birthDate ?: state.birthDate,
             fscHash = input.fsc?.let { Freischaltcodes.digest(it.trim()) } ?: state.fscHash,
             personId = if (input.kvnr != null || input.partnernr != null) input.personId else state.personId
         )
@@ -91,9 +91,9 @@ internal object IdentFscFlow {
     fun decide(state: IdentFscState, input: IdentFscInput): IdentFscDecision {
         if (personalienMissing(state).isNotEmpty()) return IdentFscDecision.Incomplete
         val personId = state.personId ?: return IdentFscDecision.PersonNotFound
-        if (input.touchesPersonalien) {
-            return IdentFscDecision.VerifyPersonalien(
-                personId, state.name.orEmpty(), state.vorname.orEmpty(), checkNotNull(state.geburtsdatum)
+        if (input.touchesPersonalDetails) {
+            return IdentFscDecision.VerifyPersonalDetails(
+                personId, state.familyName.orEmpty(), state.givenNames.orEmpty(), checkNotNull(state.birthDate)
             )
         }
         val fscHash = state.fscHash ?: return IdentFscDecision.Incomplete
@@ -104,7 +104,7 @@ internal object IdentFscFlow {
      * Rejected personal data is dropped as a whole, code included: the next [missingFields] asks
      * for the personal data again, never for a code that would belong to an unverified person.
      */
-    fun rejectPersonalien(): IdentFscState = IdentFscState()
+    fun rejectPersonalDetails(): IdentFscState = IdentFscState()
 
     /** A rejected code is dropped; the verified personal data stays, so only `fsc` is asked for again. */
     fun rejectCode(state: IdentFscState): IdentFscState = state.copy(fscHash = null)
@@ -125,9 +125,9 @@ internal object IdentFscFlow {
     private fun personalienMissing(state: IdentFscState): List<String> = listOfNotNull(
         // Either identifier will do; the client asks for the KVNR first (ADR-34).
         "kvnr".takeIf { state.kvnr.isNullOrBlank() && state.partnernr.isNullOrBlank() },
-        "name".takeIf { state.name.isNullOrBlank() },
-        "vorname".takeIf { state.vorname.isNullOrBlank() },
-        "geburtsdatum".takeIf { state.geburtsdatum == null }
+        "familyName".takeIf { state.familyName.isNullOrBlank() },
+        "givenNames".takeIf { state.givenNames.isNullOrBlank() },
+        "birthDate".takeIf { state.birthDate == null }
     )
 
     /** Same derivation for start/patch/read - one place turns a state into `next.step`/`stepData`. */

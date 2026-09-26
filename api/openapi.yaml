@@ -473,53 +473,53 @@ components:
       - kind
     IdentEidPatchRequest:
       properties:
-        geburtsdatum:
+        birthDate:
           example: '1985-03-12'
           format: date
           type: string
-        name:
+        familyName:
           example: Muster
           type: string
-        ort:
+        givenNames:
+          example: Max
+          type: string
+        locality:
           example: Berlin
           type: string
         pin:
           example: '123456'
           type: string
-        plz:
+        postalCode:
           example: '10117'
           type: string
         restrictedId:
           example: T0103005T4UY6CQ1B3LN0T28WJ
           type: string
-        strasse:
+        streetAddress:
           description: Straße und Hausnummer in einer Zeile, wie die Karte sie liefert
           example: Musterstraße 1
-          type: string
-        vorname:
-          example: Max
           type: string
       type: object
     IdentFscPatchRequest:
       properties:
+        birthDate:
+          example: '1985-06-15'
+          format: date
+          type: string
+        familyName:
+          example: Muster
+          type: string
         fsc:
           example: VALIDCODE
           type: string
-        geburtsdatum:
-          example: '1985-06-15'
-          format: date
+        givenNames:
+          example: Max
           type: string
         kvnr:
           example: A123456789
           type: string
-        name:
-          example: Muster
-          type: string
         partnernr:
           example: P000000004
-          type: string
-        vorname:
-          example: Max
           type: string
       type: object
     IdentKvnrPatchRequest:
@@ -4724,7 +4724,7 @@ paths:
           ]
       - kc-peer-auth: [
           ]
-      summary: Supply KVNR/name/vorname/geburtsdatum/FSC
+      summary: Supply KVNR/name/givenNames/birthDate/FSC
       tags:
       - 'Tool: Freischaltcode'
   /orchestrator/api/v1/tools/{toolSessionId}/ident-kvnr:
@@ -4998,8 +4998,6 @@ tags:
   name: Channels
 - description: Gerätebindung über den externen Dienstleister KOBIL
   name: 'Tool: KOBIL'
-- description: KVNR/name/vorname/geburtsdatum/FSC identification
-  name: 'Tool: Freischaltcode'
 - description: Wordings for the text references in every response, per language, with ETag
   name: Texts
 - description: 'Geraetebindung: Einrichtung und Anmeldung ueber den Geraeteschluessel'
@@ -5012,6 +5010,8 @@ tags:
   name: 'Tool: Nect'
 - description: 'QR-Pairing: Freigabe eines Web-Kanals aus einer bereits angemeldeten App'
   name: 'Tool: QR-Login'
+- description: KVNR/name/givenNames/birthDate/FSC identification
+  name: 'Tool: Freischaltcode'
 - description: 'SMS-TAN: Einrichtung als Faktor, Anmeldung und Login ohne DPoP'
   name: 'Tool: SMS'
 - description: Simulated eID card read, then PIN - attests what the card shows

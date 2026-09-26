@@ -2,31 +2,31 @@ components:
   schemas:
     IdentEidPatchRequest:
       properties:
-        geburtsdatum:
+        birthDate:
           example: '1985-03-12'
           format: date
           type: string
-        name:
+        familyName:
           example: Muster
           type: string
-        ort:
+        givenNames:
+          example: Max
+          type: string
+        locality:
           example: Berlin
           type: string
         pin:
           example: '123456'
           type: string
-        plz:
+        postalCode:
           example: '10117'
           type: string
         restrictedId:
           example: T0103005T4UY6CQ1B3LN0T28WJ
           type: string
-        strasse:
+        streetAddress:
           description: Straße und Hausnummer in einer Zeile, wie die Karte sie liefert
           example: Musterstraße 1
-          type: string
-        vorname:
-          example: Max
           type: string
       type: object
   securitySchemes:

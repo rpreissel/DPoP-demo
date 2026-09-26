@@ -767,19 +767,25 @@ export interface IdentEidPatchRequest {
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    geburtsdatum?: string;
+    birthDate?: string;
     /**
      * 
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    name?: string;
+    familyName?: string;
     /**
      * 
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    ort?: string;
+    givenNames?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentEidPatchRequest
+     */
+    locality?: string;
     /**
      * 
      * @type {string}
@@ -791,7 +797,7 @@ export interface IdentEidPatchRequest {
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    plz?: string;
+    postalCode?: string;
     /**
      * 
      * @type {string}
@@ -803,13 +809,7 @@ export interface IdentEidPatchRequest {
      * @type {string}
      * @memberof IdentEidPatchRequest
      */
-    strasse?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof IdentEidPatchRequest
-     */
-    vorname?: string;
+    streetAddress?: string;
 }
 /**
  * 
@@ -822,13 +822,25 @@ export interface IdentFscPatchRequest {
      * @type {string}
      * @memberof IdentFscPatchRequest
      */
+    birthDate?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentFscPatchRequest
+     */
+    familyName?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentFscPatchRequest
+     */
     fsc?: string;
     /**
      * 
      * @type {string}
      * @memberof IdentFscPatchRequest
      */
-    geburtsdatum?: string;
+    givenNames?: string;
     /**
      * 
      * @type {string}
@@ -840,19 +852,7 @@ export interface IdentFscPatchRequest {
      * @type {string}
      * @memberof IdentFscPatchRequest
      */
-    name?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof IdentFscPatchRequest
-     */
     partnernr?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof IdentFscPatchRequest
-     */
-    vorname?: string;
 }
 /**
  * 

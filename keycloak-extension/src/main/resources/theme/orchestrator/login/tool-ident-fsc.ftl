@@ -8,18 +8,18 @@
 <#macro personalForm formId pickerId backToCode>
     <p class="orchestrator-subtitle">${t.of("Damit Sie Ihren Freischaltcode gleich eingeben können, brauchen wir noch diese Daten:")}</p>
     <form id="${formId}" class="${properties.kcFormClass!}" action="${url.loginAction}" method="post">
-        <@demoPerson.personPicker personsJson=demoPersonsJson! pickerId=pickerId fieldMapJson='{"vorname":"vorname","name":"name","geburtsdatum":"geburtsdatum","kvnr":"kvnr","partnernr":"personId"}' />
+        <@demoPerson.personPicker personsJson=demoPersonsJson! pickerId=pickerId fieldMapJson='{"givenNames":"givenNames","familyName":"familyName","birthDate":"birthDate","kvnr":"kvnr","partnernr":"personId"}' />
         <div class="${properties.kcFormGroupClass!}">
-            <label for="vorname" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
-            <input type="text" id="vorname" name="vorname" class="${properties.kcInputClass!}" autocomplete="given-name" required/>
+            <label for="givenNames" class="${properties.kcLabelClass!}">${t.of("Vorname")}</label>
+            <input type="text" id="givenNames" name="givenNames" class="${properties.kcInputClass!}" autocomplete="given-name" required/>
         </div>
         <div class="${properties.kcFormGroupClass!}">
-            <label for="name" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
-            <input type="text" id="name" name="name" class="${properties.kcInputClass!}" autocomplete="family-name" required/>
+            <label for="familyName" class="${properties.kcLabelClass!}">${t.of("Nachname")}</label>
+            <input type="text" id="familyName" name="familyName" class="${properties.kcInputClass!}" autocomplete="family-name" required/>
         </div>
         <div class="${properties.kcFormGroupClass!}">
-            <label for="geburtsdatum" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
-            <input type="date" id="geburtsdatum" name="geburtsdatum" class="${properties.kcInputClass!}" autocomplete="bday" required/>
+            <label for="birthDate" class="${properties.kcLabelClass!}">${t.of("Geburtsdatum")}</label>
+            <input type="date" id="birthDate" name="birthDate" class="${properties.kcInputClass!}" autocomplete="bday" required/>
         </div>
         <div class="${properties.kcFormGroupClass!}">
             <label for="kvnr" class="${properties.kcLabelClass!}">${t.of("Versichertennummer")}</label>

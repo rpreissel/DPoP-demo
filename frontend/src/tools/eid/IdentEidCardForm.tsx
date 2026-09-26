@@ -6,13 +6,13 @@ import { DemoNote } from '../../components/DemoArea'
 
 interface IdentEidCardFormProps {
   onSubmit: (fields: {
-    name: string
-    vorname: string
-    geburtsdatum: string
+    familyName: string
+    givenNames: string
+    birthDate: string
     /** Street and house number in one line - the card's `Street` carries both. */
-    strasse: string
-    plz: string
-    ort: string
+    streetAddress: string
+    postalCode: string
+    locality: string
     restrictedId: string
   }) => void
   error?: string
@@ -24,27 +24,27 @@ interface IdentEidCardFormProps {
 export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardFormProps) {
   // Prefilled from the first register persona - no hard-coded test person of our own.
   const first = demoPersons?.[0]
-  const [name, setName] = useState(first?.name ?? '')
-  const [vorname, setVorname] = useState(first?.vorname ?? '')
-  const [geburtsdatum, setGeburtsdatum] = useState(first?.geburtsdatum ?? '')
-  const [strasse, setStrasse] = useState(first?.strasse ?? '')
-  const [plz, setPlz] = useState(first?.plz ?? '')
-  const [ort, setOrt] = useState(first?.ort ?? '')
+  const [familyName, setFamilyName] = useState(first?.familyName ?? '')
+  const [givenNames, setGivenNames] = useState(first?.givenNames ?? '')
+  const [birthDate, setBirthDate] = useState(first?.birthDate ?? '')
+  const [streetAddress, setStreetAddress] = useState(first?.streetAddress ?? '')
+  const [postalCode, setPostalCode] = useState(first?.postalCode ?? '')
+  const [locality, setLocality] = useState(first?.locality ?? '')
   const [restrictedId, setRestrictedId] = useState(first?.restrictedId ?? '')
 
   function selectPerson(person: DemoPerson) {
-    setName(person.name ?? '')
-    setVorname(person.vorname ?? '')
-    setGeburtsdatum(person.geburtsdatum ?? '')
-    setStrasse(person.strasse ?? '')
-    setPlz(person.plz ?? '')
-    setOrt(person.ort ?? '')
+    setFamilyName(person.familyName ?? '')
+    setGivenNames(person.givenNames ?? '')
+    setBirthDate(person.birthDate ?? '')
+    setStreetAddress(person.streetAddress ?? '')
+    setPostalCode(person.postalCode ?? '')
+    setLocality(person.locality ?? '')
     setRestrictedId(person.restrictedId ?? '')
   }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit({ name, vorname, geburtsdatum, strasse, plz, ort, restrictedId })
+    onSubmit({ familyName, givenNames, birthDate, streetAddress, postalCode, locality, restrictedId })
   }
 
   return (
@@ -60,34 +60,34 @@ export function IdentEidCardForm({ onSubmit, error, demoPersons }: IdentEidCardF
       <form onSubmit={handleSubmit} className="form-grid" style={{ marginTop: '1rem' }}>
         <DemoPersonPicker demoPersons={demoPersons} onSelect={selectPerson} />
         <div className="form-group">
-          <label htmlFor="eid-name">{t('Nachname')}</label>
-          <input id="eid-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <label htmlFor="eid-familyName">{t('Nachname')}</label>
+          <input id="eid-familyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-vorname">{t('Vorname')}</label>
-          <input id="eid-vorname" value={vorname} onChange={(e) => setVorname(e.target.value)} required />
+          <label htmlFor="eid-givenNames">{t('Vorname')}</label>
+          <input id="eid-givenNames" value={givenNames} onChange={(e) => setGivenNames(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-geburtsdatum">{t('Geburtsdatum')}</label>
+          <label htmlFor="eid-birthDate">{t('Geburtsdatum')}</label>
           <input
-            id="eid-geburtsdatum"
+            id="eid-birthDate"
             type="date"
-            value={geburtsdatum}
-            onChange={(e) => setGeburtsdatum(e.target.value)}
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
             required
           />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-strasse">{t('Straße und Hausnummer')}</label>
-          <input id="eid-strasse" value={strasse} onChange={(e) => setStrasse(e.target.value)} required />
+          <label htmlFor="eid-streetAddress">{t('Straße und Hausnummer')}</label>
+          <input id="eid-streetAddress" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-plz">{t('PLZ')}</label>
-          <input id="eid-plz" value={plz} onChange={(e) => setPlz(e.target.value)} required />
+          <label htmlFor="eid-postalCode">{t('PLZ')}</label>
+          <input id="eid-postalCode" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} required />
         </div>
         <div className="form-group">
-          <label htmlFor="eid-ort">{t('Ort')}</label>
-          <input id="eid-ort" value={ort} onChange={(e) => setOrt(e.target.value)} required />
+          <label htmlFor="eid-locality">{t('Ort')}</label>
+          <input id="eid-locality" value={locality} onChange={(e) => setLocality(e.target.value)} required />
         </div>
         {/* Editierbar, obwohl eine echte Karte den Wert fest mitbringt: In der Demo ist das
             Feld die einzige Möglichkeit, eine ANDERE Karte derselben Person zu simulieren

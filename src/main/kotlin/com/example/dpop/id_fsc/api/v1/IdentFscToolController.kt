@@ -33,9 +33,9 @@ data class IdentFscPatchRequest(
     @field:Schema(example = "A123456789") val kvnr: String? = null,
     /** Only without a KVNR (a Partner, ADR-34) - the client asks for the KVNR first, then for this. */
     @field:Schema(example = "P000000004") val partnernr: String? = null,
-    @field:Schema(example = "Muster") val name: String? = null,
-    @field:Schema(example = "Max") val vorname: String? = null,
-    @field:Schema(example = "1985-06-15") val geburtsdatum: LocalDate? = null,
+    @field:Schema(example = "Muster") val familyName: String? = null,
+    @field:Schema(example = "Max") val givenNames: String? = null,
+    @field:Schema(example = "1985-06-15") val birthDate: LocalDate? = null,
     @field:Schema(example = "VALIDCODE") val fsc: String? = null
 )
 
@@ -44,7 +44,7 @@ data class IdentFscPatchRequest(
  * this tool (docs/08-projektrahmen.md A11) - no generic toolId dispatch anywhere.
  */
 @RestController
-@Tag(name = "Tool: Freischaltcode", description = "KVNR/name/vorname/geburtsdatum/FSC identification")
+@Tag(name = "Tool: Freischaltcode", description = "KVNR/name/givenNames/birthDate/FSC identification")
 @SecurityRequirement(name = "dpop")
 class IdentFscToolController(
     private val handler: IdentFscToolHandler,
@@ -82,7 +82,7 @@ class IdentFscToolController(
 
     @PatchMapping("$API_V1/tools/{toolSessionId}/ident-fsc")
     @Operation(
-        summary = "Supply KVNR/name/vorname/geburtsdatum/FSC",
+        summary = "Supply KVNR/name/givenNames/birthDate/FSC",
         description = "Only the fields being supplied or corrected need to be sent; all five together also resolves in one call.",
         responses = [
             ApiResponse(
@@ -115,7 +115,7 @@ class IdentFscToolController(
         // Folded into the handler's ordinary failure rather than raised - see
         // ToolEndpoint.isIdentLockedOut: a distinguishable lock would leak which KVNRs exist.
         val throttled = toolEndpoint.isIdentLockedOut(personId)
-        val outcome = handler.patch(toolSessionId, body.kvnr, body.partnernr, body.name, body.vorname, body.geburtsdatum, body.fsc, personId, throttled)
+        val outcome = handler.patch(toolSessionId, body.kvnr, body.partnernr, body.familyName, body.givenNames, body.birthDate, body.fsc, personId, throttled)
 
         return ResponseEntity.ok(toolEndpoint.applyOutcome(context, outcome))
     }

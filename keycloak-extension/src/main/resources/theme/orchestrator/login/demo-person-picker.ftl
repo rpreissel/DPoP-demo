@@ -4,7 +4,7 @@
      one of demo.persons' fields, and prefills them from the first persona on load (the only prefill -
      the templates themselves carry no test values, so demo values off means empty forms, ADR-28). personsJson comes from AbstractWebToolRendererFactory#demoPersonsJson;
      fieldMapJson is a JSON object literal mapping input-element-id -> person field name, e.g.
-     '{"email":"email"}' or '{"kvnr":"kvnr","name":"name","vorname":"vorname","fsc":"fscCode"}'.
+     '{"email":"email"}' or '{"kvnr":"kvnr","familyName":"familyName","fsc":"fscCode"}'.
      pickerId only matters where one page carries two pickers (tool-ident-fsc's code page). -->
 <#macro personPicker personsJson fieldMapJson pickerId="demoPerson">
     <#if personsJson?? && personsJson != "null">

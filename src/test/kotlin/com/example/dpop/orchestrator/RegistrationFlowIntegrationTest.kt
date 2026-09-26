@@ -61,12 +61,12 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = identActivation.nextRaw()["toolSessionId"] as String
                 identActivation.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input")
                 @Suppress("UNCHECKED_CAST")
-                identActivation.stepData()["missingFields"] as List<String> shouldContainExactlyInAnyOrder listOf("kvnr", "name", "vorname", "geburtsdatum")
+                identActivation.stepData()["missingFields"] as List<String> shouldContainExactlyInAnyOrder listOf("kvnr", "familyName", "givenNames", "birthDate")
 
                 // 3) Supply kvnr/name/vorname/geburtsdatum -> only fsc missing
                 val afterNames = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15"}"""
                 )
                 @Suppress("UNCHECKED_CAST")
                 afterNames.stepData()["missingFields"] as List<String> shouldContainExactly listOf("fsc")
@@ -243,18 +243,18 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
 
                 val rejected = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-16"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-16"}"""
                 )
                 templateOf(rejected.stepData()["error"]) shouldBe "Die Angaben passen zu keiner Person, die wir kennen"
                 rejected.next() shouldBe mapOf("type" to "tool", "toolId" to "ident-fsc", "step" to "input")
 
                 @Suppress("UNCHECKED_CAST")
                 get("/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc").stepData()["missingFields"] as List<String> shouldContainExactly
-                    listOf("kvnr", "name", "vorname", "geburtsdatum")
+                    listOf("kvnr", "familyName", "givenNames", "birthDate")
 
                 val corrected = patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15"}"""
                 )
                 @Suppress("UNCHECKED_CAST")
                 corrected.stepData()["missingFields"] as List<String> shouldContainExactly listOf("fsc")
@@ -271,7 +271,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val identToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 patch(
                     "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15"}"""
                 )
 
                 // First few wrong attempts stay retryable (200 + error in stepData, not an HTTP error).
@@ -404,7 +404,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val firstIdentToolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val afterFirstIdent = patch(
                     "/orchestrator/api/v1/tools/$firstIdentToolSessionId/ident-fsc",
-                    """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                    """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
                 )
                 // Max's account already has sms and a confirmed email - AuthChoice, not Enrolling.
                 afterFirstIdent.next() shouldBe mapOf("type" to "tool", "toolId" to "auth-sms", "step" to "auth")
@@ -424,7 +424,7 @@ class RegistrationFlowIntegrationTest : IntegrationTestSupport() {
                 val exception = assertThrows<HttpClientErrorException> {
                     patch(
                         "/orchestrator/api/v1/tools/$secondIdentToolSessionId/ident-fsc",
-                        """{"kvnr":"B987654321","name":"Beispiel","vorname":"Erika","geburtsdatum":"1990-11-02","fsc":"ERIKA123"}"""
+                        """{"kvnr":"B987654321","familyName":"Beispiel","givenNames":"Erika","birthDate":"1990-11-02","fsc":"ERIKA123"}"""
                     )
                 }
                 exception.statusCode shouldBe HttpStatus.CONFLICT

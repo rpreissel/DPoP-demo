@@ -125,7 +125,7 @@ class MultiDeviceCredentialIntegrationTest : IntegrationTestSupport() {
             val identToolSessionId = post("/orchestrator/api/v1/channels/$channelBSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
             val reidentified = patch(
                 "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
             )
             // sms/email/enroll-device are all still legitimate candidates (only "device" is active on
             // this account, on a key device B doesn't hold) - a selection page, never auth-device.

@@ -11,7 +11,7 @@ import java.util.Set;
 
 /**
  * Web-channel counterpart to ident-fsc, whose single "input" step never changes (docs/06-
- * ablaeufe.md #2) - kvnr/name/vorname/geburtsdatum/fsc all merge into one PATCH. The two pages
+ * ablaeufe.md #2) - kvnr/familyName/givenNames/birthDate/fsc all merge into one PATCH. The two pages
  * are this renderer's own choice, the same two the React form makes: the personal-data page
  * (always all four fields) while {@code stepData.missingFields} still names any of them, the code
  * page (always just fsc) once the backend has checked that data and asks for the code. A failed
@@ -22,7 +22,7 @@ public class IdentFscRendererFactory extends AbstractWebToolRendererFactory {
     public static final String PROVIDER_ID = "ident-fsc";
 
     /** What the first page collects - everything the backend stages before it asks for fsc. */
-    private static final Set<String> PERSONAL_FIELDS = Set.of("kvnr", "name", "vorname", "geburtsdatum");
+    private static final Set<String> PERSONAL_FIELDS = Set.of("kvnr", "familyName", "givenNames", "birthDate");
 
     @Override
     public String getId() {

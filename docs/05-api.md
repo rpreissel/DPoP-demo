@@ -457,7 +457,7 @@ Registrierung mit `ident-fsc` -> `enroll-sms`:
    `next={"type":"orchestrator","context":"registration","step":"selectIdentificationMethod"}`,
    `stepData={"kind":"select-method","options":["ident-fsc","ident-eid"]}`.
 2. `POST .../tools/ident-fsc` (ohne Inhalt) legt die Tool-Ressource an: `201` mit
-   `stepData={"kind":"missing-fields","missingFields":["kvnr","name","vorname","geburtsdatum"]}`
+   `stepData={"kind":"missing-fields","missingFields":["kvnr","familyName","givenNames","birthDate"]}`
    und gesetzter `next.toolSessionId`. Nach `fsc` fragt das Tool erst, wenn diese Angaben zum
    Personenverzeichnis passen.
 3. `PATCH /tools/{toolSessionId}/ident-fsc` mit den Feldern, zuletzt dem Freischaltcode. Solange

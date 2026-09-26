@@ -17,14 +17,14 @@ data class DemoPerson(
     val personId: String,
     /** Only for a person insured with us, and even then possibly missing for a while. */
     val kvnr: String?,
-    val name: String?,
-    val vorname: String?,
+    val familyName: String?,
+    val givenNames: String?,
     val email: String?,
     /** Street and house number in one line - as the eID card shows it, not as the register splits it. */
-    val strasse: String?,
-    val plz: String?,
-    val ort: String?,
-    val geburtsdatum: String?,
+    val streetAddress: String?,
+    val postalCode: String?,
+    val locality: String?,
+    val birthDate: String?,
     /** Plaintext of the newest valid letter in the register's mailbox (ADR-31). */
     val fscCode: String?,
     val restrictedId: String?
@@ -56,13 +56,13 @@ class DemoPersonas(
         DemoPerson(
             personId = personId,
             kvnr = person.kvnr,
-            name = person.name,
-            vorname = person.vorname,
+            familyName = person.name,
+            givenNames = person.vorname,
             email = extras?.email,
-            strasse = person.strassenzeile,
-            plz = person.plz,
-            ort = person.ort,
-            geburtsdatum = person.geburtsdatum?.toString(),
+            streetAddress = person.strassenzeile,
+            postalCode = person.plz,
+            locality = person.ort,
+            birthDate = person.geburtsdatum?.toString(),
             fscCode = freischaltcodes.juengsterGueltigerCode(personId),
             restrictedId = extras?.restrictedId
         )

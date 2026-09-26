@@ -4,12 +4,12 @@ import type { ToolRenderContext } from '../types'
 export function submitEidCard(
   ctx: ToolRenderContext,
   fields: {
-    name: string
-    vorname: string
-    geburtsdatum: string
-    strasse: string
-    plz: string
-    ort: string
+    familyName: string
+    givenNames: string
+    birthDate: string
+    streetAddress: string
+    postalCode: string
+    locality: string
     restrictedId: string
   },
 ) {

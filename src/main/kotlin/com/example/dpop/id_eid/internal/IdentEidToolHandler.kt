@@ -111,15 +111,15 @@ class IdentEidToolHandler(
     }
 
     private fun IdEidToolSession.toState(): IdentEidState =
-        IdentEidState(name, vorname, geburtsdatum, strasse, plz, ort, restrictedId, pinHash)
+        IdentEidState(familyName, givenNames, birthDate, streetAddress, postalCode, locality, restrictedId, pinHash)
 
     private fun IdEidToolSession.applyState(state: IdentEidState) {
-        name = state.name
-        vorname = state.vorname
-        geburtsdatum = state.geburtsdatum
-        strasse = state.strasse
-        plz = state.plz
-        ort = state.ort
+        familyName = state.familyName
+        givenNames = state.givenNames
+        birthDate = state.birthDate
+        streetAddress = state.streetAddress
+        postalCode = state.postalCode
+        locality = state.locality
         restrictedId = state.restrictedId
         pinHash = state.pinHash
     }

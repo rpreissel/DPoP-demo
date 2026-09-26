@@ -17,12 +17,12 @@ class IdEidToolSession(
     var toolSessionId: UUID? = null,
 
     /** The simulated eID card's Ausweisdaten, read in one go in the "card" step. */
-    var name: String? = null,
-    var vorname: String? = null,
-    var geburtsdatum: LocalDate? = null,
-    var strasse: String? = null,
-    var plz: String? = null,
-    var ort: String? = null,
+    var familyName: String? = null,
+    var givenNames: String? = null,
+    var birthDate: LocalDate? = null,
+    var streetAddress: String? = null,
+    var postalCode: String? = null,
+    var locality: String? = null,
 
     /** The card's restricted identifier - person-unique pseudonym, ADR-19's recognition anchor. */
     @Column(name = "restricted_id", length = 64)

@@ -14,9 +14,9 @@ CREATE TABLE id_fsc.ident_tool_session (
     -- Only without a KVNR (a Partner, ADR-34); the latest of the two identifiers wins.
     partnernr       VARCHAR(10),
     person_id       VARCHAR(10),
-    name            VARCHAR(255),
-    vorname         VARCHAR(255),
-    geburtsdatum    DATE,
+    family_name     VARCHAR(255),
+    given_names     VARCHAR(255),
+    birth_date      DATE,
     fsc_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL
 );

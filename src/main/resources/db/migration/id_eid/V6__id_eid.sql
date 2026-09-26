@@ -9,12 +9,12 @@ CREATE SCHEMA IF NOT EXISTS id_eid;
 
 CREATE TABLE id_eid.ident_tool_session (
     tool_session_id UUID PRIMARY KEY,
-    name            VARCHAR(255),
-    vorname         VARCHAR(255),
-    geburtsdatum    DATE,
-    strasse         VARCHAR(255),
-    plz             VARCHAR(10),
-    ort             VARCHAR(255),
+    family_name     VARCHAR(255),
+    given_names     VARCHAR(255),
+    birth_date      DATE,
+    street_address  VARCHAR(255),
+    postal_code     VARCHAR(10),
+    locality        VARCHAR(255),
     restricted_id   VARCHAR(64),
     pin_hash        VARCHAR(64),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL

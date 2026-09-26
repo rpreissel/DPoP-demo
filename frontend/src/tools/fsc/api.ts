@@ -5,10 +5,10 @@ export interface FscFields {
   kvnr: string
   /** Only without a KVNR (a Partner, ADR-34) - sent instead of `kvnr`, never together with it. */
   partnernr: string
-  name: string
-  vorname: string
+  familyName: string
+  givenNames: string
   /** ISO date (YYYY-MM-DD), as `<input type="date">` delivers it. */
-  geburtsdatum: string
+  birthDate: string
   fsc: string
 }
 

@@ -29,13 +29,13 @@ import com.example.dpop.tool_api.API_V1
 private const val IDENT_EID_TOOL_ID = "ident-eid"
 
 data class IdentEidPatchRequest(
-    @field:Schema(example = "Muster") val name: String? = null,
-    @field:Schema(example = "Max") val vorname: String? = null,
-    @field:Schema(example = "1985-03-12") val geburtsdatum: LocalDate? = null,
+    @field:Schema(example = "Muster") val familyName: String? = null,
+    @field:Schema(example = "Max") val givenNames: String? = null,
+    @field:Schema(example = "1985-03-12") val birthDate: LocalDate? = null,
     @field:Schema(description = "Straße und Hausnummer in einer Zeile, wie die Karte sie liefert", example = "Musterstraße 1")
-    val strasse: String? = null,
-    @field:Schema(example = "10117") val plz: String? = null,
-    @field:Schema(example = "Berlin") val ort: String? = null,
+    val streetAddress: String? = null,
+    @field:Schema(example = "10117") val postalCode: String? = null,
+    @field:Schema(example = "Berlin") val locality: String? = null,
     @field:Schema(example = "T0103005T4UY6CQ1B3LN0T28WJ") val restrictedId: String? = null,
     @field:Schema(example = "123456") val pin: String? = null
 )
@@ -114,12 +114,12 @@ class IdentEidToolController(
 
         val body = request ?: IdentEidPatchRequest()
         val fields = EidPatchFields(
-            name = body.name,
-            vorname = body.vorname,
-            geburtsdatum = body.geburtsdatum,
-            strasse = body.strasse,
-            plz = body.plz,
-            ort = body.ort,
+            familyName = body.familyName,
+            givenNames = body.givenNames,
+            birthDate = body.birthDate,
+            streetAddress = body.streetAddress,
+            postalCode = body.postalCode,
+            locality = body.locality,
             restrictedId = body.restrictedId,
             pin = body.pin
         )

@@ -7,10 +7,10 @@ import { Tx } from '../../Tx'
 import { DemoNote } from '../../components/DemoArea'
 
 /** What the first screen collects - everything the backend stages before it asks for `fsc`. */
-const PERSONAL_FIELDS = ['kvnr', 'name', 'vorname', 'geburtsdatum']
+const PERSONAL_FIELDS = ['kvnr', 'familyName', 'givenNames', 'birthDate']
 // `kvnr` in missingFields stands for "KVNR or Partnernummer" - the form asks for the KVNR first (ADR-34).
 
-type Personalien = Omit<FscFields, 'fsc'>
+type PersonalDetails = Omit<FscFields, 'fsc'>
 
 interface IdentFscFormProps {
   onSubmit: (fields: Partial<FscFields>) => void
@@ -21,7 +21,7 @@ interface IdentFscFormProps {
   demoPersons?: DemoPerson[]
 }
 
-type Page = 'personalien' | 'code'
+type Page = 'personalDetails' | 'code'
 
 /**
  * toolId=ident-fsc / step=input (docs/06-ablaeufe.md #2). The backend keeps ONE step; the two
@@ -35,29 +35,29 @@ type Page = 'personalien' | 'code'
 export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: IdentFscFormProps) {
   // Prefilled from the first register persona - no hard-coded test person of our own (ADR-31).
   const first = demoPersons?.[0]
-  const [personalien, setPersonalien] = useState<Personalien>({
-    vorname: first?.vorname ?? '',
-    name: first?.name ?? '',
-    geburtsdatum: first?.geburtsdatum ?? '',
+  const [personalDetails, setPersonalDetails] = useState<PersonalDetails>({
+    givenNames: first?.givenNames ?? '',
+    familyName: first?.familyName ?? '',
+    birthDate: first?.birthDate ?? '',
     kvnr: first?.kvnr ?? '',
     partnernr: first?.kvnr ? '' : (first?.personId ?? ''),
   })
   // The KVNR is asked for first; the Partnernummer only when there is none (a Partner, ADR-34).
   const [withoutKvnr, setWithoutKvnr] = useState(first != null && !first.kvnr)
   const [fsc, setFsc] = useState(first?.fscCode ?? '')
-  const [submittedFrom, setSubmittedFrom] = useState<Page>('personalien')
+  const [submittedFrom, setSubmittedFrom] = useState<Page>('personalDetails')
   const [editing, setEditing] = useState(false)
 
   const dueByBackend: Page | undefined = missingFields
-    ? missingFields.some((field) => PERSONAL_FIELDS.includes(field)) ? 'personalien' : 'code'
+    ? missingFields.some((field) => PERSONAL_FIELDS.includes(field)) ? 'personalDetails' : 'code'
     : undefined
-  const page: Page = editing ? 'personalien' : (dueByBackend ?? submittedFrom)
+  const page: Page = editing ? 'personalDetails' : (dueByBackend ?? submittedFrom)
 
   function selectPerson(person: DemoPerson) {
-    setPersonalien({
-      vorname: person.vorname ?? '',
-      name: person.name ?? '',
-      geburtsdatum: person.geburtsdatum ?? '',
+    setPersonalDetails({
+      givenNames: person.givenNames ?? '',
+      familyName: person.familyName ?? '',
+      birthDate: person.birthDate ?? '',
       kvnr: person.kvnr ?? '',
       partnernr: person.kvnr ? '' : person.personId,
     })
@@ -65,21 +65,21 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
     setFsc(person.fscCode ?? '')
   }
 
-  function update(field: keyof Personalien) {
-    return (event: React.ChangeEvent<HTMLInputElement>) => setPersonalien({ ...personalien, [field]: event.target.value })
+  function update(field: keyof PersonalDetails) {
+    return (event: React.ChangeEvent<HTMLInputElement>) => setPersonalDetails({ ...personalDetails, [field]: event.target.value })
   }
 
   function submitPersonalien(event: React.FormEvent) {
     event.preventDefault()
-    setSubmittedFrom('personalien')
+    setSubmittedFrom('personalDetails')
     setEditing(false)
-    const { kvnr, partnernr, ...rest } = personalien
+    const { kvnr, partnernr, ...rest } = personalDetails
     onSubmit(withoutKvnr ? { ...rest, partnernr } : { ...rest, kvnr })
   }
 
-  const identifier = withoutKvnr ? personalien.partnernr : personalien.kvnr
+  const identifier = withoutKvnr ? personalDetails.partnernr : personalDetails.kvnr
   const selectedPersonId =
-    demoPersons?.find((p) => (withoutKvnr ? p.personId === personalien.partnernr : p.kvnr === personalien.kvnr))?.personId ?? ''
+    demoPersons?.find((p) => (withoutKvnr ? p.personId === personalDetails.partnernr : p.kvnr === personalDetails.kvnr))?.personId ?? ''
 
   function submitCode(event: React.FormEvent) {
     event.preventDefault()
@@ -87,7 +87,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
     onSubmit({ fsc })
   }
 
-  if (page === 'personalien') {
+  if (page === 'personalDetails') {
     return (
       <div className="card">
         <h2>{t('Identifikation per Freischaltcode')}</h2>
@@ -95,21 +95,21 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
         <form onSubmit={submitPersonalien} className="form-grid" style={{ marginTop: '1rem' }}>
           <DemoPersonPicker demoPersons={demoPersons} selectedPersonId={selectedPersonId} onSelect={selectPerson} />
           <div className="form-group">
-            <label htmlFor="vorname">{t('Vorname')}</label>
-            <input id="vorname" value={personalien.vorname} onChange={update('vorname')} autoComplete="given-name" required />
+            <label htmlFor="givenNames">{t('Vorname')}</label>
+            <input id="givenNames" value={personalDetails.givenNames} onChange={update('givenNames')} autoComplete="given-name" required />
           </div>
           <div className="form-group">
-            <label htmlFor="name">{t('Nachname')}</label>
-            <input id="name" value={personalien.name} onChange={update('name')} autoComplete="family-name" required />
+            <label htmlFor="familyName">{t('Nachname')}</label>
+            <input id="familyName" value={personalDetails.familyName} onChange={update('familyName')} autoComplete="family-name" required />
           </div>
           <div className="form-group">
-            <label htmlFor="geburtsdatum">{t('Geburtsdatum')}</label>
-            <input id="geburtsdatum" type="date" value={personalien.geburtsdatum} onChange={update('geburtsdatum')} autoComplete="bday" required />
+            <label htmlFor="birthDate">{t('Geburtsdatum')}</label>
+            <input id="birthDate" type="date" value={personalDetails.birthDate} onChange={update('birthDate')} autoComplete="bday" required />
           </div>
           {withoutKvnr ? (
             <div className="form-group">
               <label htmlFor="partnernr">{t('Partnernummer')}</label>
-              <input id="partnernr" value={personalien.partnernr} placeholder="P000000000" onChange={update('partnernr')} required />
+              <input id="partnernr" value={personalDetails.partnernr} placeholder="P000000000" onChange={update('partnernr')} required />
               <button type="button" className="secondary small" onClick={() => setWithoutKvnr(false)}>
                 {t('Ich habe doch eine Versichertennummer')}
               </button>
@@ -117,7 +117,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
           ) : (
             <div className="form-group">
               <label htmlFor="kvnr">{t('Versichertennummer')}</label>
-              <input id="kvnr" value={personalien.kvnr} onChange={update('kvnr')} required />
+              <input id="kvnr" value={personalDetails.kvnr} onChange={update('kvnr')} required />
               <button type="button" className="secondary small" onClick={() => setWithoutKvnr(true)}>
                 {t('Ich habe keine Versichertennummer')}
               </button>
@@ -140,7 +140,7 @@ export function IdentFscForm({ onSubmit, missingFields, error, demoPersons }: Id
           text="Geben Sie den Freischaltcode ein, den wir Ihnen per Brief geschickt haben, für {person} ({nummer})."
           person={
             <strong>
-              {personalien.vorname} {personalien.name}
+              {personalDetails.givenNames} {personalDetails.familyName}
             </strong>
           }
           nummer={identifier}

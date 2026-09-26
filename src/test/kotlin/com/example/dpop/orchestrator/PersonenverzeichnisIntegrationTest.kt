@@ -57,7 +57,7 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
         val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
         return patch(
             "/orchestrator/api/v1/tools/$toolSessionId/ident-fsc",
-            """{"kvnr":"$kvnr","name":"$name","vorname":"Rita","geburtsdatum":"1970-01-01","fsc":"$code"}"""
+            """{"kvnr":"$kvnr","familyName":"$name","givenNames":"Rita","birthDate":"1970-01-01","fsc":"$code"}"""
         )
     }
 
@@ -100,7 +100,7 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
                 val persons = (created["demo"] as Map<*, *>)["persons"] as List<*>
                 val persona = persons.map { it as Map<*, *> }.single { it["kvnr"] == kvnr }
                 persona["fscCode"] shouldBe code
-                persona["name"] shouldBe "Register"
+                persona["familyName"] shouldBe "Register"
                 persona["email"].shouldBeNull()
             }
 
@@ -176,7 +176,7 @@ class PersonenverzeichnisIntegrationTest : IntegrationTestSupport() {
                 val toolSessionId = post("/orchestrator/api/v1/channels/$channelSessionId/tools/ident-fsc").nextRaw()["toolSessionId"] as String
                 val response = patch(
                     "/orchestrator/api/v1/tools/$toolSessionId/ident-fsc",
-                    """{"partnernr":"${personId.lowercase()}","name":"Partner","vorname":"Paul","geburtsdatum":"1960-06-06","fsc":"$code"}"""
+                    """{"partnernr":"${personId.lowercase()}","familyName":"Partner","givenNames":"Paul","birthDate":"1960-06-06","fsc":"$code"}"""
                 )
 
                 stepError(response).shouldBeNull()

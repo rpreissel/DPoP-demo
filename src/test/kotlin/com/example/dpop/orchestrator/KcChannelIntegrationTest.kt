@@ -336,7 +336,7 @@ class KcChannelIntegrationTest : IntegrationTestSupport() {
                         .nextRaw()["toolSessionId"] as String
                     val afterIdent = kcPatchTool(
                         "/orchestrator/api/v1/tools/$identToolSessionId/ident-fsc",
-                        """{"kvnr":"A123456789","name":"Muster","vorname":"Max","geburtsdatum":"1985-06-15","fsc":"VALIDCODE"}"""
+                        """{"kvnr":"A123456789","familyName":"Muster","givenNames":"Max","birthDate":"1985-06-15","fsc":"VALIDCODE"}"""
                     )
                     // The address comes first, before any method is offered: it is account
                     // infrastructure and is what unlocks enroll-password at all

@@ -7,7 +7,7 @@ import java.time.LocalDate
 
 private val BIRTHDATE = LocalDate.of(1985, 6, 15)
 
-private val PERSONALIEN = IdentFscInput(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE, personId = "P000000005")
+private val PERSONALIEN = IdentFscInput(kvnr = "A123456789", familyName = "Muster", givenNames = "Max", birthDate = BIRTHDATE, personId = "P000000005")
 
 class IdentFscFlowTest : BehaviorSpec({
 
@@ -15,8 +15,8 @@ class IdentFscFlowTest : BehaviorSpec({
         val state = IdentFscState()
 
         `when`("nothing was submitted yet") {
-            then("only kvnr/name/vorname/geburtsdatum are reported missing - fsc is staged, not requested yet") {
-                IdentFscFlow.missingFields(state) shouldBe listOf("kvnr", "name", "vorname", "geburtsdatum")
+            then("only kvnr/familyName/givenNames/birthDate are reported missing - fsc is staged, not requested yet") {
+                IdentFscFlow.missingFields(state) shouldBe listOf("kvnr", "familyName", "givenNames", "birthDate")
             }
 
             then("decide() reports it as incomplete") {
@@ -38,7 +38,7 @@ class IdentFscFlowTest : BehaviorSpec({
 
             then("decide() asks for the personal data to be checked right away") {
                 IdentFscFlow.decide(merged, PERSONALIEN) shouldBe
-                    IdentFscDecision.VerifyPersonalien("P000000005", "Muster", "Max", BIRTHDATE)
+                    IdentFscDecision.VerifyPersonalDetails("P000000005", "Muster", "Max", BIRTHDATE)
             }
 
             then("fsc is what is still missing") {
@@ -60,11 +60,11 @@ class IdentFscFlowTest : BehaviorSpec({
         }
 
         `when`("a personal field is corrected") {
-            val input = IdentFscInput(geburtsdatum = BIRTHDATE.plusDays(1))
+            val input = IdentFscInput(birthDate = BIRTHDATE.plusDays(1))
 
             then("decide() checks the personal data again") {
                 IdentFscFlow.decide(IdentFscFlow.merge(state, input), input) shouldBe
-                    IdentFscDecision.VerifyPersonalien("P000000005", "Muster", "Max", BIRTHDATE.plusDays(1))
+                    IdentFscDecision.VerifyPersonalDetails("P000000005", "Muster", "Max", BIRTHDATE.plusDays(1))
             }
         }
 
@@ -77,7 +77,7 @@ class IdentFscFlowTest : BehaviorSpec({
 
         `when`("the personal data is rejected") {
             then("all of it is asked for again") {
-                IdentFscFlow.missingFields(IdentFscFlow.rejectPersonalien()) shouldBe listOf("kvnr", "name", "vorname", "geburtsdatum")
+                IdentFscFlow.missingFields(IdentFscFlow.rejectPersonalDetails()) shouldBe listOf("kvnr", "familyName", "givenNames", "birthDate")
             }
         }
     }
@@ -109,21 +109,21 @@ class IdentFscFlowTest : BehaviorSpec({
         then("with a Partnernummer, kvnr is not reported missing") {
             val partner = IdentFscFlow.merge(
                 IdentFscState(),
-                IdentFscInput(partnernr = "P000000004", name = "Schulz", vorname = "Paula", geburtsdatum = BIRTHDATE, personId = "P000000004")
+                IdentFscInput(partnernr = "P000000004", familyName = "Schulz", givenNames = "Paula", birthDate = BIRTHDATE, personId = "P000000004")
             )
             IdentFscFlow.missingFields(partner) shouldBe listOf("fsc")
             IdentFscFlow.missingFields(IdentFscFlow.merge(IdentFscState(), IdentFscInput(partnernr = "P000000004"))) shouldBe
-                listOf("name", "vorname", "geburtsdatum")
+                listOf("familyName", "givenNames", "birthDate")
         }
     }
 
     given("merge()") {
-        val state = IdentFscState(kvnr = "A123456789", name = "Muster", personId = "P000000005")
+        val state = IdentFscState(kvnr = "A123456789", familyName = "Muster", personId = "P000000005")
 
-        `when`("a later PATCH corrects vorname and never touches kvnr/name") {
-            then("kvnr/name and the person survive, vorname is added") {
-                val merged = IdentFscFlow.merge(state, IdentFscInput(vorname = "Max"))
-                merged shouldBe state.copy(vorname = "Max")
+        `when`("a later PATCH corrects givenNames and never touches kvnr/name") {
+            then("kvnr/name and the person survive, givenNames is added") {
+                val merged = IdentFscFlow.merge(state, IdentFscInput(givenNames = "Max"))
+                merged shouldBe state.copy(givenNames = "Max")
             }
         }
 
@@ -145,7 +145,7 @@ class IdentFscFlowTest : BehaviorSpec({
     given("describe()") {
         then("it always names step input, regardless of which fields are missing") {
             IdentFscFlow.describe(IdentFscState()).first shouldBe "input"
-            IdentFscFlow.describe(IdentFscState(kvnr = "A123456789", name = "Muster", vorname = "Max", geburtsdatum = BIRTHDATE)).first shouldBe "input"
+            IdentFscFlow.describe(IdentFscState(kvnr = "A123456789", familyName = "Muster", givenNames = "Max", birthDate = BIRTHDATE)).first shouldBe "input"
         }
     }
 })

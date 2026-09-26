@@ -78,15 +78,15 @@ export interface DemoPerson {
   personId: string
   /** Only for a person insured with us, and even then possibly missing for a while. */
   kvnr?: string | null
-  name?: string | null
-  vorname?: string | null
+  familyName?: string | null
+  givenNames?: string | null
   /** Our account data, not the register's - only set for the seeded personas. */
   email?: string | null
   /** Street and house number in one line - as the eID card shows it, not as the register splits it. */
-  strasse?: string | null
-  plz?: string | null
-  ort?: string | null
-  geburtsdatum?: string | null
+  streetAddress?: string | null
+  postalCode?: string | null
+  locality?: string | null
+  birthDate?: string | null
   /** Plaintext of the newest valid letter in the register's mailbox (ADR-31), null when none is valid. */
   fscCode?: string | null
   /** The eID card's fixed restricted identifier - person-unique, changes only with a new card. */

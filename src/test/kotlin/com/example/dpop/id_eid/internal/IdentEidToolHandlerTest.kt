@@ -34,12 +34,12 @@ class IdentEidToolHandlerTest : BehaviorSpec({
     given("an ident-eid session with the card read, waiting for the PIN") {
         val data = IdEidToolSession(
             toolSessionId = toolSessionId,
-            name = "Muster",
-            vorname = "Max",
-            geburtsdatum = LocalDate.of(1970, 1, 1),
-            strasse = "Musterweg 1",
-            plz = "12345",
-            ort = "Musterstadt",
+            familyName = "Muster",
+            givenNames = "Max",
+            birthDate = LocalDate.of(1970, 1, 1),
+            streetAddress = "Musterweg 1",
+            postalCode = "12345",
+            locality = "Musterstadt",
             restrictedId = "T0103005K1D5S0V8T9W6UM2RTX"
         )
         every { repository.findById(toolSessionId) } returns Optional.of(data)
@@ -68,7 +68,7 @@ class IdentEidToolHandlerTest : BehaviorSpec({
 
             then("the audit blob carries only what no claim can - provider, tx ids, evidence hash") {
                 outcome.shouldBeInstanceOf<ToolOutcome.Completed.Identified>()
-                outcome.auditDetails?.get("ort").shouldBeNull()
+                outcome.auditDetails?.get("locality").shouldBeNull()
                 // Never the document number (§ 20 PAuswG) - it only goes into the evidence hash.
                 outcome.auditDetails?.get("documentNumber").shouldBeNull()
                 outcome.auditDetails?.get("evidenceHash").shouldBeInstanceOf<String>().shouldStartWith("sha256:")
