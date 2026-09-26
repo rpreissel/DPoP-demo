@@ -11,15 +11,14 @@ import org.springframework.stereotype.Component
  * States, in one place, that this system currently runs as a SINGLE instance - and refuses to
  * start quietly if it is told otherwise.
  *
- * The assumption was real but unwritten. It lived in three unrelated places, each documented only
- * for itself:
+ * The assumption was real but unwritten. It lives in unrelated places, each documented only for
+ * itself:
  *
- *  - three `@Scheduled` jobs (tool-session sweep, `RetentionJob`, DPoP replay cleanup) with no lock or
- *    leader election, so every instance would run every sweep concurrently;
+ *  - the [SCHEDULED_JOBS], with no lock or leader election, so every instance would run every
+ *    sweep concurrently;
  *  - `dpop.secrets.otp-pepper` blank by default, meaning a fresh random pepper per boot - two
  *    instances then cannot verify each other's SMS/e-mail codes at all;
- *  - `KeycloakAdminClient`'s `@Volatile` token and component-id caches, per process by nature;
- *  - `KeycloakAccountSyncListener` serializing all syncs on one in-process thread.
+ *  - `RestoreDataCodec`'s signing secret, generated per process.
  *
  * Every one of those is individually explained where it stands; none of them says "therefore this
  * runs once". So the limit would not have been discovered by reading the code - it would have been
@@ -31,6 +30,21 @@ import org.springframework.stereotype.Component
  * When support arrives (a shared scheduler lock, a configured pepper), the check is where it gets
  * relaxed - deliberately, not by accident.
  */
+/**
+ * Every `@Scheduled` job of the application, by class, and what it does. `ScheduledJobsTest` keeps
+ * this list complete in both directions (review 2026-09-26, B-8) - the documentation counted three
+ * while there were more, because nothing compared the two. All of them are idempotent: a second run
+ * deletes what the first left, or nothing. Run on every instance, they cost doubled work, not wrong
+ * data.
+ */
+val SCHEDULED_JOBS: Map<String, String> = mapOf(
+    "RetentionJob" to "Aufbewahrung der Sitzungen, Journeys, Ablaufprotokoll, Zaehler (stuendlich)",
+    "ToolSessionRetentionDriver" to "Arbeitsdaten der Tool-Sessions aller Module (stuendlich)",
+    "DpopReplayProtectionService" to "Schutz vor wiederholten DPoP-Proofs (minuetlich)",
+    "ChangeLogRetention" to "Aenderungsprotokoll geloeschter Konten (taeglich)",
+    "SignInLogRetention" to "Anmeldeprotokoll (taeglich)",
+)
+
 @ConfigurationProperties(prefix = "deployment")
 data class DeploymentProperties(
     /**
@@ -71,14 +85,11 @@ class DeploymentTopologyCheck(
             // MULTIPLE is always wrong on this point until something does. Better to say so than to
             // let the scheduled jobs run N times over.
             add(
-                "Der Keycloak-Account-Sync serialisiert seine Syncs nur prozessintern (ein Thread) - " +
-                    "zwei Instanzen legen denselben Keycloak-User und dasselbe Keypair parallel an."
-            )
-            add(
-                "Die geplanten Jobs (Retention der Sitzungen, Tool-Sessions, Replay-Schutz, " +
-                    "Aenderungs- und Anmeldeprotokoll) haben keine Leader-Election und keine Sperre - " +
-                    "bei mehreren Instanzen laufen sie mehrfach parallel. Dafuer fehlt die Umsetzung " +
-                    "noch (docs/07-betrieb.md)."
+                "Die ${SCHEDULED_JOBS.size} geplanten Jobs (${SCHEDULED_JOBS.keys.joinToString()}) haben " +
+                    "keine Leader-Election und keine Sperre - bei mehreren Instanzen laufen sie mehrfach " +
+                    "parallel. Sie sind idempotent, aber gleichzeitige Loeschlaeufe auf denselben Zeilen " +
+                    "sind nicht erprobt; eine Sperre (ShedLock o. ae.) fehlt noch (docs/07-betrieb.md " +
+                    "Abschnitt 3b)."
             )
             add(
                 "RestoreDataCodec erzeugt sein Signaturgeheimnis je Prozess - ein RestoreData-Token " +

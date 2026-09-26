@@ -275,19 +275,28 @@ nicht. Nur der zweite Fall braucht eine Wiederholung.
 
 ## 3b) Das System läuft als eine einzige Instanz
 
-Diese Annahme galt schon vorher, stand aber nirgends. Sie steckte an vier voneinander unabhängigen
+Diese Annahme galt schon vorher, stand aber nirgends. Sie steckt an drei voneinander unabhängigen
 Stellen:
 
-- Drei `@Scheduled`-Jobs (Aufräumen der Tool-Sessions, `RetentionJob`, Aufräumen des Schutzes vor
-  wiederholten DPoP-Proofs) laufen ohne Sperre und ohne Wahl einer führenden Instanz. Bei mehreren
-  Instanzen liefe jeder Lauf mehrfach parallel.
+- **Fünf geplante Jobs** laufen ohne Sperre und ohne Wahl einer führenden Instanz; bei mehreren
+  Instanzen liefe jeder Lauf mehrfach parallel. Alle sind idempotent (ein zweiter Lauf löscht, was der
+  erste übrig ließ, oder nichts), gleichzeitige Löschläufe auf denselben Zeilen sind aber nicht
+  erprobt. Die Liste steht in `SCHEDULED_JOBS` (`DeploymentTopology.kt`); `ScheduledJobsTest` prüft,
+  dass sie mit den `@Scheduled`-Methoden übereinstimmt:
+  - `RetentionJob`: Sitzungen, Journeys, Ablaufprotokoll, Zähler (stündlich);
+  - `ToolSessionRetentionDriver`: Arbeitsdaten der Tool-Sessions aller Module (stündlich);
+  - `DpopReplayProtectionService`: Schutz vor wiederholten DPoP-Proofs (minütlich);
+  - `ChangeLogRetention`: Änderungsprotokoll gelöschter Konten (täglich);
+  - `SignInLogRetention`: Anmeldeprotokoll (täglich).
 - `dpop.secrets.otp-pepper` ist standardmäßig leer; der Pepper wird also bei jedem Start neu
   gewürfelt. Zwei Instanzen könnten die SMS- und E-Mail-Codes der jeweils anderen nicht prüfen, und
   jede Instanz hätte eigene `CONTACT_SEND`-Zähler.
-- Die `@Volatile`-Zwischenspeicher im `KeycloakAdminClient` gelten nur im eigenen Prozess.
-- `KeycloakAccountSyncListener` arbeitet alle Abgleiche nacheinander auf einem Thread des eigenen
-  Prozesses ab (`keycloakSyncExecutor`). Zwei Instanzen würden denselben Keycloak-Nutzer und
-  dasselbe Schlüsselpaar gleichzeitig anlegen.
+- `RestoreDataCodec` erzeugt sein Signaturgeheimnis je Prozess; ein RestoreData-Token der einen
+  Instanz ist für die andere unlesbar.
+
+Unkritisch für mehrere Instanzen sind dagegen die Zwischenspeicher im `KeycloakAdminClient` (jede
+Instanz holt ihr eigenes Token) und `KeycloakAccountSyncListener`: Er entfernt nur noch gelöschte
+Konten aus Keycloak, und das darf auch doppelt geschehen.
 
 Beim Lesen des Codes wäre das nicht aufgefallen, sondern erst mit der zweiten Instanz, als
 gelegentlich fehlschlagende TAN-Prüfung. Deshalb steht es jetzt in der Konfiguration:

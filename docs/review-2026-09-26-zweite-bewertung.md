@@ -244,8 +244,9 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
    Ohne Netzaufruf braucht `RetentionJob` keine zweite Bean mehr (`SessionRetentionSweeper` aufgelöst).
    ~~B-7~~ erledigt: Kanäle per Bulk-Delete, `ChannelSession` 14 statt 30 Tage; `SignInLogRetention`
    und `ChangeLogRetention` löschen in Stapeln mit je eigener Transaktion.
-9. ~~B-4 Fehler-Fallback~~ (erledigt 2026-09-26: `handleUnexpected`, verschachtelte Ursachen mit eigener Regel werden weiter erkannt); ~~B-5 Actuator und Kennzahlen~~ (erledigt 2026-09-26: Management-Port 9080, Probes, `keycloak`-Komponente außerhalb der Readiness, `dpop.*`-Kennzahlen und Keycloak-Latenz; im Demomodus auch auf der Willkommensseite); B-8 Jobs zählen und dokumentieren.
-10. B-6 Backup/Restore in 07 mit geprobtem Restore; F-10 `kid` für den Protokoll-HMAC.
+9. ~~B-4 Fehler-Fallback~~ (erledigt 2026-09-26: `handleUnexpected`, verschachtelte Ursachen mit eigener Regel werden weiter erkannt); ~~B-5 Actuator und Kennzahlen~~ (erledigt 2026-09-26: Management-Port 9080, Probes, `keycloak`-Komponente außerhalb der Readiness, `dpop.*`-Kennzahlen und Keycloak-Latenz; im Demomodus auch auf der Willkommensseite); ~~B-8 Jobs zählen und dokumentieren~~ (erledigt 2026-09-26: `SCHEDULED_JOBS`, geprüft von `ScheduledJobsTest`; 3b und die Topologie-Prüfung ohne den überholten Keycloak-Abgleich).
+10. B-6 Backup/Restore in 07 mit geprobtem Restore – **zurückgestellt (Entscheidung 2026-09-26).**
+    F-10 `kid` für den Protokoll-HMAC.
 
 **Phase J – Was ein Kollege liest**
 
