@@ -12,7 +12,6 @@ er steht hier an **einer** Stelle, statt in jedem betroffenen ADR neu begründet
 | verwahrter KOBIL-PIN ([ADR-21](ADR-021-der-kobil-pin-liegt-im-backend-und-das.md)) | `auth_kobil.enrollment.pin` | muss für jede Anmeldung herausgegeben werden |
 | PIN und Entsperrgeheimnis während einer KOBIL-Einrichtung | `auth_kobil.enroll_tool_session` | ein Neuladen der Seite soll den Ablauf nicht abbrechen |
 | Freischaltcode im Brief ([ADR-31](ADR-031-freischaltcode-liegt-im-fremdsystem.md)) | `ext_personenverzeichnis.brief.code` | den Klartext gibt es auch in der echten Welt, auf Papier; geprüft wird nur gegen den Hash in `freischaltcode` |
-| privater Schlüssel je Konto für den Token-Grant ([ADR-9](ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md)) | `orchestrator.keycloak_keypair.private_key_jwk` | muss zum Signieren gelesen werden |
 | Signaturschlüssel des Orchestrators ([ADR-25](ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md)) | `orchestrator.node_signing_key` | wie oben |
 | Signaturschlüssel der Keycloak-Erweiterung (ADR-25) | Wert `peerAuthSigningKeyJwk` der Komponente `orchestrator`, in der Datenbank von Keycloak | wie oben |
 

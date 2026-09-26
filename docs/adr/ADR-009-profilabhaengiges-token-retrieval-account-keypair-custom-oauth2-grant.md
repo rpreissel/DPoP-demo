@@ -1,35 +1,31 @@
-# ADR-9: Profilabhängiger Token-Abruf — Schlüsselpaar je Konto und eigener OAuth2-Grant statt geteiltem Admin-Secret
+# ADR-9: Profilabhängiger Token-Abruf — eigener OAuth2-Grant, den nur der Orchestrator aufrufen darf
 
-**Status**: umgesetzt (DPoP-demo-xso).
-
-> **Nachtrag 2026-09-26 (zweite Bewertung, F-1):** Den Grant darf nur ein vertraulicher Client mit dem
-> Attribut `dpop-demo.account-token-grant` aufrufen; Keycloak-Migration V4 setzt es am Client
-> `orchestrator-app-token` (`AccountTokenGrantClients`). Vorher prüfte der Grant den Aufrufer nicht,
-> und die Konto-Assertion war das einzige Tor. Ob das Schlüsselpaar je Konto bleibt, entscheidet
-> die zweite Bewertung unter F-6.
+**Status**: umgesetzt (DPoP-demo-xso); 2026-09-26 neu gefasst (zweite Bewertung, F-1, F-5, F-6).
 
 **Entscheidung**: Braucht der App-Kanal ein echtes AccessToken von Keycloak, stellt Keycloak es über
 einen **eigenen OAuth2-Grant** aus (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in
-`keycloak-extension`). Der Orchestrator weist sich dabei nicht mit einem Admin-Secret aus, sondern
-mit einer kurzlebigen Assertion, die er mit einem **Schlüsselpaar je Konto** signiert. Das ist der
-Grundsatz „Signatur statt gemeinsames Geheimnis“ aus
-[ADR-7](ADR-007-web-kanal-ohne-mtls-signierte-request-assertion-statt.md), angewendet auf die Richtung
-Orchestrator → Keycloak.
+`keycloak-extension`).
 
-- **Schlüsselpaar je Konto**: Beim Abgleich eines Kontos mit Keycloak erzeugt der Orchestrator ein
-  eigenes, asymmetrisches Schlüsselpaar (EC P-256, `orchestrator.keycloak_keypair`). Den öffentlichen
-  Schlüssel legt er als echtes Keycloak-`Credential` am Nutzer ab (Typ `orchestrator-public-key`,
-  geschrieben über `AccountPublicKeyResource` unter `/admin/realms/{realm}/orchestrator-keys/{accountId}`).
-  Bewusst nicht als Attribut: Material, mit dem jemand einen Besitz nachweist, gehört in den Speicher
-  für Credentials.
-- **Die Assertion**: `sub` ist die accountId, `aud` die URN des Grants, `iat` ist Pflicht, und
-  `exp - iat` darf höchstens 60 Sekunden betragen. Diese Obergrenze prüft der Grant selbst
-  (`AccountAssertionTimes`), nicht nur der Aussteller. So kann auch ein abhandengekommener Schlüssel
-  keine langlebige Assertion erzeugen. Die Assertion trägt `acr` und `amr` als signierte Claims; der
-  Grant kopiert sie in die Notes der Keycloak-Sitzung, und `OrchestratorAcrAmrMapper` schreibt sie
-  von dort ins AccessToken.
-- **Ein Client ohne Rechte**: Der Orchestrator meldet sich dabei als Client `orchestrator-app-token`
-  an, der keinerlei Rechte hat, ausdrücklich nicht als `orchestrator-admin`.
+- **Nur der Orchestrator darf ihn aufrufen.** Der Grant akzeptiert ausschließlich einen vertraulichen
+  Client mit dem Attribut `dpop-demo.account-token-grant` (`AccountTokenGrantClients`); die
+  Keycloak-Migration V4 setzt es am Client `orchestrator-app-token`. Jeder andere Client, auch der
+  öffentliche Browser-Client, bekommt `unauthorized_client`.
+- **Der Orchestrator weist sich mit einer Signatur aus, nicht mit einem Geheimnis.** Der Client meldet
+  sich per `private_key_jwt` an ([ADR-25](ADR-025-die-keycloak-konfiguration-steht-im-realm-nicht-in.md)):
+  Keycloak prüft die Client-Assertion gegen das JWKS des Orchestrators. Das ist der Grundsatz
+  „Signatur statt gemeinsames Geheimnis“ aus
+  [ADR-7](ADR-007-web-kanal-ohne-mtls-signierte-request-assertion-statt.md), angewendet auf die
+  Richtung Orchestrator → Keycloak.
+- **Konto, `acr` und `amr` kommen als Parameter** (`account_id`, `acr`, `amr`). Niveau und Nachweise
+  legt allein der Orchestrator fest; der Grant schreibt sie in die Notes der Keycloak-Sitzung, und
+  `OrchestratorAcrAmrMapper` schreibt sie von dort ins AccessToken.
+- **Ein Client ohne Rechte**: `orchestrator-app-token` hat keinerlei Rechte, ausdrücklich nicht die von
+  `orchestrator-admin`.
+
+**Annahme** (zweite Bewertung, F-5): Keycloak holt das JWKS des Orchestrators über dessen
+`orchestratorBaseUrl`. Außerhalb des Demomodus muss dieser Weg https mit geprüftem Zertifikat sein –
+sonst könnte, wer ihn kontrolliert, eigene Schlüssel unterschieben und sich als Orchestrator anmelden.
+`ProductionModeCheck` verweigert andernfalls den Start ([07-betrieb.md](../07-betrieb.md) Abschnitt 3c).
 
 Wann der Endpunkt `GET .../token` ein simuliertes und wann ein echtes Token liefert, wann erneuert und
 wann neu ausgestellt wird, beschreibt [05-api.md](../05-api.md) Abschnitt 2 („AccessToken“). Dass ein
@@ -42,13 +38,22 @@ Abgleich außerdem nach Keycloak spiegelt, steht in [07-betrieb.md](../07-betrie
 - **Ein gemeinsames Admin-Secret**: Ein Service-Account holt per Token Exchange oder Impersonation
   direkt ein Token für einen beliebigen Nutzer. Verworfen, denn mit einem gestohlenen Secret ließe
   sich für jedes Konto ein Token ausstellen.
+- **Zusätzlich eine Assertion je Konto** (so umgesetzt bis 2026-09-26): Der Orchestrator signierte
+  jede Grant-Anfrage mit einem Schlüsselpaar je Konto (`orchestrator.keycloak_keypair`, öffentlicher
+  Schlüssel als Keycloak-Credential), damit „ein verlorener Schlüssel höchstens ein Konto betrifft“.
+  Gestrichen (zweite Bewertung, F-6), weil das nicht galt: Alle Kontoschlüssel lagen im Klartext in
+  derselben Datenbank wie der Client-Schlüssel des Orchestrators, ein HSM ist nicht geplant – wer einen
+  hat, hat alle. Der Preis waren ein Datensatz je Konto, ein Credential je Keycloak-Nutzer und eine
+  Reihenfolge zwischen Schlüsselerzeugung und erstem Grant-Aufruf. Vor F-1 war diese Assertion das
+  einzige Tor, weil der Grant den aufrufenden Client nicht prüfte; seitdem ist der angemeldete Client
+  der Vertrauensanker.
 - **Nur die umgekehrte Richtung** (Keycloak ruft den Orchestrator auf, nie umgekehrt): verworfen, weil
   `GET .../token` sofort antworten muss.
 
-**Begründung**: Der Schlüssel gilt nicht je Client oder Server, sondern je Konto, denn genau diesen
-Schaden soll er begrenzen: Ein verlorener Schlüssel betrifft höchstens ein Konto. Die Assertion wird
-nur bei der ersten Ausstellung oder bei einer tatsächlichen Änderung von `acr` oder `amr` gebraucht;
-sonst erneuert Keycloaks eigenes `refresh_token` das Token.
+**Begründung**: Das Tor ist der Client, nicht das Konto: Wer den Client-Schlüssel des Orchestrators
+hat, könnte ohnehin jedes Konto bedienen. Der Grant wird nur bei der ersten Ausstellung oder bei einer
+tatsächlichen Änderung von `acr` oder `amr` gebraucht; sonst erneuert Keycloaks eigenes
+`refresh_token` das Token.
 
 **Grenze der DPoP-Bindung** (entschieden 2026-09-25, Review M-3): Die ausgestellten Keycloak-Tokens
 sind Bearer-Tokens ohne `cnf.jkt`. Die DPoP-Bindung endet an `GET …/token`; ein abgegriffenes
@@ -56,12 +61,10 @@ AccessToken ist bis zu seinem Ablauf ohne Schlüssel nutzbar. Gebunden bleibt di
 gibt es nur mit gültigem DPoP-Proof, das RefreshToken verlässt das Backend nie
 ([09-dpop.md](../09-dpop.md) Abschnitt 4).
 
-**Folgen und Kosten**: Es gibt einen weiteren Datensatz je Konto (`orchestrator.keycloak_keypair`) mit
-eigenem Lebenszyklus: Er entsteht beim Abgleich und wird bei `AccountDeleted` gelöscht
-([07-betrieb.md](../07-betrieb.md) Abschnitt 3). Der Grant ist ein projekteigenes Stück
-Keycloak-Erweiterung auf der Schnittstelle aus `keycloak-server-spi-private`; bei jedem Keycloak-Update
-muss es mitgeprüft werden. Der private Schlüssel liegt in der Demo im Klartext in der Datenbank
-([ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)).
+**Folgen und Kosten**: Der Grant ist ein projekteigenes Stück Keycloak-Erweiterung auf der
+Schnittstelle aus `keycloak-server-spi-private`; bei jedem Keycloak-Update muss es mitgeprüft werden.
+Der Client-Schlüssel des Orchestrators (`orchestrator.node_signing_key`) liegt in der Demo im Klartext in
+der Datenbank ([ADR-22](ADR-022-der-verwahrte-pin-liegt-im-klartext-demo-rahmen.md)).
 
 **Geschichte**: Die Anmeldung der übrigen Clients mit `private_key_jwt` statt `client_secret` war hier
 als spätere Härtung zurückgestellt; umgesetzt ist sie mit

@@ -17,8 +17,7 @@ record KcAccount(
         boolean emailVerified,
         String firstName,
         String lastName,
-        Map<String, String> attributes,
-        String publicKeyJwk
+        Map<String, String> attributes
 ) {
     static KcAccount from(JsonNode json) {
         Map<String, String> attributes = new LinkedHashMap<>();
@@ -30,8 +29,7 @@ record KcAccount(
                 json.path("emailVerified").asBoolean(false),
                 json.path("firstName").asText(null),
                 json.path("lastName").asText(null),
-                Map.copyOf(attributes),
-                json.path("publicKeyJwk").isNull() ? null : json.path("publicKeyJwk").asText(null)
+                Map.copyOf(attributes)
         );
     }
 

@@ -63,7 +63,7 @@ spring:
       # Freischaltcode-Hashes (ext_personenverzeichnis) und allen Sessions - und dazu allem, was in
       # dieser Demo bewusst im Klartext liegt (ADR-22): jedem lebenden KOBIL-PIN (auth_kobil.enrollment),
       # den Brief-Klartexten (ext_personenverzeichnis.brief) und den privaten Schluesseln
-      # (orchestrator.keycloak_keypair, orchestrator.node_signing_key). Also: nicht setzen.
+      # (orchestrator.node_signing_key). Also: nicht setzen.
       enabled: true
       path: /h2-console
 

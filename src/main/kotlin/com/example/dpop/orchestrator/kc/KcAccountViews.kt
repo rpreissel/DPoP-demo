@@ -26,10 +26,6 @@ data class KcAccountView(
     val lastName: String,
     /** `orchestratorAccountId` plus the person attributes behind the token claims (person_id, versnr, ...). */
     val attributes: Map<String, String>,
-    /** The account's public key for the account-token grant (ADR-9), once the orchestrator has minted one. */
-    val publicKeyJwk: String?,
-    /** The account's active methods, as the account-token grant reads them. */
-    val authMethods: List<String>,
 )
 
 @Component
@@ -37,7 +33,6 @@ data class KcAccountView(
 class KcAccountViews(
     private val accountService: AccountService,
     private val personMasterData: PersonMasterData,
-    private val keypairs: AccountKeycloakKeypairRepository,
 ) {
     fun byAccountId(accountId: Long): KcAccountView? = accountService.findAccount(accountId)?.let(::viewOf)
 
@@ -60,8 +55,6 @@ class KcAccountViews(
             firstName = names.firstName,
             lastName = names.lastName,
             attributes = names.attributes + (ACCOUNT_ID_ATTRIBUTE to profile.accountId.toString()),
-            publicKeyJwk = keypairs.findById(profile.accountId).orElse(null)?.publicKeyJwk,
-            authMethods = profile.activeAuthenticationMethods.map { it.method }.distinct(),
         )
     }
 

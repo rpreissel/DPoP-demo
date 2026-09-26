@@ -280,12 +280,11 @@ nach Profil:
   2. Es läuft bald ab, ACR und AMR sind unverändert: Erneuerung über Keycloaks
      `refresh_token`-Grant, ohne den privaten Schlüssel des Kontos.
   3. Es gibt noch kein RefreshToken (erste Ausstellung, oder ein Step-up hat den
-     Zwischenspeicher verworfen): Eine frische, signierte Assertion geht an den eigenen
-     OAuth2-Grant (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in
-     `keycloak-extension`, ADR-9). Signiert wird sie mit dem privaten Schlüssel aus
-     `orchestrator.keycloak_keypair`; sie trägt `acr` und `amr` selbst als Claims. Aufrufen darf den
-     Grant nur der vertrauliche Client des Orchestrators (`orchestrator-app-token`, Client-Attribut
-     `dpop-demo.account-token-grant`); jeder andere Client, auch der öffentliche Browser-Client, wird
+     Zwischenspeicher verworfen): Der Orchestrator ruft den eigenen OAuth2-Grant auf
+     (`urn:dpop-demo:account-token`, `AccountTokenGrantType` in `keycloak-extension`, ADR-9), mit
+     `account_id`, `acr` und `amr` als Parameter. Aufrufen darf den Grant nur der vertrauliche Client
+     des Orchestrators (`orchestrator-app-token`, Client-Attribut `dpop-demo.account-token-grant`,
+     Anmeldung per `private_key_jwt`); jeder andere Client, auch der öffentliche Browser-Client, wird
      mit `unauthorized_client` abgewiesen.
 
   Alle Aufrufe für dasselbe Konto teilen sich dieselbe Keycloak-Sitzung.

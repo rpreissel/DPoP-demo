@@ -949,12 +949,6 @@ export interface KcAccountView {
     attributes: { [key: string]: string; };
     /**
      * 
-     * @type {Array<string>}
-     * @memberof KcAccountView
-     */
-    authMethods: Array<string>;
-    /**
-     * 
      * @type {string}
      * @memberof KcAccountView
      */
@@ -977,12 +971,6 @@ export interface KcAccountView {
      * @memberof KcAccountView
      */
     lastName: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof KcAccountView
-     */
-    publicKeyJwk?: string;
     /**
      * 
      * @type {string}

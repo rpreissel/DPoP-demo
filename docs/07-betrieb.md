@@ -129,8 +129,8 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
   - *Grund:* enthält Verweise auf Tokens
 - **`ChannelSession`**
   - *Frist beginnt mit:* `expiresAt` / `LOGGED_OUT`
-  - *Richtwert:* 30 Tage
-  - *Grund:* `JourneyTraceEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5)
+  - *Richtwert:* 14 Tage
+  - *Grund:* `JourneyTraceEntry` fragt das Log über die Menge der Kanäle ab ([Domänenmodell](02-domaenenmodell.md) Abschnitt 5); länger als das Protokoll selbst (14 Tage) bringt das nichts. Bei einer Sitzung je App-Start ist es eine große Tabelle; gelöscht wird je Stapel mit einer Anweisung je Tabelle
 - **`JourneyTraceEntry`**
   - *Frist beginnt mit:* `createdAt`
   - *Richtwert:* 14 Tage
@@ -160,10 +160,6 @@ Richtwerte (als Voreinstellung gedacht, nicht als Vorgabe für Compliance):
   - *Frist beginnt mit:* letzte Änderung des Zählers
   - *Richtwert:* 7 Tage
   - *Grund:* weit länger als das längste Zählfenster und die längste Sperre (15 Min.); ein Aufräumlauf löscht nie eine Zeile, deren Sperre noch läuft. Gilt für die Zähler aller Bereiche (`ACCOUNT`/`PERSON`/`BINDING_KEY`/`ACCOUNT_SEND`/`CONTACT_SEND`, Abschnitt 4)
-- **`orchestrator.keycloak_keypair`**
-  - *Frist beginnt mit:* —
-  - *Richtwert:* kein Aufräumen mit der Sitzung
-  - *Grund:* Schlüsselpaar für den Token-Grant im `keycloak`-Profil ([05-api.md](05-api.md) Abschnitt 2); wird bei `AccountDeleted` gelöscht, nicht über `RetentionJob`
 
 Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 
@@ -206,17 +202,12 @@ Wie mit den Verweisen zwischen den Tabellen umgegangen wird:
 
   `AccountDeletionService.deleteAccount` erledigt das ausdrücklich und unabhängig von den Fristen
   oben.
-- **Bei `KEYCLOAK`-Kanälen fragt das Aufräumen bei Keycloak nach, statt sich nur auf die Zeit zu
-  verlassen.** Die Abmeldung im Web-Kanal gehört ganz Keycloak ([05-api.md](05-api.md)
-  Abschnitt 3). `RetentionJob` prüft deshalb für abgelaufene `KEYCLOAK`-Kanäle über die Admin-API
-  von Keycloak, ob die Sitzung dort noch besteht (`ChannelSession.durableKcSessionId`). Ist sie
-  nachweislich beendet, wird sofort aufgeräumt. Lässt sich das nicht klären (kein Client im aktiven
-  Profil, Admin-API nicht erreichbar), gilt die normale zeitbasierte Frist.
-
-  Diese Abfrage läuft vor der Löschtransaktion und außerhalb von ihr. `RetentionJob` ist nicht
-  transaktional und fragt nur ab; gelöscht wird in `SessionRetentionSweeper`. Sonst würde ein Lauf
-  über Hunderte Kandidaten Zeilensperren so lange halten, wie Keycloak zum Antworten braucht.
-  `OrchestratorArchitectureTest` prüft diese Regel inzwischen für den ganzen Orchestrator.
+- **`KEYCLOAK`-Kanäle haben dieselbe Frist wie alle anderen.** Die Abmeldung im Web-Kanal gehört
+  Keycloak ([05-api.md](05-api.md) Abschnitt 3); Keycloak meldet sie dem Orchestrator
+  (`SignInLogEventListener` → `KcChannelService.signedOutAtKeycloak`), und das beendet die noch
+  laufenden Kanäle dieser Sitzung sofort. Bis 2026-09-26 fragte `RetentionJob` stattdessen stündlich
+  für jeden abgelaufenen `KEYCLOAK`-Kanal die Admin-API von Keycloak, ob die Sitzung noch besteht –
+  ein Netzaufruf je Kanal, ohne Obergrenze (zweite Bewertung, B-3).
 
 ## 3a) Keycloak liest die Konten – keine Spiegelung
 
@@ -318,6 +309,10 @@ alle auf einmal:
 - `spring.h2.console.enabled=false`.
 - `dpop.secrets.otp-pepper` und `account.change-log.lookup-secret` mit mindestens 32 Zeichen.
 - Keycloak über https mit geprüftem Zertifikat (kein `trustSelfSignedCertificate`).
+- Keycloak erreicht den Orchestrator über https (`orchestratorBaseUrl` der Keycloak-Einrichtung):
+  Über diesen Weg holt Keycloak die Schlüssel, mit denen sich der Orchestrator anmeldet (auch als
+  Master-Realm-Client der Migration) und seine Antworten signiert. Das Zertifikat muss Keycloak
+  prüfen können.
 
 Außerdem gibt es außerhalb des Demomodus die Demo-Oberflächen nicht (`@DemoSurface`: Mocks der
 Fremdsysteme, Kontenverwaltung mit Demo-Reset), keinen Flyway-Reset und keine Demo-Personen.

@@ -18,7 +18,7 @@ class OrchestratorUserTest {
 
     private final ComponentModel component = componentWithId("orch-accounts");
     private final KcAccount account = new KcAccount(42, "max@example.com", "max@example.com", true, "Max", "Muster",
-            Map.of("orchestratorAccountId", "42", "person_id", "P000000001"), null);
+            Map.of("orchestratorAccountId", "42", "person_id", "P000000001"));
     private final OrchestratorUser user = new OrchestratorUser(null, null, component, account);
 
     @Test
@@ -49,7 +49,7 @@ class OrchestratorUserTest {
     @Test
     void anAccountWithoutAddressHasNoEmail() {
         OrchestratorUser noMail = new OrchestratorUser(null, null, component,
-                new KcAccount(7, "account-7", null, false, "Unbekannt", "(nicht identifiziert)", Map.of(), null));
+                new KcAccount(7, "account-7", null, false, "Unbekannt", "(nicht identifiziert)", Map.of()));
         assertEquals(null, noMail.getEmail());
         assertEquals("account-7", noMail.getUsername());
         assertEquals(UserModel.USERNAME, "username");

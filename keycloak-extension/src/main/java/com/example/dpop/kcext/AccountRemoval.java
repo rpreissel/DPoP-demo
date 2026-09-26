@@ -54,7 +54,7 @@ public final class AccountRemoval {
                     .orElseThrow(() -> new IllegalStateException("No orchestrator user federation in realm " + realm.getName()));
             // The user as far as its id goes - there is no account left to read anything else from.
             OrchestratorUser gone = new OrchestratorUser(session, realm, component,
-                    new KcAccount(accountId, "account-" + accountId, null, false, null, null, Map.of(), null));
+                    new KcAccount(accountId, "account-" + accountId, null, false, null, null, Map.of()));
             session.sessions().removeUserSessions(realm, gone);
             session.loginFailures().removeUserLoginFailure(realm, gone.getId());
             UserStorageUtil.userFederatedStorage(session).preRemove(realm, gone);

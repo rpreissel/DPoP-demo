@@ -2,22 +2,14 @@ package com.example.dpop.orchestrator.session
 
 import org.springframework.web.client.HttpClientErrorException
 import com.example.dpop.account.AccountService
-import com.example.dpop.orchestrator.kc.AccountKeypairService
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.crypto.ECDSASigner
-import com.nimbusds.jose.jwk.ECKey
-import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import org.springframework.context.annotation.Profile
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.util.Date
-import java.util.UUID
 
 /**
  * `keycloak`-profile [TokenProvider]: mints a real, Keycloak-signed access token via the custom
@@ -32,10 +24,9 @@ import java.util.UUID
  * in for [TokenService]'s mock re-issuance and Keycloak's own `refresh_token` grant standing in
  * for its silent-refresh path: (1) still valid - returned unchanged; (2) expiring but the account's
  * ACR/AMR haven't changed since the last mint - a cheap `refresh_token` call against the very same
- * Keycloak session, no assertion/private key involved; (3) no valid RefreshToken (first issuance,
- * or [AuthEvidenceService] just invalidated the cache because a step-up changed the evidence) -
- * a fresh signed assertion, carrying the CURRENT acr/amr as claims, goes through the account-token
- * grant proper. ACR/AMR only ever change between (2) and (3) because a step-up is exactly what
+ * Keycloak session; (3) no valid RefreshToken (first issuance, or [AuthEvidenceService] just
+ * invalidated the cache because a step-up changed the evidence) - the CURRENT acr/amr go through the
+ * account-token grant proper. ACR/AMR only ever change between (2) and (3) because a step-up is exactly what
  * [AuthEvidenceService.applyEvidence]/[AuthEvidenceService.applyEvidenceUpdate] already clears the
  * cache for - by the time this method runs, "cache still holds a RefreshToken" already means
  * "ACR/AMR are still the ones that RefreshToken's session was minted with".
@@ -44,7 +35,6 @@ import java.util.UUID
 @Profile("keycloak")
 class KcTokenProvider(
     private val authContextRepository: AuthContextRepository,
-    private val accountKeypairService: AccountKeypairService,
     private val keycloakAdminClient: KeycloakAdminClient,
     private val authEvidenceService: AuthEvidenceService,
     private val authPolicy: AuthPolicy,
@@ -71,7 +61,7 @@ class KcTokenProvider(
         // a new Keycloak session behind its back (review 2026-09, M-4).
         val refreshToken = authContext.refreshToken
         val response = if (refreshToken == null) {
-            keycloakAdminClient.requestAccountToken(accountId, signAssertion(authContext))
+            requestAccountToken(authContext)
         } else {
             if (authContext.refreshExpiresAt?.isAfter(now) != true) {
                 throw SessionExpiredException("Keycloak refresh window of AuthContext $authContextId has lapsed")
@@ -101,41 +91,23 @@ class KcTokenProvider(
     }
 
     /**
-     * Same claims [TokenService.mintAccessToken] bakes into the mock JWT, just carried as signed
-     * assertion claims instead - `AccountTokenGrantType` (keycloak-extension) copies them onto the
-     * Keycloak session so the real token ends up with the same acr/amr.
-     *
-     * [accountKeypairService] generates the keypair on demand. Nothing is pushed to Keycloak: the
-     * grant reads the public key through the account lookup (`KcAccountLookupController`, review
-     * 2026-09 P-3), so the key exists for Keycloak the moment it exists here.
+     * Same acr/amr [TokenService.mintAccessToken] bakes into the mock JWT - `AccountTokenGrantType`
+     * (keycloak-extension) copies them onto the Keycloak session, so the real token carries them. Sent
+     * as plain parameters: only the orchestrator's own client may call the grant (ADR-9, addendum F-6).
      */
-    private fun signAssertion(authContext: AuthContext): String {
+    private fun requestAccountToken(authContext: AuthContext): AccountTokenResponse {
         val accountId = checkNotNull(authContext.accountId)
-        val keypair = accountKeypairService.keypairFor(accountId)
         val account = accountService.findAccount(accountId)
         val evidence = authContext.authEvidenceId?.let { authEvidenceService.getAuthEvidence(it) }?.toCoreEvidence()
-
-        val privateKey = ECKey.parse(keypair.privateKeyJwk)
-        val now = Instant.now()
-        val claims = JWTClaimsSet.Builder()
-            .subject(accountId.toString())
-            .audience(KeycloakAdminClient.ACCOUNT_TOKEN_GRANT_TYPE)
-            .issueTime(Date.from(now))
-            .expirationTime(Date.from(now.plusSeconds(ASSERTION_TTL_SECONDS)))
-            .jwtID(UUID.randomUUID().toString())
-            .claim("acr", evidence?.let { authPolicy.resolveAcr(it, account) }?.value)
-            .claim("amr", evidence?.amr?.map { it.value } ?: emptyList<String>())
-            .build()
-        val jwt = SignedJWT(JWSHeader.Builder(JWSAlgorithm.ES256).keyID(privateKey.keyID).build(), claims)
-        jwt.sign(ECDSASigner(privateKey))
-        return jwt.serialize()
+        return keycloakAdminClient.requestAccountToken(
+            accountId,
+            acr = evidence?.let { authPolicy.resolveAcr(it, account) }?.value,
+            amr = evidence?.amr?.map { it.value }.orEmpty(),
+        )
     }
 
     /** Keycloak's own signature already vouches for this token by the time it reaches us (it came straight from Keycloak's own token endpoint) - parsed unsecured, purely to read the `sid` claim back out. */
     private fun sidClaimOf(accessToken: String): String? =
         runCatching { SignedJWT.parse(accessToken).jwtClaimsSet.getStringClaim("sid") }.getOrNull()
 
-    companion object {
-        private const val ASSERTION_TTL_SECONDS = 60L
-    }
 }

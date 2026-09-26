@@ -9,8 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 /**
- * Ein Schluesselpaar, das dem Knoten gehoert statt einem Account (den Account-Fall deckt
- * [AccountKeycloakKeypair] ab). Pro [purpose] genau eine Zeile - der Zweck IST der
+ * Ein Schluesselpaar, das dem Knoten gehoert statt einem Account. Pro [purpose] genau eine Zeile - der Zweck IST der
  * Primaerschluessel, siehe die Begruendung in V4__node_signing_key.sql.
  *
  * Demo-Rahmen: [privateKeyJwk] liegt im Klartext (ADR-22), wird von keiner API herausgegeben und

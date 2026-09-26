@@ -18,7 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder
  * The orchestrator's calls into Keycloak's Admin API - not a user mirror (review 2026-09, P-3):
  * Keycloak reads accounts through its user federation (`OrchestratorStorageProvider`, backed by
  * `KcAccountLookupController`), so nothing here creates or updates users. What remains:
- * whether a session still lives ([isSessionAlive]), ending one ([logoutSession]), clearing up after
+ * ending a session ([logoutSession]), clearing up after
  * a deleted account ([removeAccount]), and the account-token grant.
  *
  * A federated user's Keycloak id is computed ([federatedUserId]), never searched for - a lookup by
@@ -51,31 +51,6 @@ class KeycloakAdminClient(
     private var cachedToken: CachedToken? = null
 
     /**
-     * Whether [durableSessionId] (a `UserSessionModel` id, `ChannelSession.durableKcSessionId` -
-     * never `ChannelSession.channelAnchor`, which names a single flow run, not the durable SSO
-     * session) still shows up among [accountId]'s current Keycloak sessions - the check
-     * `RetentionJob` needs before treating an expired `KEYCLOAK` channel as
-     * safe to delete early: since Keycloak owns logout entirely (docs/07-betrieb.md
-     * Abschnitt 3) and never tells the orchestrator when it happens, a channel whose session already ended
-     * would otherwise sit around for the full retention window for no reason.
-     *
-     * `null`, not `false`, when the answer genuinely can't be determined (the Admin API call
-     * failed, e.g. the account is already gone) - the caller's only correct response to "I don't
-     * know" is to fall back to the existing time-based retention, never to guess either way.
-     */
-    fun isSessionAlive(accountId: Long, durableSessionId: String): Boolean? {
-        return try {
-            val sessions = authorized().get()
-                .uri("/admin/realms/{realm}/users/{id}/sessions", realm, federatedUserId(accountId))
-                .retrieve().body<List<Map<String, Any?>>>().orEmpty()
-            sessions.any { it["id"] == durableSessionId }
-        } catch (e: Exception) {
-            log.warn("Keycloak session-liveness check failed for accountId={}: {}", accountId, e.message)
-            null
-        }
-    }
-
-    /**
      * Ends exactly ONE Keycloak session (`DELETE /admin/realms/{realm}/sessions/{sessionId}`) -
      * the App-channel counterpart of "logout stays with Keycloak" for the Web channel
      * (docs/07-betrieb.md Abschnitt 3): an App-channel `LogoutIntent` completion
@@ -104,19 +79,19 @@ class KeycloakAdminClient(
     }
 
     /**
-     * Calls the keycloak-extension's custom `urn:dpop-demo:account-token` grant
-     * to mint a real, Keycloak-signed access token for [accountId] - [assertion] is the JWT
-     * [com.example.dpop.orchestrator.session.KcTokenProvider] signed with that account's own
-     * private key ([AccountKeypairService]), proving the caller holds it. Client-authenticates as
-     * the dedicated `orchestrator-app-token` client (V8) - deliberately NOT [accessToken]'s admin
-     * service account: the grant is otherwise independent of the admin API this class is mostly
-     * about, and `AccountTokenGrantType` (keycloak-extension) never checks the calling client's
-     * roles, so it has no business running under admin privileges.
+     * Calls the keycloak-extension's custom `urn:dpop-demo:account-token` grant to mint a real,
+     * Keycloak-signed access token for [accountId], carrying [acr] and [amr] - authenticated as the
+     * dedicated `orchestrator-app-token` client (`private_key_jwt`), the only client the grant accepts
+     * (`AccountTokenGrantClients`, review 2026-09-26 F-1). That client IS the orchestrator; there is no
+     * second, per-account proof on top (ADR-9, addendum F-6). Deliberately not [accessToken]'s admin
+     * service account: the grant has no business running under admin privileges.
      */
-    fun requestAccountToken(accountId: Long, assertion: String): AccountTokenResponse {
+    fun requestAccountToken(accountId: Long, acr: String?, amr: List<String>): AccountTokenResponse {
         val form = "grant_type=$ACCOUNT_TOKEN_GRANT_TYPE" +
             "&${clientAuth(appClientId)}" +
-            "&account_id=$accountId&assertion=$assertion"
+            "&account_id=$accountId" +
+            (acr?.let { "&acr=" + URLEncoder.encode(it, StandardCharsets.UTF_8) } ?: "") +
+            "&amr=" + URLEncoder.encode(amr.joinToString(","), StandardCharsets.UTF_8)
         return tokenResponse(form)
     }
 

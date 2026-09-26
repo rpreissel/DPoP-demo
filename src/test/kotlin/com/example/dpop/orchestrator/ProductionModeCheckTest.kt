@@ -20,11 +20,12 @@ class ProductionModeCheckTest : BehaviorSpec({
         lookupSecret: String = secret,
         trustSelfSigned: Boolean = false,
         keycloakBaseUrl: String = "https://keycloak.example",
-    ) = ProductionModeCheck(demoMode, disclosure, adminPassword, h2Console, otpPepper, lookupSecret, trustSelfSigned, keycloakBaseUrl)
+        orchestratorBaseUrlForKeycloak: String = "https://orchestrator.example",
+    ) = ProductionModeCheck(demoMode, disclosure, adminPassword, h2Console, otpPepper, lookupSecret, trustSelfSigned, keycloakBaseUrl, orchestratorBaseUrlForKeycloak)
 
     given("demo mode") {
         then("the demo defaults are allowed - nothing is checked") {
-            check(demoMode = true, disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak")
+            check(demoMode = true, disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak", orchestratorBaseUrlForKeycloak = "http://orchestrator")
         }
     }
 
@@ -37,9 +38,9 @@ class ProductionModeCheckTest : BehaviorSpec({
     given("demo mode off with every demo default still in place") {
         then("it refuses to start and names each of them at once") {
             val failure = shouldThrow<IllegalStateException> {
-                check(disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "short", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak:8080")
+                check(disclosure = true, adminPassword = "admin", h2Console = true, otpPepper = "", lookupSecret = "short", trustSelfSigned = true, keycloakBaseUrl = "http://keycloak:8080", orchestratorBaseUrlForKeycloak = "http://orchestrator:8080")
             }
-            listOf("demo.disclosure", "demo.admin.password", "spring.h2.console", "otp-pepper", "lookup-secret", "trustSelfSignedCertificate", "https").forEach {
+            listOf("demo.disclosure", "demo.admin.password", "spring.h2.console", "otp-pepper", "lookup-secret", "trustSelfSignedCertificate", "http://keycloak", "http://orchestrator").forEach {
                 failure.message!! shouldContain it
             }
         }
@@ -54,7 +55,7 @@ class ProductionModeCheckTest : BehaviorSpec({
 
     given("no Keycloak configured (the non-keycloak profile)") {
         then("the https rule does not apply") {
-            check(keycloakBaseUrl = "").violations().size shouldBe 0
+            check(keycloakBaseUrl = "", orchestratorBaseUrlForKeycloak = "").violations().size shouldBe 0
         }
     }
 })

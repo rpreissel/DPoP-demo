@@ -518,5 +518,5 @@ eigenen Migration unter `db/migration/<modul>/`.
 Nicht im Diagramm, weil ohne Beziehungen: `orchestrator.journey_trace` (die Sitzungs-IDs dort sind historische Werte, keine Verweise; die
 Aufzeichnung überlebt die Sitzungen), `orchestrator.attempt_throttle`,
 `orchestrator.dpop_proof_replay`, `orchestrator.tool_availability`, `orchestrator.feature_flag`,
-`orchestrator.keycloak_keypair`, `orchestrator.node_signing_key` und `orchestrator.event_publication`
+`orchestrator.node_signing_key` und `orchestrator.event_publication`
 (die Event-Publication-Registry von Spring Modulith, ADR-29).

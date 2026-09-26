@@ -20,18 +20,11 @@ import org.springframework.scheduling.annotation.Async
 @Profile("keycloak")
 class KeycloakAccountSyncListener(
     private val keycloakAdminClient: KeycloakAdminClient,
-    private val accountKeycloakKeypairRepository: AccountKeycloakKeypairRepository
 ) {
+    /** A failed removal throws, leaving this listener's publication incomplete - and so retried. */
     @ApplicationModuleListener
     @Async(KEYCLOAK_SYNC_EXECUTOR)
     fun onAccountDeleted(event: AccountDeleted) {
-        // Local first, remote second. The local row can never be orphaned by removing it early
-        // (nothing outside this process reads it), while a failed removal must be retried - and
-        // is, because the exception leaves this listener's publication incomplete. On that retry
-        // the existsById() guard makes the local half a true no-op.
-        if (accountKeycloakKeypairRepository.existsById(event.accountId)) {
-            accountKeycloakKeypairRepository.deleteById(event.accountId)
-        }
         keycloakAdminClient.removeAccount(event.accountId)
     }
 }

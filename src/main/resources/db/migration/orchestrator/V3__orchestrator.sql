@@ -182,11 +182,3 @@ CREATE TABLE orchestrator.feature_flag (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- keycloak profile: per-account keypair for the account-token grant. Demo-only: private key in
--- plaintext. Removed by KeycloakAccountSyncListener once the account deletion has committed.
-CREATE TABLE orchestrator.keycloak_keypair (
-    account_id      BIGINT        PRIMARY KEY,
-    public_key_jwk  VARCHAR(2000) NOT NULL,
-    private_key_jwk VARCHAR(2000) NOT NULL,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL
-);

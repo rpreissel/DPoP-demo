@@ -1,18 +1,14 @@
 package com.example.dpop.orchestrator.retention
 
-import com.example.dpop.orchestrator.kernel.ChannelType
+import com.example.dpop.orchestrator.journey.AuthJourneyRepository
+import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
+import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.AuthContextRepository
 import com.example.dpop.orchestrator.session.AuthEvidenceRepository
-import com.example.dpop.orchestrator.session.AttemptThrottleRepository
 import com.example.dpop.orchestrator.session.ChannelSession
 import com.example.dpop.orchestrator.session.ChannelSessionRepository
 import com.example.dpop.orchestrator.session.ToolSessionRepository
-
-import com.example.dpop.orchestrator.journey.AuthJourneyRepository
-import com.example.dpop.orchestrator.journeytrace.JourneyTraceRepository
-import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -21,80 +17,25 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Retention for the orchestrator's own possession chain (docs/07-betrieb.md #3): cleaned from
- * the inside out (ToolSession -> AuthJourney -> ChannelSession+AuthContext+AuthEvidence) so a
- * row's FK target is already gone by the time it would be deleted. The age-based AuthJourney
- * sweep above only catches journeys old enough on their own clock, though, so [deleteChannels]
- * additionally clears any journeys still pointing at the channels it is about to delete (a
- * confirmed-dead KEYCLOAK channel can be much younger than the journey retention window).
- * SessionEvent is independent - it deliberately outlives the sessions it references (dangling
- * ids are expected, not a defect). The same holds for JourneyTraceEntry and AttemptThrottle: both
- * are keyed by ids they do not constrain, so both are swept purely by age - and both MUST be
- * swept, because neither is bounded by anything else. account.*, AuthSmsEnrollment and
- * ext_personenverzeichnis.person/freischaltcode belong to the account, never touched here.
- */
-/**
- * Deliberately NOT `@Transactional` itself: [confirmedDeadKcChannels] asks Keycloak's Admin API
- * over the network, once per candidate channel, and a sweep can face hundreds of them. Holding the
- * retention transaction open across those round trips would keep row locks for as long as a remote
- * service takes to answer - the very thing `KeycloakAccountSyncListener` states as the rule
- * ("never hold the account's own DB transaction open across a network call to Keycloak"). The probe
- * therefore runs first, with no transaction, and only its result is handed to
- * [SessionRetentionSweeper], which does all the deleting in one.
+ * Retention for the orchestrator's own possession chain (docs/07-betrieb.md #3), in one
+ * transaction, cleaned from the inside out (ToolSession -> AuthJourney ->
+ * ChannelSession+AuthContext+AuthEvidence) so a row's FK target is already gone by the time it
+ * would be deleted. The age-based AuthJourney sweep only catches journeys old enough on their own
+ * clock, so [deleteChannels] additionally clears any journeys still pointing at the channels it is
+ * about to delete. SessionEvent is independent - it deliberately outlives the sessions it
+ * references (dangling ids are expected, not a defect). The same holds for JourneyTraceEntry and
+ * AttemptThrottle: both are keyed by ids they do not constrain, so both are swept purely by age -
+ * and both MUST be swept, because neither is bounded by anything else. account.*,
+ * AuthSmsEnrollment and ext_personenverzeichnis.person/freischaltcode belong to the account, never
+ * touched here.
  *
- * `OrchestratorArchitectureTest.keycloakIsNeverCalledFromInsideATransaction` keeps it that way.
+ * `KEYCLOAK` channels follow the same window as every other channel. Until 2026-09-26 an expired
+ * one was deleted early once Keycloak's Admin API confirmed its session gone - one network call per
+ * candidate, unbounded, every hour (review 2026-09-26, B-3). Keycloak now reports its logouts
+ * (`KcChannelService.signedOutAtKeycloak`), which ends the live channels of that session directly.
  */
 @Component
 class RetentionJob(
-    private val sweeper: SessionRetentionSweeper,
-    private val channelSessionRepository: ChannelSessionRepository,
-    // Optional: only present under the `keycloak` profile (KeycloakAdminClient.kt's own doc) -
-    // RetentionJob itself runs in every profile, so it must tolerate the bean being absent.
-    private val keycloakAdminClient: ObjectProvider<KeycloakAdminClient>
-) {
-
-    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
-    fun cleanup() {
-        val now = Instant.now()
-        sweeper.sweep(now, confirmedDeadKcChannels(now))
-    }
-
-    /**
-     * `KEYCLOAK` channels whose own (short, per-flow-run) TTL already passed AND whose durable
-     * Keycloak session is affirmatively confirmed gone - safe to delete now instead of waiting out
-     * [CHANNEL_SESSION_RETENTION] like every other channel (docs/07-betrieb.md
-     * Abschnitt 3): Keycloak owns logout entirely and never tells the orchestrator
-     * when it happens, so without this, a channel whose session already ended sits around for up
-     * to [CHANNEL_SESSION_RETENTION] for no reason. A channel this can't affirmatively confirm
-     * (no client configured, no durable session id recorded yet, or the Admin API call itself
-     * failed) is deliberately left alone here - [KeycloakAdminClient.isSessionAlive]'s own doc on
-     * why `null` must never be treated as "gone".
-     */
-    private fun confirmedDeadKcChannels(now: Instant): List<ChannelSession> {
-        val client = keycloakAdminClient.getIfAvailable() ?: return emptyList()
-        return channelSessionRepository.findByChannelAndExpiresAtBefore(ChannelType.KEYCLOAK, now)
-            .filter { channel ->
-                val accountId = channel.accountId
-                val sessionId = channel.durableKcSessionId
-                accountId != null && sessionId != null && client.isSessionAlive(accountId, sessionId) == false
-            }
-    }
-
-}
-
-/**
- * All of retention's actual deleting, in one transaction, cleaned from the inside out
- * (ToolSession -> AuthJourney -> ChannelSession+AuthContext+AuthEvidence) so a row's FK target is
- * already gone by the time it would be deleted.
- *
- * Split out of [RetentionJob] along the one boundary that matters here: this class touches only
- * the database and may therefore be transactional; the job that drives it must not be, because it
- * talks to Keycloak first. Self-invocation would have made a `@Transactional` method on the job
- * itself silently non-transactional (Spring proxies do not intercept internal calls), so the split
- * is a separate bean rather than a second method.
- */
-@Component
-class SessionRetentionSweeper(
     private val toolSessionRepository: ToolSessionRepository,
     private val journeyRepository: AuthJourneyRepository,
     private val channelSessionRepository: ChannelSessionRepository,
@@ -103,22 +44,15 @@ class SessionRetentionSweeper(
     private val journeyTraceRepository: JourneyTraceRepository,
     private val attemptThrottleRepository: AttemptThrottleRepository
 ) {
-    private val log = LoggerFactory.getLogger(SessionRetentionSweeper::class.java)
+    private val log = LoggerFactory.getLogger(RetentionJob::class.java)
 
-    /**
-     * @param confirmedDeadKcChannels channels [RetentionJob] already confirmed dead with Keycloak,
-     *   outside any transaction - passed in rather than determined here precisely so this method
-     *   makes no network call of its own.
-     */
+    @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
     @Transactional
-    fun sweep(now: Instant, confirmedDeadKcChannels: List<ChannelSession>) {
+    fun cleanup() {
+        val now = Instant.now()
         toolSessionRepository.deleteByExpiresAtBefore(now.minus(TOOL_SESSION_RETENTION))
         deleteExpiredJourneys(now.minus(JOURNEY_RETENTION))
-
-        deleteChannels(confirmedDeadKcChannels)
-
         deleteExpiredChannels(now.minus(CHANNEL_SESSION_RETENTION))
-
 
         val journeyTraceEntries = journeyTraceRepository.deleteByCreatedAtBefore(now.minus(JOURNEY_TRACE_RETENTION))
         val staleCounters = attemptThrottleRepository.deleteStaleCounters(now.minus(ATTEMPT_THROTTLE_RETENTION), now)
@@ -166,12 +100,14 @@ class SessionRetentionSweeper(
                 journeyRepository.deleteAllByIdInBatch(journeyIds)
             }
         }
-        channelSessionRepository.deleteAll(channels)
+        // One statement per table and batch (review 2026-09-26, B-7) - deleteAll/deleteAllById
+        // would load and delete row by row.
+        channelSessionRepository.deleteAllInBatch(channels)
         if (orphanedAuthContextIds.isNotEmpty()) {
-            authContextRepository.deleteAllById(orphanedAuthContextIds)
+            authContextRepository.deleteAllByIdInBatch(orphanedAuthContextIds)
         }
         if (orphanedAuthEvidenceIds.isNotEmpty()) {
-            authEvidenceRepository.deleteAllById(orphanedAuthEvidenceIds)
+            authEvidenceRepository.deleteAllByIdInBatch(orphanedAuthEvidenceIds)
         }
         log.info("Retention: deleted {} channel session(s)", channels.size)
     }
@@ -182,7 +118,12 @@ class SessionRetentionSweeper(
 
         private val TOOL_SESSION_RETENTION: Duration = Duration.ofHours(24)
         private val JOURNEY_RETENTION: Duration = Duration.ofDays(7)
-        private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(30)
+        /**
+         * As long as [JOURNEY_TRACE_RETENTION] and no longer (review 2026-09-26, B-7): the trace is
+         * read per channel session, the channel has no other reason to outlive its expiry, and one
+         * row per app start makes this a large table.
+         */
+        private val CHANNEL_SESSION_RETENTION: Duration = Duration.ofDays(14)
 
         /**
          * The journey trace is read per channel session (the admin view groups by it), so

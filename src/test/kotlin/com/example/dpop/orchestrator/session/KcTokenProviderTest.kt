@@ -8,20 +8,13 @@ import com.example.dpop.orchestrator.kernel.ChannelType
 import com.example.dpop.account.AccountService
 import com.example.dpop.tool_spi.EnrollmentRef
 import com.example.dpop.tool_spi.AcrLevel
-import com.example.dpop.orchestrator.kc.AccountKeycloakKeypair
-import com.example.dpop.orchestrator.kc.AccountKeypairService
 import com.example.dpop.orchestrator.kc.AccountTokenResponse
 import com.example.dpop.orchestrator.kc.KeycloakAdminClient
 import com.example.dpop.orchestrator.policy.AuthPolicy
-import com.nimbusds.jose.crypto.ECDSAVerifier
-import com.nimbusds.jose.jwk.Curve
-import com.nimbusds.jose.jwk.gen.ECKeyGenerator
-import com.nimbusds.jwt.SignedJWT
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import java.time.Instant
 import java.util.Optional
@@ -31,37 +24,25 @@ import java.util.UUID
  * Pure unit test of [KcTokenProvider] - the `keycloak`-profile [TokenProvider] (DPoP-demo-xso).
  * Covers the three branches that matter for a real-token path: the still-valid short-circuit
  * stays identical to [TokenService]'s, an expiring-but-unchanged-evidence token is renewed via
- * Keycloak's own cheap `refresh_token` grant (no assertion/private key involved), and a genuinely
- * fresh mint self-heals the account's keypair (generate-if-absent, re-push to Keycloak
- * unconditionally) rather than assuming a prior sync already ran - see [signAssertion]'s own doc
- * for the live race this fixes.
+ * Keycloak's own cheap `refresh_token` grant, and a genuinely fresh mint sends the current acr/amr
+ * to the account-token grant (ADR-9, addendum F-6: no per-account assertion any more).
  */
 class KcTokenProviderTest : BehaviorSpec({
 
-    fun keypair(accountId: Long): AccountKeycloakKeypair {
-        val key = ECKeyGenerator(Curve.P_256).keyID("account-$accountId").generate()
-        return AccountKeycloakKeypair(
-            accountId = accountId,
-            publicKeyJwk = key.toPublicJWK().toJSONString(),
-            privateKeyJwk = key.toJSONString()
-        )
-    }
-
     fun provider(
         authContextRepository: AuthContextRepository,
-        accountKeypairService: AccountKeypairService = mockk(),
         keycloakAdminClient: KeycloakAdminClient = mockk(),
         authEvidenceService: AuthEvidenceService = mockk { every { getAuthEvidence(any()) } returns null },
         authPolicy: AuthPolicy = mockk(relaxed = true),
         accountService: AccountService = mockk(relaxed = true)
-    ) = KcTokenProvider(authContextRepository, accountKeypairService, keycloakAdminClient, authEvidenceService, authPolicy, accountService)
+    ) = KcTokenProvider(authContextRepository, keycloakAdminClient, authEvidenceService, authPolicy, accountService)
 
     fun appChannel(authContextId: UUID) = ChannelSession(channel = ChannelType.APP).apply {
         this.authContextId = authContextId
     }
 
     given("an AccessToken that still has well over minValiditySeconds left") {
-        then("it is returned unchanged - no grant call, no keypair lookup") {
+        then("it is returned unchanged - no grant call") {
             val authContextId = UUID.randomUUID()
             val expiry = Instant.now().plusSeconds(300)
             val ctx = AuthContext(accountId = 42L).apply { accessToken = "existing-token"; accessExpiresAt = expiry }
@@ -73,13 +54,13 @@ class KcTokenProviderTest : BehaviorSpec({
                 .tokenFor(appChannel(authContextId), minValiditySeconds = 15)
 
             result.accessToken shouldBe "existing-token"
-            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any(), any()) }
             verify(exactly = 0) { keycloakAdminClient.refreshAccountToken(any()) }
         }
     }
 
     given("an expiring AccessToken whose RefreshToken is still valid (no step-up in between)") {
-        then("renews via Keycloak's own refresh_token grant - no assertion, no keypair involved") {
+        then("renews via Keycloak's own refresh_token grant") {
             val authContextId = UUID.randomUUID()
             val accountId = 3L
             val ctx = AuthContext(accountId = accountId).apply {
@@ -89,17 +70,15 @@ class KcTokenProviderTest : BehaviorSpec({
             val authContextRepository = mockk<AuthContextRepository>()
             every { authContextRepository.findById(authContextId) } returns Optional.of(ctx)
             every { authContextRepository.save(any()) } answers { firstArg() }
-            val accountKeypairService = mockk<AccountKeypairService>()
             val keycloakAdminClient = mockk<KeycloakAdminClient>()
             every { keycloakAdminClient.refreshAccountToken("existing-refresh") } returns
                 AccountTokenResponse("renewed-access-token", 300, "rotated-refresh", 600)
 
-            val result = provider(authContextRepository, accountKeypairService, keycloakAdminClient).tokenFor(appChannel(authContextId))
+            val result = provider(authContextRepository, keycloakAdminClient).tokenFor(appChannel(authContextId))
 
             result.accessToken shouldBe "renewed-access-token"
             ctx.refreshToken shouldBe "rotated-refresh"
-            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
-            verify(exactly = 0) { accountKeypairService.keypairFor(any()) }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any(), any()) }
         }
     }
 
@@ -117,9 +96,9 @@ class KcTokenProviderTest : BehaviorSpec({
             val id = UUID.randomUUID()
             val keycloakAdminClient = mockk<KeycloakAdminClient>()
             shouldThrow<SessionExpiredException> {
-                provider(repositoryWith(id, contextWith(Instant.now().minusSeconds(1))), mockk(), keycloakAdminClient).tokenFor(appChannel(id))
+                provider(repositoryWith(id, contextWith(Instant.now().minusSeconds(1))), keycloakAdminClient).tokenFor(appChannel(id))
             }
-            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any(), any()) }
         }
 
         then("a refresh Keycloak refuses (its session ended) ends the login too") {
@@ -128,14 +107,14 @@ class KcTokenProviderTest : BehaviorSpec({
             every { keycloakAdminClient.refreshAccountToken("existing-refresh") } throws
                 HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "invalid_grant", HttpHeaders.EMPTY, ByteArray(0), null)
             shouldThrow<SessionExpiredException> {
-                provider(repositoryWith(id, contextWith(Instant.now().plusSeconds(600))), mockk(), keycloakAdminClient).tokenFor(appChannel(id))
+                provider(repositoryWith(id, contextWith(Instant.now().plusSeconds(600))), keycloakAdminClient).tokenFor(appChannel(id))
             }
-            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any()) }
+            verify(exactly = 0) { keycloakAdminClient.requestAccountToken(any(), any(), any()) }
         }
     }
 
     given("an expired AccessToken with no valid RefreshToken (first issuance, or a step-up just invalidated the cache)") {
-        then("self-heals the keypair (generate-if-absent, re-push to Keycloak) and mints a fresh assertion carrying acr/amr") {
+        then("asks the account-token grant for a fresh token carrying the current acr/amr") {
             val authContextId = UUID.randomUUID()
             val accountId = 7L
             val authEvidenceId = UUID.randomUUID()
@@ -146,12 +125,8 @@ class KcTokenProviderTest : BehaviorSpec({
             val authContextRepository = mockk<AuthContextRepository>()
             every { authContextRepository.findById(authContextId) } returns Optional.of(ctx)
             every { authContextRepository.save(any()) } answers { firstArg() }
-            val kp = keypair(accountId)
-            val accountKeypairService = mockk<AccountKeypairService>()
-            every { accountKeypairService.keypairFor(accountId) } returns kp
-            val assertionSlot = slot<String>()
             val keycloakAdminClient = mockk<KeycloakAdminClient>()
-            every { keycloakAdminClient.requestAccountToken(accountId, capture(assertionSlot)) } returns
+            every { keycloakAdminClient.requestAccountToken(accountId, "loa2", any()) } returns
                 AccountTokenResponse("real-access-token", 300, "fresh-refresh", 600)
             val authPolicy = mockk<AuthPolicy> { every { resolveAcr(any(), any()) } returns AcrLevel.LOA2 }
             val authEvidenceService = mockk<AuthEvidenceService> {
@@ -170,20 +145,13 @@ class KcTokenProviderTest : BehaviorSpec({
                 )
             }
 
-            val result = provider(authContextRepository, accountKeypairService, keycloakAdminClient, authEvidenceService, authPolicy, accountService)
+            val result = provider(authContextRepository, keycloakAdminClient, authEvidenceService, authPolicy, accountService)
                 .tokenFor(appChannel(authContextId))
 
             result.accessToken shouldBe "real-access-token"
             ctx.accessToken shouldBe "real-access-token"
             ctx.refreshToken shouldBe "fresh-refresh"
-            // Nothing is pushed to Keycloak any more - it reads the public key through the account
-            // lookup (review 2026-09, P-3).
-
-            val jwt = SignedJWT.parse(assertionSlot.captured)
-            jwt.verify(ECDSAVerifier(com.nimbusds.jose.jwk.ECKey.parse(kp.publicKeyJwk))) shouldBe true
-            jwt.jwtClaimsSet.subject shouldBe accountId.toString()
-            jwt.jwtClaimsSet.audience shouldBe listOf(KeycloakAdminClient.ACCOUNT_TOKEN_GRANT_TYPE)
-            jwt.jwtClaimsSet.getStringClaim("acr") shouldBe "loa2"
+            verify { keycloakAdminClient.requestAccountToken(accountId, "loa2", any()) }
         }
     }
 })

@@ -26,6 +26,7 @@ class ProductionModeCheck(
     @Value("\${account.change-log.lookup-secret:}") private val lookupSecret: String,
     @Value("\${keycloak-tls.trust-self-signed:false}") private val trustSelfSigned: Boolean,
     @Value("\${keycloak-migrate.base-url:}") private val keycloakBaseUrl: String,
+    @Value("\${keycloak-setup.orchestrator-base-url:}") private val orchestratorBaseUrlForKeycloak: String,
 ) {
     init {
         if (demoMode) {
@@ -57,6 +58,13 @@ class ProductionModeCheck(
         if (trustSelfSigned) add("Das Zertifikat von Keycloak wird nicht geprueft (trustSelfSignedCertificate). Ein vertrauenswuerdiges Zertifikat verwenden.")
         if (keycloakBaseUrl.isNotBlank() && !keycloakBaseUrl.startsWith("https://")) {
             add("Keycloak wird ueber $keycloakBaseUrl erreicht, nicht ueber https.")
+        }
+        // Keycloak holt ueber diesen Weg die Schluessel, mit denen sich der Orchestrator anmeldet
+        // (private_key_jwt, auch als Master-Realm-Client der Migration) und seine Antworten
+        // signiert. Ohne geprueftes TLS koennte wer den Weg kontrolliert eigene Schluessel
+        // unterschieben (review 2026-09-26, F-5).
+        if (orchestratorBaseUrlForKeycloak.isNotBlank() && !orchestratorBaseUrlForKeycloak.startsWith("https://")) {
+            add("Keycloak erreicht den Orchestrator ueber $orchestratorBaseUrlForKeycloak, nicht ueber https - darueber laufen die Schluessel fuer Client-Anmeldung und Antwortsignatur.")
         }
     }
 

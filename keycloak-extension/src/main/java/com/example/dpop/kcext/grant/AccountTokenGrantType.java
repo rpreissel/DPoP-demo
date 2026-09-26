@@ -38,11 +38,10 @@ import java.util.stream.Stream;
  * account, without a shared admin secret standing in for that account. The orchestrator already
  * authenticates as its own confidential client (Keycloak's normal client-auth step, run before
  * grant dispatch, same as every built-in grant), and only a confidential client carrying
- * {@link AccountTokenGrantClients#ALLOWED_CLIENT_ATTRIBUTE} may call this grant at all - this grant additionally requires a per-account
- * signed assertion, proving the caller also holds THAT account's own private key
- * (AccountKeypairService on the orchestrator side). Compromising the shared client secret alone is
- * therefore not enough to mint a token for an arbitrary account; compromising one account's key
- * only ever affects that one account.
+ * {@link AccountTokenGrantClients#ALLOWED_CLIENT_ATTRIBUTE} may call this grant at all. That client
+ * IS the orchestrator - the sole acr/amr authority - so account, acr and amr come as plain
+ * parameters. A per-account assertion on top used to be required; with every key in the same
+ * database it protected nothing the client authentication does not (ADR-9, addendum F-6).
  *
  * Modeled after {@code ClientCredentialsGrantType} (same Keycloak version): a machine-to-machine
  * grant that never goes through the interactive {@code AuthenticationProcessor} flow, just builds
@@ -55,10 +54,11 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
 
     public static final String GRANT_TYPE = "urn:dpop-demo:account-token";
     public static final String ACCOUNT_ID_PARAM = "account_id";
-    public static final String ASSERTION_PARAM = "assertion";
+    public static final String ACR_PARAM = "acr";
+    /** Comma-separated. */
+    public static final String AMR_PARAM = "amr";
     public static final String ACCOUNT_ID_ATTRIBUTE = AccountUsers.ACCOUNT_ID_ATTRIBUTE;
     private static final String SESSION_MARKER_NOTE = "dpop-demo-account-token-session";
-    private static final String REPLAY_KEY_PREFIX = "dpop-demo-account-assertion:";
 
 
     @Override
@@ -73,27 +73,13 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
         }
 
         String accountId = formParams.getFirst(ACCOUNT_ID_PARAM);
-        String assertion = formParams.getFirst(ASSERTION_PARAM);
-        if (accountId == null || assertion == null) {
-            return reject("Missing " + ACCOUNT_ID_PARAM + " or " + ASSERTION_PARAM);
+        if (accountId == null) {
+            return reject("Missing " + ACCOUNT_ID_PARAM);
         }
 
         UserModel user = findUserByAccountId(accountId);
         if (user == null || !user.isEnabled()) {
             return reject("Unknown or disabled account: " + accountId);
-        }
-
-        // Read fresh from the orchestrator, not from the (up to 60 s cached) user: the orchestrator
-        // mints the keypair right before its first grant call, so a user cached a moment earlier
-        // would not know the key yet (review 2026-09, P-3 - nothing is uploaded any more).
-        String publicKeyJwk = currentPublicKey(accountId);
-        if (publicKeyJwk == null) {
-            return reject("Account has no registered public key: " + accountId);
-        }
-
-        JWTClaimsSet assertionClaims = verifyAssertion(assertion, accountId, publicKeyJwk);
-        if (assertionClaims == null) {
-            return reject("Invalid assertion for account: " + accountId);
         }
 
         event.user(user);
@@ -125,19 +111,14 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
         // already-registered OrchestratorAcrAmrMapper (client scope "orchestrator-claims") to put
         // acr/amr into the minted token - the orchestrator is the sole ACR/AMR authority for an
         // APP-channel account exactly like it is for a WEB-channel one, so the same claim-injection
-        // mechanism applies unchanged. Read from the verified assertion's own claims, not a
-        // separate form param, so they carry the same signature guarantee as accountId/exp.
-        String acr = assertionClaims.getClaim("acr") != null ? assertionClaims.getClaim("acr").toString() : null;
-        if (acr != null) {
+        // mechanism applies unchanged. Trusted as sent: only the orchestrator's own client gets here.
+        String acr = formParams.getFirst(ACR_PARAM);
+        if (acr != null && !acr.isBlank()) {
             userSession.setNote(OrchestratorNotes.USER_SESSION_NOTE_ACR, acr);
         }
-        try {
-            List<String> amr = assertionClaims.getStringListClaim("amr");
-            if (amr != null) {
-                userSession.setNote(OrchestratorNotes.USER_SESSION_NOTE_AMR, String.join(",", amr));
-            }
-        } catch (ParseException e) {
-            logger.debugf("Account-token assertion has an unparseable amr claim: %s", e.getMessage());
+        String amr = formParams.getFirst(AMR_PARAM);
+        if (amr != null) {
+            userSession.setNote(OrchestratorNotes.USER_SESSION_NOTE_AMR, amr);
         }
         event.session(userSession);
 
@@ -165,56 +146,6 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
         return AccountUsers.findByAccountId(session, realm, accountId);
     }
 
-    private String currentPublicKey(String accountId) {
-        try {
-            return AccountUsers.currentPublicKey(session, Long.parseLong(accountId));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /** The verified assertion's own claims (including acr/amr, if present) - {@code null} if signature, subject, audience, or expiry don't check out. */
-    private JWTClaimsSet verifyAssertion(String assertion, String expectedAccountId, String publicKeyJwk) {
-        try {
-            ECKey publicKey = ECKey.parse(publicKeyJwk);
-            SignedJWT jwt = SignedJWT.parse(assertion);
-            if (!jwt.verify(new ECDSAVerifier(publicKey))) {
-                return null;
-            }
-            JWTClaimsSet claims = jwt.getJWTClaimsSet();
-            if (!expectedAccountId.equals(claims.getSubject())) {
-                return null;
-            }
-            List<String> audience = claims.getAudience();
-            if (audience == null || !audience.contains(GRANT_TYPE)) {
-                return null;
-            }
-            long now = System.currentTimeMillis();
-            if (!AccountAssertionTimes.acceptable(claims, now)) {
-                return null;
-            }
-            // Each assertion redeems exactly once (review 2026-09, Phase F): without this, one that
-            // leaked could mint tokens until it expires. Keycloak's single-use store spans the
-            // cluster; the entry lives as long as the assertion could still be accepted.
-            String jti = claims.getJWTID();
-            if (jti == null || jti.isBlank()) {
-                return null;
-            }
-            long lifespanSeconds = Math.max(1, (claims.getExpirationTime().getTime() - now) / 1000 + 60);
-            if (!session.singleUseObjects().putIfAbsent(REPLAY_KEY_PREFIX + jti, lifespanSeconds)) {
-                logger.debugf("Account-token assertion replayed: jti=%s", jti);
-                return null;
-            }
-            return claims;
-        } catch (ParseException e) {
-            logger.debugf("Account-token assertion rejected: %s", e.getMessage());
-            return null;
-        } catch (com.nimbusds.jose.JOSEException e) {
-            logger.debugf("Account-token assertion signature check failed: %s", e.getMessage());
-            return null;
-        }
-    }
-
     private Response reject(String reason) {
         event.detail(Details.REASON, reason);
         event.error(Errors.INVALID_REQUEST);
@@ -228,11 +159,10 @@ public class AccountTokenGrantType extends OAuth2GrantTypeBase {
 
     @Override
     public Set<String> getTokenParameterNames() {
-        return Set.of(ACCOUNT_ID_PARAM, ASSERTION_PARAM);
+        return Set.of(ACCOUNT_ID_PARAM, ACR_PARAM, AMR_PARAM);
     }
 
-    // Lets Keycloak's own refresh_token grant renew the token later without re-signing/re-
-    // verifying an account assertion, as long as the ACR/AMR baked into THIS session haven't
+    // Lets Keycloak's own refresh_token grant renew the token later without coming back here, as long as the ACR/AMR baked into THIS session haven't
     // changed (docs/12-entscheidungen.md ADR-9) - KcTokenProvider only ever comes back through
     // THIS grant again when they have. Standard refresh also bumps lastSessionRefresh itself
     // (TokenManager.generateRefreshToken), which is what keeps this reused session's SSO Session

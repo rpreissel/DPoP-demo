@@ -24,21 +24,4 @@ public final class AccountUsers {
                 .map(component -> session.users().getUserById(realm, StorageId.keycloakId(component, accountId)))
                 .orElse(null);
     }
-
-    /**
-     * The account's public key for the account-token grant (ADR-9), read fresh from the orchestrator -
-     * past Keycloak's user cache, because the orchestrator mints the keypair right before its first
-     * grant call. {@code null} when there is no account, no key yet, or the orchestrator did not answer.
-     */
-    public static String currentPublicKey(KeycloakSession session, long accountId) {
-        try {
-            KcAccount account = OrchestratorSettings.of(session).newClient().accountById(accountId);
-            return account == null ? null : account.publicKeyJwk();
-        } catch (java.io.IOException e) {
-            return null;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
 }

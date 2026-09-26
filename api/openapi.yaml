@@ -575,10 +575,6 @@ components:
           additionalProperties:
             type: string
           type: object
-        authMethods:
-          items:
-            type: string
-          type: array
         email:
           type: string
         emailVerified:
@@ -587,14 +583,11 @@ components:
           type: string
         lastName:
           type: string
-        publicKeyJwk:
-          type: string
         username:
           type: string
       required:
       - accountId
       - attributes
-      - authMethods
       - emailVerified
       - firstName
       - lastName

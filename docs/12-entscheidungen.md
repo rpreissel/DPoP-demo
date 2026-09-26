@@ -22,7 +22,7 @@ als Diff mitten im Fließtext.
 | [ADR-6](adr/ADR-006-next-als-reine-adresse-feste-routing-tabelle-statt.md) | `next` als reine Adresse, feste Routing-Tabelle statt HATEOAS |
 | [ADR-7](adr/ADR-007-web-kanal-ohne-mtls-signierte-request-assertion-statt.md) | Web-Kanal ohne mTLS, signierte Request-Assertion statt Client-Zertifikat |
 | [ADR-8](adr/ADR-008-keycloak-fuehrt-seine-eigenen-nativen-schritte-selbst-statt.md) | Keycloak führt seine eigenen nativen Schritte selbst, statt alles zu delegieren oder über Identity-Brokering zu gehen |
-| [ADR-9](adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md) | Profilabhängiger Token-Abruf — Schlüsselpaar je Konto und eigener OAuth2-Grant statt geteiltem Admin-Secret |
+| [ADR-9](adr/ADR-009-profilabhaengiges-token-retrieval-account-keypair-custom-oauth2-grant.md) | Profilabhängiger Token-Abruf — eigener OAuth2-Grant, den nur der Orchestrator aufrufen darf |
 | [ADR-10](adr/ADR-010-interessent-ist-konto-zustand-kein-eigener-authintent.md) | Interessent ist Konto-Zustand, kein eigener AuthIntent |
 | [ADR-11](adr/ADR-011-kontouebergreifender-person-id-konflikt-ist-abweisung-merge-nie.md) | Ein Anker, der schon einem anderen Konto gehört, wird abgewiesen; Konten werden nie automatisch zusammengeführt |
 | [ADR-12](adr/ADR-012-ein-widerruf-ist-eine-eigene-zeile-mit-eigenem.md) | Ein Widerruf ist eine eigene Zeile mit eigenem Vertrauensanker |

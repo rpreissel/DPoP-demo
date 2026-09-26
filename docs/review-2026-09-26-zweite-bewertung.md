@@ -225,9 +225,13 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
    `ProductionModeCheck`; RestoreData-Geheimnis im `DeploymentTopologyCheck`. „400 statt 500“ bei
    `MgmtPasswordController` war ein Fehlbefund (schon 400). Entschieden und umgesetzt: kein Klarname in
    `findDeviceLink` vor dem Beweis; keine alten PBKDF2-Hashes zu migrieren, der PBKDF2-Pfad ist entfernt.
-6. F-5/F-6 als eine Entscheidung „Schlüssel und Vertrauensanker“: Antwort-Schlüssel pinnen, ADR-9 auf
-   einen Orchestrator-Schlüssel umstellen; Sperr-/Rotationspfad. Festgestellt 2026-09-26: **Ein HSM ist
-   nicht geplant** – damit entfällt die Voraussetzung, unter der ein Schlüssel je Konto etwas bringt.
+6. ~~F-5/F-6 „Schlüssel und Vertrauensanker“~~ – erledigt 2026-09-26. F-5: statt Pinnen https-Pflicht
+   für Keycloak → Orchestrator außerhalb des Demomodus (`ProductionModeCheck`); Pinnen allein hätte
+   nicht gereicht, weil Keycloak über denselben Weg auch die Schlüssel für `private_key_jwt` aller
+   Orchestrator-Clients holt. F-6: Schlüsselpaar und Assertion je Konto gestrichen (Tabelle,
+   Keycloak-Credential, Zeitprüfung); der Grant bekommt `account_id`, `acr`, `amr` als Parameter, das
+   Tor ist allein der angemeldete Client (F-1). Ein HSM ist nicht geplant, damit entfällt die
+   Voraussetzung, unter der ein Schlüssel je Konto etwas bringt. ADR-9 neu gefasst.
 
 **Phase I – Datenbank und Betrieb (trägt „10 Millionen“)**
 
@@ -235,7 +239,11 @@ Millionen Konten“ trägt; dann, was ein Kollege liest; dann Vereinfachung; Pha
    **zurückgestellt (Entscheidung 2026-09-26): H2 bleibt vorerst die einzige Datenbank.** Bis dahin gilt
    „10 Millionen Konten“ für Schema und Zugriffspfade, nicht für den Betrieb. Sofort umgesetzt wird nur,
    was davon unabhängig ist: `demo_seed` nur im Demomodus, B-2.
-8. B-3 Keycloak-Probe ersetzen (Logout-Meldung beendet den Kanal), B-7 Bulk-Delete, Batches, 14 Tage.
+8. ~~B-3 Keycloak-Probe ersetzen~~ – erledigt 2026-09-26: Die Probe ist entfallen, `KEYCLOAK`-Kanäle
+   haben dieselbe Frist wie alle; Logouts meldet Keycloak ohnehin, sie beenden die laufenden Kanäle.
+   Ohne Netzaufruf braucht `RetentionJob` keine zweite Bean mehr (`SessionRetentionSweeper` aufgelöst).
+   B-7: Kanäle per Bulk-Delete, `ChannelSession` 14 statt 30 Tage – erledigt; Stapel für
+   `SignInLogRetention` folgt.
 9. B-4 Fehler-Fallback; B-5 Actuator und Kennzahlen; B-8 Jobs zählen und dokumentieren.
 10. B-6 Backup/Restore in 07 mit geprobtem Restore; F-10 `kid` für den Protokoll-HMAC.
 

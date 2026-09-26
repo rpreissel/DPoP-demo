@@ -24,10 +24,10 @@ ausdrücklich **nicht** zur Frage.
   Daten (`account.claim.claim_value`, `account.anchor.normalized_value`,
   `ext_personenverzeichnis.person.*`, `id_eid.ident_tool_session.*`) sind `VARCHAR` bzw. `DATE` im
   Klartext (`db/migration/<modul>/`). Dazu kommt das simulierte Nect: `nect_mock.ident_case.result`
-  hält die ausgelesenen Ausweisdaten eines Vorgangs als JSON im Klartext. Kryptografisch gibt es nur Argon2id (Hash des Passworts, vorher PBKDF2), HMAC
-  (TAN, E-Mail-Code, Zähler) und das Erzeugen von EC-Schlüsseln für die Assertions von Keycloak.
-  `AccountKeycloakKeypair.privateKeyJwk` ist ausdrücklich als „Demo-only: plaintext, not encrypted at
-  rest“ dokumentiert (`orchestrator/kc/AccountKeycloakKeypair.kt:16`).
+  hält die ausgelesenen Ausweisdaten eines Vorgangs als JSON im Klartext. Kryptografisch gibt es nur Argon2id (Hash des Passworts), HMAC
+  (TAN, E-Mail-Code, Zähler) und das Erzeugen von EC-Schlüsseln für die Assertions an Keycloak.
+  `NodeSigningKey.privateKeyJwk` liegt ausdrücklich im Klartext (Demo-Rahmen, ADR-22,
+  `orchestrator/kc/NodeSigningKey.kt`).
 - Eine Regel „eID-Daten höchstens ein Jahr“ steht nirgends in der Doku; sie ist ein angenommenes
   Beispiel. `id_eid.ident_tool_session` fällt heute unter die allgemeine Frist von 24 Stunden für
   `*_tool_session` ([07-betrieb.md](../07-betrieb.md) Abschnitt 3).
@@ -225,8 +225,7 @@ Wo und wie der **Hauptschlüssel selbst** aufbewahrt, geschützt und regelmäßi
 HSM, ein Geheimnis im Anwendungsprozess, nach Shamir aufgeteilt …), ist eine eigene, bewusst
 ausgeklammerte Anschlussfrage und nicht Teil dieses Vorschlags. Sie ist aber praktisch wichtig: Ein
 Hauptschlüssel im Klartext in der Konfiguration der Anwendung wäre kaum besser als der heutige
-Zustand; vergleiche den offenen Hinweis bei `AccountKeycloakKeypair.privateKeyJwk` („Demo-only:
-plaintext, not encrypted at rest“).
+Zustand; vergleiche den Klartext-Schlüssel `NodeSigningKey.privateKeyJwk` (ADR-22).
 
 ---
 
