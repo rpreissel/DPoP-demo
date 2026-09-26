@@ -48,7 +48,8 @@ class EnrollDeviceToolHandlerTest : BehaviorSpec({
                 enrolled.amr shouldBe listOf("device", "pin")
                 enrolled.achievedAcr shouldBe EnrollDeviceDescriptor.maxAcr
                 enrolled.factorTypes shouldBe setOf(FactorType.POSSESSION, FactorType.KNOWLEDGE)
-                enrolled.auditDetails shouldBe mapOf("thumbprint" to "thumb-1", DEVICE_BINDING_KEY_REF to "binding-key-1", "label" to "Handy")
+                enrolled.instanceDetails shouldBe mapOf(DEVICE_BINDING_KEY_REF to "binding-key-1")
+                enrolled.label shouldBe "Handy"
             }
         }
 

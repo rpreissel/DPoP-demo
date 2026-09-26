@@ -42,7 +42,7 @@ import com.example.dpop.tool_spi.StepData
  *
  * The split is the point. A strategy answers "what does this mean" and "where to next" as pure
  * values; account creation, evidence recording, device linking and the ACR cap happen here, once,
- * for every intent alike - so no intent can forget the cap or skip the audit trail.
+ * for every intent alike - so no intent can forget the cap or skip the change log.
  *
  * That same split is continued one level down, along the phases every transition passes through,
  * so this class stays the DRIVER rather than also being the doer:

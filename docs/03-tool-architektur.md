@@ -236,7 +236,7 @@ Die Entscheidungen dahinter:
   (`kobilBindingKeyRef`), nicht die Gerätekennung von KOBIL. Wenn das Verfahren angeboten wird,
   ist der Schlüssel das Einzige, was bekannt ist; die Kennung erfährt der Server erst nach dem
   Einlösen. Beide stehen deshalb unter getrennten, eigens benannten Schlüsseln in den
-  `auditDetails`: Sie beantworten verschiedene Fragen zu verschiedenen Zeitpunkten.
+  `instanceDetails`: Sie beantworten verschiedene Fragen zu verschiedenen Zeitpunkten.
 - `enroll-qr`/`auth-qr`/`auth-qr-lookup` folgen demselben Muster wie `sms`, `password` und `email`:
   einrichten, anmelden und anmelden über die E-Mail-Adresse. Eine Besonderheit gibt es:
   `enroll-qr` ist eine reine Zustimmung (Opt-in) ohne Geheimnis (`factorTypes = {}`); ob diese

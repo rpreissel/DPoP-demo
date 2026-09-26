@@ -16,8 +16,8 @@ import java.util.UUID
 
 /**
  * Rich, per-step trace of a journey's path (docs/04-orchestrierung.md) for debugging, support and
- * the demo - kept 14 days. Not the audit trail: that is the account's value-free
- * `account.audit_event` (ADR-39), which outlives even the account. A different tradeoff, not a copy.
+ * the demo - kept 14 days. Not the change log: that is the account's value-free
+ * `account.change_log` (ADR-39), which outlives even the account. A different tradeoff, not a copy.
  */
 @Entity
 @Table(schema = "orchestrator", name = "journey_log")

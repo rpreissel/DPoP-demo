@@ -96,8 +96,7 @@ class EnrollSmsToolHandler(
                             source = ClaimSource.of(descriptor.toolId),
                             establishedAcr = descriptor.maxAcr
                         )
-                    ),
-                    auditDetails = mapOf("smsProvider" to "sms-gw", "providerMsgId" to "MSG-$toolSessionId")
+                    )
                 )
             }
         }

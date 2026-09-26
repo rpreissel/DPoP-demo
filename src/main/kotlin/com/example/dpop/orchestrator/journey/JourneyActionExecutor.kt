@@ -41,7 +41,7 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
  * The split is the same one [IntentStrategy] already makes one level up, continued: a strategy
  * decides but never acts, and the service that drives it now no longer mixes the driving with the
  * acting either. Every side effect a journey can have is reachable from exactly one file, so
- * "no intent can forget the ACR cap or skip the audit trail" stays inspectable.
+ * "no intent can forget the ACR cap or skip the change log" stays inspectable.
  *
  * Deliberately NOT here: anything that would call back into the machine. [performAction] only
  * ever writes and returns - it never advances a journey, never routes, never starts a
@@ -381,9 +381,7 @@ class JourneyActionExecutor(
             "AuthEvidence not found: $authEvidenceId"
         }
         val coreEvidence = evidence.toCoreEvidence()
-        // `label` is lifted into its own field rather than staying in the generic details
-        // blob, so the API can surface it without clients reaching into details.
-        val label = enrolled.auditDetails?.get("label") as? String
+        val label = enrolled.label
         // Generated here rather than by addAuthenticationMethod below, because the claims are
         // recorded FIRST (the acr computation between the two deliberately reads the account
         // including them) and each has to name the instance that established it, so revoking the
@@ -442,10 +440,9 @@ class JourneyActionExecutor(
             action.tool.method,
             enrolled.enrollmentRef,
             enrolledUnderAcr = enrolledUnderAcr.value,
-            details = enrolled.auditDetails.orEmpty().minus("label") + mapOf(
-                "enrolledUnderAmr" to evidence.currentAmr,
-                "channel" to channel.channel?.name
-            ),
+            details = enrolled.instanceDetails,
+            enrolledUnderAmr = evidence.currentAmr,
+            channel = channel.channel?.name,
             allowsMultipleInstances = action.tool.allowsMultipleInstances,
             label = label,
             instanceId = methodInstanceId

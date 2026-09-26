@@ -52,7 +52,7 @@ object AuthDeviceDescriptor : ToolDescriptor {
      * apart, never inferred from [allowsMultipleInstances].
      *
      * Reads [DEVICE_BINDING_KEY_REF], the same key
-     * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes into `auditDetails`.
+     * [com.example.dpop.auth_device.internal.EnrollDeviceToolHandler] writes into `instanceDetails`.
      * Generic resolution (CandidateTools/DefaultAuthPolicy/JourneyActionExecutor) asks this without
      * ever knowing the key name itself. A null caller (WEB, no device) never matches a real,
      * device-enrolled instance - the equality already gets that right, no extra branch needed.

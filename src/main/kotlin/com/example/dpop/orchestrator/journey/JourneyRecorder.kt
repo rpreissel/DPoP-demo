@@ -125,19 +125,13 @@ class JourneyRecorder(
         tool: ToolDescriptor,
         outcome: ToolOutcome.Completed.Identified
     ) {
-        // Only the references, by name (ADR-39): whatever else a tool puts into auditDetails - a
-        // document number above all, which may not be kept (§ 20 PAuswG) - is not written.
-        val details = outcome.auditDetails.orEmpty()
-        val reference = listOf("provider", "providerTxId", "methodVersion")
-            .mapNotNull { key -> details[key]?.let { "$key=$it" } }
-            .joinToString(";").ifEmpty { null }
+        // Passed on whole: which of it may be kept is the change log's own rule (ChangeLog.identified).
         accountService.addIdentification(
             checkNotNull(channel.accountId),
             tool.method,
             outcome.achievedAcr?.value,
             role = tool.role.name,
-            reference = reference,
-            evidenceHash = details["evidenceHash"]?.toString(),
+            report = outcome.auditDetails.orEmpty(),
         )
     }
 }

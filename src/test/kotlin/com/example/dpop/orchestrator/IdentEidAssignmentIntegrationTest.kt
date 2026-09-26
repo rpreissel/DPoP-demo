@@ -216,7 +216,7 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                 // The attestation came along - the card's own anchor now recognizes this account.
                 restrictedIdAnchorsOf(existing) shouldBe 1
                 jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
+                    "SELECT COUNT(*) FROM account.change_log WHERE account_id = ? AND change_type = 'IDENTIFIED' AND subject = 'eid'",
                     Int::class.java, existing
                 ) shouldBe 1
 
@@ -263,18 +263,18 @@ class IdentEidAssignmentIntegrationTest : IntegrationTestSupport() {
                     // row would read like a procedure that reached loa2 by itself.
                     jdbcTemplate.queryForList(
                         """
-                        SELECT e.subject FROM account.audit_event e
+                        SELECT e.subject FROM account.change_log e
                         JOIN orchestrator.channel_session cs ON cs.account_id = e.account_id
-                        WHERE cs.id = CAST(? AS UUID) AND e.event_type = 'IDENTIFIED' ORDER BY e.occurred_at
+                        WHERE cs.id = CAST(? AS UUID) AND e.change_type = 'IDENTIFIED' ORDER BY e.occurred_at
                         """,
                         String::class.java,
                         channelSessionId
                     ) shouldBe listOf("eid", "kvnr")
                     jdbcTemplate.queryForObject(
                         """
-                        SELECT e.source FROM account.audit_event e
+                        SELECT CAST(e.details AS VARCHAR) FROM account.change_log e
                         JOIN orchestrator.channel_session cs ON cs.account_id = e.account_id
-                        WHERE cs.id = CAST(? AS UUID) AND e.event_type = 'IDENTIFIED' AND e.subject = 'kvnr'
+                        WHERE cs.id = CAST(? AS UUID) AND e.change_type = 'IDENTIFIED' AND e.subject = 'kvnr'
                         """,
                         String::class.java,
                         channelSessionId

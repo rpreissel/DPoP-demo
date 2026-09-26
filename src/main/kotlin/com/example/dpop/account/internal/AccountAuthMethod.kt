@@ -17,8 +17,9 @@ import java.util.UUID
  * so account deletion still reaches every credential ever referenced.
  *
  * [enrolledUnderAcr] caps what the method can ever authenticate to (ADR-5). [details] is opaque,
- * method-specific data (audit context, e.g. `enrolledUnderAmr`; `auth_device`'s binding key) that
- * this module never interprets.
+ * method-specific data this module never interprets - only what the owning module reads back
+ * itself (`auth_device`'s binding key, KOBIL's device id). No audit evidence: it goes with the
+ * method, while how the method was added is recorded in the change log (ADR-39).
  */
 @Entity
 @Table(schema = "account", name = "auth_method")

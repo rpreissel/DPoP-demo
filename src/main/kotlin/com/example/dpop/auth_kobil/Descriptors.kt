@@ -25,7 +25,7 @@ internal const val KOBIL_ENROLLMENT_TYPE = "auth_kobil.enrollment"
 internal const val KOBIL_BINDING_KEY_REF = "kobilBindingKeyRef"
 
 /**
- * The KOBIL device identifier ("Kennung") in `auditDetails`. Deliberately a second, differently
+ * The KOBIL device identifier ("Kennung") in `instanceDetails`. Deliberately a second, differently
  * named constant rather than a second use of [KOBIL_BINDING_KEY_REF]: it answers a different
  * question at a different time. The server only learns it after redeeming an OTP, so it can never
  * be an offering filter - it is the anchor a redeemed assertion is *compared against*.

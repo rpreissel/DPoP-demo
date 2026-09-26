@@ -1,6 +1,8 @@
 package com.example.dpop.account
 
 import com.example.dpop.account.internal.AccountAnchorRepository
+import com.example.dpop.account.internal.ChangeLogRepository
+import com.example.dpop.account.internal.ChangeType
 import com.example.dpop.orchestrator.api.v1.OrchestratorExceptionHandler
 import com.example.dpop.tool_api.IdentityConflictException
 import com.example.dpop.tool_spi.AcrLevel
@@ -43,7 +45,8 @@ class AccountServiceDbTest(
     private val accountService: AccountService,
     private val jdbcTemplate: JdbcTemplate,
     private val transactionManager: PlatformTransactionManager,
-    private val anchorRepository: AccountAnchorRepository
+    private val anchorRepository: AccountAnchorRepository,
+    private val changeLogRepository: ChangeLogRepository
 ) : BehaviorSpec({
 
     beforeEach {
@@ -519,7 +522,7 @@ class AccountServiceDbTest(
                 Claim(AttributeType.VORNAME, "Max", eid, AcrLevel.LOA3),
                 Claim(AttributeType.EID_RESTRICTED_ID, "T0103005K1D5S0V8T9W6UM2RTX", eid, AcrLevel.LOA3)
             ), provenAcr = AcrLevel.LOA2)
-            accountService.addIdentification(provisional.accountId, "eid", "loa3", role = "IDENTIFICATION", reference = "provider=eid-mock-service")
+            accountService.addIdentification(provisional.accountId, "eid", "loa3", role = "IDENTIFICATION", report = mapOf("provider" to "eid-mock-service"))
             val target = accountService.createUnidentifiedAccount()
             accountService.recordClaim(
                 target.accountId, Claim(AttributeType.PERSON_ID, "P000000001", ClaimSource.PERSON_DIRECTORY), provenAcr = AcrLevel.LOA2
@@ -534,14 +537,11 @@ class AccountServiceDbTest(
             accountService.establishedClaimValues(target.accountId, setOf(AttributeType.NAME, AttributeType.VORNAME)) shouldBe
                 mapOf(AttributeType.NAME to "Muster", AttributeType.VORNAME to "Max")
             // The proof of identity is the absorbing account's now (ADR-39): carried over, naming its origin.
-            jdbcTemplate.queryForObject(
-                "SELECT source FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
-                String::class.java, target.accountId
-            )!! shouldContain "account:${provisional.accountId}"
-            jdbcTemplate.queryForObject(
-                "SELECT reference FROM account.audit_event WHERE account_id = ? AND event_type = 'IDENTIFIED' AND subject = 'eid'",
-                String::class.java, target.accountId
-            ) shouldBe "provider=eid-mock-service"
+            val carried = changeLogRepository.findByAccountIdAndChangeTypeOrderByOccurredAt(target.accountId, ChangeType.IDENTIFIED)
+                .single { it.subject == "eid" }.details!!
+            carried["carriedFromAccountId"].toString() shouldBe provisional.accountId.toString()
+            carried["provider"] shouldBe "eid-mock-service"
+            carried["role"] shouldBe "IDENTIFICATION"
         }
 
         then("an anchor the absorbing account already holds with the same value is a no-op, not a conflict") {

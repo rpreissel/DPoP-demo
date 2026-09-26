@@ -67,7 +67,6 @@ class ConfirmEmailToolHandlerTest : BehaviorSpec({
                     // so it must not raise the channel's assurance.
                     outcome.amr shouldBe emptyList()
                     outcome.factorTypes shouldBe emptySet()
-                    outcome.auditDetails shouldBe null
                 }
             }
     }

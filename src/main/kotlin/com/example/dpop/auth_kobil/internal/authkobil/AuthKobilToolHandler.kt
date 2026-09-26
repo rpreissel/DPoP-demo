@@ -161,8 +161,7 @@ class AuthKobilToolHandler(
             is AuthKobilDecision.RiskRejected ->
                 ToolOutcome.Failed.IdentifiedAuth(Text("Geraet als unsicher gemeldet"))
 
-            // No auditDetails: unlike every Completed variant that creates something,
-            // Authenticated carries none (tool_spi.ToolOutcome). Non-blocking signals a run saw
+            // No evidence blob: Authenticated carries none (tool_spi.ToolOutcome). Non-blocking signals a run saw
             // (e.g. OS_OUTDATED) therefore go unrecorded - a gap worth widening the SPI for one
             // day, not worth a module-local log that nothing else can read.
             is AuthKobilDecision.Complete -> ToolOutcome.Completed.Authenticated(

@@ -43,7 +43,7 @@ Datei wiederholt. Ausgelegt für ≥ 10 Mio. Konten und eine lange Betriebszeit.
 `account.account` ist nur Identitätsschlüssel und Wurzel für die optimistische Sperre. Der
 aktuelle Zustand steht in Zeilen, die am Konto hängen (`account.anchor`, `account.auth_method`)
 und dessen Version erhöhen, wenn sie sich ändern. Historie wird nur angehängt
-(`account.claim`, `account.audit_event` (IDENTIFIED)) und nie geändert. Siehe
+(`account.claim`, `account.change_log` (IDENTIFIED)) und nie geändert. Siehe
 [ADR-14](../../../../../docs/adr/ADR-014-schema-zusammengefuehrt-das-konto-als-sperrpunkt-eine-wahrheit.md).
 
 ## Typen und Namen

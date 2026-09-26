@@ -150,7 +150,8 @@ class AccountFixtures(
                     accountId, "sms",
                     EnrollmentRef("auth_sms.enrollment", enrollment.id.toString()),
                     enrolledUnderAcr = ENROLLED_UNDER_ACR.value,
-                    details = mapOf("smsProvider" to "sms-gw", "enrolledUnderAmr" to listOf("fsc")),
+                    details = emptyMap(),
+                    enrolledUnderAmr = listOf("fsc"),
                     instanceId = instanceId
                 )
             }
@@ -159,14 +160,16 @@ class AccountFixtures(
                 accountId, "password",
                 passwordCredentialPort.setNew(method.password),
                 enrolledUnderAcr = ENROLLED_UNDER_ACR.value,
-                details = mapOf("enrolledUnderAmr" to listOf("fsc")),
+                details = emptyMap(),
+                enrolledUnderAmr = listOf("fsc"),
                 instanceId = instanceId
             )
 
             is Method.Email -> accountService.addAuthenticationMethod(
                 accountId, "email", EMAIL_ANCHOR_ENROLLMENT,
                 enrolledUnderAcr = ENROLLED_UNDER_ACR.value,
-                details = mapOf("enrolledUnderAmr" to listOf("fsc")),
+                details = emptyMap(),
+                enrolledUnderAmr = listOf("fsc"),
                 instanceId = instanceId
             )
 
@@ -176,11 +179,8 @@ class AccountFixtures(
                     accountId, "device",
                     EnrollmentRef("auth_device.enrollment", enrollment.id.toString()),
                     enrolledUnderAcr = ENROLLED_UNDER_ACR.value,
-                    details = mapOf(
-                        "thumbprint" to method.thumbprint,
-                        "deviceBindingKeyRef" to method.thumbprint,
-                        "enrolledUnderAmr" to listOf("fsc")
-                    ),
+                    details = mapOf("deviceBindingKeyRef" to method.thumbprint),
+                    enrolledUnderAmr = listOf("fsc"),
                     allowsMultipleInstances = true,
                     label = method.label,
                     instanceId = instanceId

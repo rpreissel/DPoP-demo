@@ -75,7 +75,8 @@ class EnrollDeviceToolHandler(
             amr = listOf(descriptor.method, decision.userVerification.wireValue),
             achievedAcr = descriptor.maxAcr,
             factorTypes = factorTypesFor(decision.userVerification),
-            auditDetails = mapOf("thumbprint" to decision.devicePublicKey.thumbprint, DEVICE_BINDING_KEY_REF to decision.deviceBindingKeyRef, "label" to decision.label)
+            instanceDetails = mapOf(DEVICE_BINDING_KEY_REF to decision.deviceBindingKeyRef),
+            label = decision.label
         )
     }
 

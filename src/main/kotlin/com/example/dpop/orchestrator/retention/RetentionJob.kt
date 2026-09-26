@@ -188,8 +188,8 @@ class SessionRetentionSweeper(
          * The journey log is read per channel session (the admin view groups by it), so
          * outliving [CHANNEL_SESSION_RETENTION] buys nothing while
          * this is by far the highest-volume table in the system - one row per journey step, each
-         * with a JSON `detail`. It is a debugging/demo trace, NOT the audit trail; that is
-         * `account.audit_event` (ADR-39), which keeps its own, much longer window.
+         * with a JSON `detail`. It is a debugging/demo trace, NOT the change log; that is
+         * `account.change_log` (ADR-39), which keeps its own, much longer window.
          */
         private val JOURNEY_LOG_RETENTION: Duration = Duration.ofDays(14)
 

@@ -102,8 +102,8 @@ abstract class IntegrationTestSupport : BehaviorSpec() {
             "auth_qr.login_request", "auth_qr.enrollment",
             "orchestrator.tool_session", "orchestrator.auth_journey", "orchestrator.journey_log",
             "orchestrator.channel_session", "orchestrator.auth_context", "orchestrator.auth_evidence", "account.account",
-            // No foreign key - the audit trail outlives accounts on purpose (ADR-39), so it is wiped by name.
-            "account.audit_event",
+            // No foreign key - the change log outlives accounts on purpose (ADR-39), so it is wiped by name.
+            "account.change_log",
             "orchestrator.device_account_link", "orchestrator.attempt_throttle", "orchestrator.tool_availability", "orchestrator.dpop_proof_replay",
             "orchestrator.feature_flag"
         ).forEach { jdbcTemplate.update("DELETE FROM $it") }

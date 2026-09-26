@@ -35,13 +35,11 @@ classDiagram
     string claimSource
     string establishedAcr
   }
-  class AuditEvent {
+  class ChangeLogEntry {
     string eventType "IDENTIFIED, ..."
     string subject "Verfahren"
     string acr
-    string source "Rolle"
-    string reference "Anbieter, Vorgang, Version"
-    string evidenceHash
+    Map details "type, version, Rolle, Anbieter, Vorgang, Version, Hash"
     Instant occurredAt
   }
   class AccountAuthMethod {
@@ -60,7 +58,7 @@ classDiagram
 
   Account "1" --> "0..*" AccountAnchor : aktueller Wert je Ankertyp
   Account "1" --> "0..*" AccountClaim : Protokoll der Claims (nur anfügen)
-  Account "1" --> "0..*" AuditEvent : Audit-Protokoll (nur anfügen, überlebt das Konto)
+  Account "1" --> "0..*" ChangeLogEntry : Änderungsprotokoll (nur anfügen, überlebt das Konto)
   Account "1" --> "0..*" AccountAuthMethod : eingerichtete Verfahren
   AccountAuthMethod --> AuthSmsEnrollment : EnrollmentRef (type=auth_sms.enrollment, id)
 ```
@@ -81,9 +79,12 @@ Entscheidungen, die an diesem Modell hängen:
 - **Eine Zeile je eingerichtetem Verfahren statt einer JSON-Liste im Konto.** Lesen schreibt nie.
   Änderungen sperren nur die Kontozeile, indem sie deren Version erhöhen. Deaktivierte Einträge
   tragen `deactivated_at`; ein CHECK-Constraint hält `active` und `deactivated_at` stimmig.
-- **`details.enrolledUnderAmr` dient nur dem Protokoll, nicht dem Modell.** Es erklärt im
-  Nachhinein, welche Nachweise beim Einrichten vorlagen, beeinflusst aber weder die Auswahl der
-  Kandidaten noch die Berechnung des ACR. Maßgeblich ist allein `enrolledUnderAcr`.
+- **Welche Nachweise beim Einrichten vorlagen, steht nur im Änderungsprotokoll.** Das Ereignis
+  `METHOD_ADDED` trägt in `details` die Nachweise der Sitzung (`amr`) und den Kanal (`channel`),
+  denn nur dort überdauern sie Deaktivierung und Kontolöschung (ADR-39). Auf die Auswahl der
+  Kandidaten und die Berechnung des ACR wirken sie nicht; maßgeblich ist allein
+  `enrolledUnderAcr`. `details` enthält nur, was das zuständige Modul selbst wieder liest
+  (Schlüssel-Referenz, KOBIL-Gerätekennung).
 - **Die bestätigte E-Mail-Adresse ist der EMAIL-Anker** – keine Spalte im `Account` und kein
   Credential eines Moduls. Es gibt höchstens eine je Konto, genau wie bei `personId`. Bestätigt
   wird sie per `confirm-email`. Danach dient dieselbe Adresse sowohl als Anmeldeverfahren
@@ -102,7 +103,7 @@ Entscheidungen, die an diesem Modell hängen:
   liegen ausschließlich im jeweiligen Methodenmodul (bei SMS in
   `auth_sms.auth_tool_session`/`auth_sms.enroll_tool_session`).
 
-Regel für das Identifizierungs-Ereignis im Audit-Protokoll (`account.audit_event`, `IDENTIFIED`,
+Regel für das Identifizierungs-Ereignis im Änderungsprotokoll (`account.change_log`, `IDENTIFIED`,
 [ADR-39](adr/ADR-039-was-eine-kontoloeschung-ueberlebt.md)): Es belegt, **dass und wie** geprüft
 wurde, nicht **was** geprüft wurde. Hinein gehören Rolle, die Belege der Prüfung (`provider`,
 `providerTxId`), die Version des Verfahrens und ein Hash über die geprüften Merkmale – nur diese

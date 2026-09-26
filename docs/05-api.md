@@ -533,7 +533,7 @@ Liest den stabilen Kanalzustand. Neben `state` stehen im `channel`-Block zwei we
 - `activeMethods`: alle eingerichteten Verfahren des Kontos als Objekte
   `{id, method, label, factorTypes, maxAcr, enrolledUnderAcr, effectiveAcr}`, unabhängig davon, was
   diese Sitzung geprüft hat. `fsc` ist nie dabei, denn eine Identifizierung steht im Protokoll
-  `account.audit_event` (IDENTIFIED), nicht in `account.auth_method`. `id` adressiert den Eintrag für
+  `account.change_log` (IDENTIFIED), nicht in `account.auth_method`. `id` adressiert den Eintrag für
   `DELETE`. `label` ist nur bei Methoden gesetzt, die mehrere Einträge haben können (derzeit
   `device` und `kobil`). `auth-device` wird zum Anmelden nur auf dem Gerät mit dem passenden
   Schlüssel angeboten (`docs/04-orchestrierung.md`); deaktivieren lässt es sich von überall.
@@ -546,7 +546,7 @@ auch bei abgeschlossener Journey
 
 ### Journey-Log
 
-Eine Ansicht zur Fehlersuche und für die Demo, kein Revisionsprotokoll (das ist `account.audit_event`,
+Eine Ansicht zur Fehlersuche und für die Demo, kein Revisionsprotokoll (das ist `account.change_log`,
 [Betrieb](07-betrieb.md) Abschnitt 2; Frist 14 Tage). Es gehört nicht zum App-Vertrag: Es gibt das Journey-Log nur
 als Betriebsendpunkt `GET /orchestrator/admin/journey-log` (hinter der Admin-Anmeldung, über alle
 Konten und Kanäle). Die früheren Varianten je Kanal, `GET /journey-log` (je Gerät) und

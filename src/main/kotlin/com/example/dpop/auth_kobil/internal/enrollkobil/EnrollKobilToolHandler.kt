@@ -117,12 +117,13 @@ class EnrollKobilToolHandler(
                     amr = listOf(descriptor.method, decision.userVerification.wireValue),
                     achievedAcr = descriptor.maxAcr,
                     factorTypes = decision.userVerification.kobilFactorTypes(),
-                    auditDetails = mapOf(
+                    // The KOBIL user id is not repeated here: it lives in this module's own
+                    // enrollment row, where the auth and cleanup paths read it.
+                    instanceDetails = mapOf(
                         KOBIL_BINDING_KEY_REF to bindingKeyRef,
                         KOBIL_DEVICE_ID to decision.deviceId,
-                        "kobilUserId" to session.kobilUserId,
-                        "label" to label,
                     ),
+                    label = label,
                 )
             }
         }

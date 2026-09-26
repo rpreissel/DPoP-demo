@@ -52,7 +52,7 @@ Tabellen. Der Widerruf macht einen Wert nur ungültig, er löscht ihn nicht; mit
 steht in der Widerrufszeile sogar eine zweite lesbare Kopie. Eine Aufbewahrungsfrist, nach der beide
 Zeilen gemeinsam gelöscht werden, ist bewusst nicht mitentschieden
 ([Idee: Verschlüsselung und Aufbewahrung](../ideen/verschluesselung-differenzierte-aufbewahrung.md)).
-Der Nachweis für das Audit hängt nicht daran: `account.audit_event` (IDENTIFIED) hält Verfahren, Niveau und
+Der Nachweis für das Audit hängt nicht daran: `account.change_log` (IDENTIFIED) hält Verfahren, Niveau und
 Zeitpunkt ohne die Werte fest.
 
 **Geschichte**: Anfangs hielten abgeleitete Spalten am Konto den aktuellen Wert, und nur eine Stelle

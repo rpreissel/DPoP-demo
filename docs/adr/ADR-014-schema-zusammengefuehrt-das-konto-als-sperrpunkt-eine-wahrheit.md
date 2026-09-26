@@ -11,7 +11,7 @@
     geführten Kennungen wie PersonId, Versicherungsnummer und bestätigte E-Mail-Adresse) und
     `account.auth_method` (eine Zeile je Methodeninstanz, `EnrollmentRef` als eigene Spalten).
   - Historie, die nur angefügt wird und die Version nie erhöht: `account.claim` (wer was wann
-    bestätigt hat), `account.audit_event` (IDENTIFIED) (jede Identifizierung) und `account.retraction`
+    bestätigt hat), `account.change_log` (IDENTIFIED) (jede Identifizierung) und `account.retraction`
     (Widerrufe, [ADR-12](ADR-012-ein-widerruf-ist-eine-eigene-zeile-mit-eigenem.md)).
 
 Welche Attribute das Konto selbst führt und welche es nur liest, beschreibt

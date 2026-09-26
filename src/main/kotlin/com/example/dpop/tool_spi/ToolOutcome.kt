@@ -142,12 +142,19 @@ sealed interface ToolOutcome {
             override val factorTypes: Set<FactorType> = emptySet(),
             /**
              * The identifying attributes this enrollment asserted about its subject, with their
-             * provenance - the typed counterpart to [auditDetails]. Subset of the descriptor's
-             * [ToolDescriptor.claims].
+             * provenance. Subset of the descriptor's [ToolDescriptor.claims].
              */
             val claims: List<Claim> = emptyList(),
-            /** Method-specific delivery evidence, passed through unchanged for auditing. */
-            val auditDetails: Map<String, Any?>? = null
+            /**
+             * What the owning module itself needs to read back about THIS instance later - through
+             * its own [ToolDescriptor.keyBinding] or [ToolDescriptor.instanceDisclosure], never
+             * through anyone else. Stored with the method and gone with it, so it is no audit
+             * evidence (ADR-39): how the method was added is recorded by the account module's
+             * `METHOD_ADDED` event. Nothing else belongs here.
+             */
+            val instanceDetails: Map<String, Any?> = emptyMap(),
+            /** User-chosen display name, meaningful only for multi-instance methods. */
+            val label: String? = null
         ) : Completed
 
         /**
@@ -165,9 +172,7 @@ sealed interface ToolOutcome {
              * attestation asserting nothing is a contract error, enforced below.
              */
             val claims: List<Claim>,
-            override val achievedAcr: AcrLevel? = null,
-            /** Method-specific verification evidence, passed through unchanged for auditing. */
-            val auditDetails: Map<String, Any?>? = null
+            override val achievedAcr: AcrLevel? = null
         ) : Completed {
             override val amr: List<String> = emptyList()
             override val factorTypes: Set<FactorType> = emptySet()

@@ -12,8 +12,8 @@ import com.example.dpop.account.internal.AccountAuthMethodRepository
 import com.example.dpop.account.internal.AccountRepository
 import com.example.dpop.account.internal.AccountRetraction
 import com.example.dpop.account.internal.AccountRetractionRepository
-import com.example.dpop.account.internal.AuditEventType
-import com.example.dpop.account.internal.AuditLog
+import com.example.dpop.account.internal.MethodDeactivationReason
+import com.example.dpop.account.internal.ChangeLog
 import com.example.dpop.account.internal.strongestEstablishedValues
 import com.example.dpop.tool_api.AccountDirectory
 import com.example.dpop.tool_api.AttributeAuthority
@@ -72,7 +72,7 @@ class AccountService(
     private val accountAuthMethodRepository: AccountAuthMethodRepository,
     private val accountRetractionRepository: AccountRetractionRepository,
     private val eventPublisher: ApplicationEventPublisher,
-    private val auditLog: AuditLog,
+    private val changeLog: ChangeLog,
 ) : AccountDirectory {
 
     private val log = LoggerFactory.getLogger(AccountService::class.java)
@@ -245,7 +245,7 @@ class AccountService(
      *
      * The log is a change log, not a run log: a claim whose (type, value, source, method) is
      * already established leaves no new row - WHEN identity was re-proven is
-     * the audit trail's story (IDENTIFIED events, ADR-39), and re-attesting the same card eight times must not cost
+     * the change log's story (IDENTIFIED events, ADR-39), and re-attesting the same card eight times must not cost
      * eight log rows. The method instance is part of the key so a fresh enrollment of a known
      * value still logs: revoking the OLD instance retracts only what THAT instance asserted.
      *
@@ -459,8 +459,8 @@ class AccountService(
      * What stays behind on purpose: retracted claims (they were withdrawn, and
      * [AccountClaimRepository.findEstablished] never returns them) and the claim rows' original
      * timestamps - the absorbing account records WHEN it took them on, while WHEN identity was
-     * proven stays in the audit trail: its IDENTIFIED events are carried over with their original
-     * time ([AuditLog.carryIdentifications]).
+     * proven stays in the change log: its IDENTIFIED events are carried over with their original
+     * time ([ChangeLog.carryIdentifications]).
      */
     @Transactional
     fun absorbProvisionalAccount(from: Long, into: Long) {
@@ -489,7 +489,7 @@ class AccountService(
         // from (the same ordering trap `recordAnchor`'s in-place rebind documents).
         accountAnchorRepository.deleteAll(anchors)
         accountAnchorRepository.flush()
-        auditLog.carryIdentifications(from, into)
+        changeLog.accountAbsorbed(into, from)
         deleteAccount(from)
 
         claims.forEach { claim ->
@@ -505,16 +505,14 @@ class AccountService(
                 provenAcr = anchorAcr[type] ?: claim.establishedAcr?.let(AcrLevel::of) ?: AcrLevel.NONE
             )
         }
-        auditLog.record(into, AuditEventType.ACCOUNT_ABSORBED, source = "account:$from")
         log.info("Account {} absorbed provisional account {} ({} claims)", into, from, claims.size)
     }
 
-    /** Every withdrawal goes through here, so none escapes the audit trail (ADR-39) - the value stays in the retraction row, which goes with the account. */
+    /** Every withdrawal goes through here, so none escapes the change log (ADR-39) - the value stays in the retraction row, which goes with the account. */
     private fun saveRetraction(retraction: AccountRetraction): AccountRetraction {
-        auditLog.record(
-            checkNotNull(retraction.accountId), AuditEventType.ATTRIBUTE_RETRACTED,
-            subject = retraction.attributeType?.name, source = listOfNotNull(retraction.trustAnchor?.name, retraction.reason).joinToString(":"),
-            at = checkNotNull(retraction.retractedAt)
+        changeLog.attributeRetracted(
+            checkNotNull(retraction.accountId), retraction.attributeType?.name,
+            trustAnchor = retraction.trustAnchor?.name, reason = retraction.reason, at = checkNotNull(retraction.retractedAt)
         )
         return accountRetractionRepository.save(retraction)
     }
@@ -522,10 +520,11 @@ class AccountService(
     /**
      * The audit record of one identification run (ADR-39): which procedure, at which level, in which
      * role (identifying or only correlating, ADR-18), and where to check it - never what it saw.
+     * [report] is the tool's own, unfiltered; [ChangeLog.identified] keeps only its references.
      */
     @Transactional
-    fun addIdentification(accountId: Long, method: String, loa: String?, role: String? = null, reference: String? = null, evidenceHash: String? = null) {
-        auditLog.record(accountId, AuditEventType.IDENTIFIED, subject = method, acr = loa, source = role, reference = reference, evidenceHash = evidenceHash)
+    fun addIdentification(accountId: Long, method: String, loa: String?, role: String? = null, report: Map<String, Any?> = emptyMap()) {
+        changeLog.identified(accountId, method, loa, role, report)
     }
 
     /**
@@ -543,6 +542,13 @@ class AccountService(
         enrollmentRef: EnrollmentRef,
         enrolledUnderAcr: String?,
         details: Map<String, Any?>,
+        /**
+         * How the method was added - the proofs of the session that added it and the channel it
+         * ran on. Audit evidence only (ADR-39): recorded with the `METHOD_ADDED` event, which
+         * outlives the method and the account, never in [details], which does not.
+         */
+        enrolledUnderAmr: List<String> = emptyList(),
+        channel: String? = null,
         allowsMultipleInstances: Boolean = false,
         label: String? = null,
         /**
@@ -561,7 +567,7 @@ class AccountService(
             // inconsistently by canAccountReach/authCandidates/resolveAcr.
             active.forEach {
                 it.deactivate(now)
-                auditLog.record(accountId, AuditEventType.METHOD_DEACTIVATED, subject = it.method, source = "ersetzt", at = now)
+                changeLog.methodDeactivated(accountId, it.method, MethodDeactivationReason.REPLACED, now)
             }
             // Flushed before the new instance is inserted: the database allows one active instance
             // of a singleton method per account (ux_auth_method_active_singleton), and Hibernate
@@ -574,7 +580,7 @@ class AccountService(
             // docs/09-dpop.md) - a second row would match every future lookup alike.
             return getProfileOrThrow(accountId)
         }
-        auditLog.record(accountId, AuditEventType.METHOD_ADDED, subject = method, acr = enrolledUnderAcr, at = now)
+        changeLog.methodAdded(accountId, method, enrolledUnderAcr, enrolledUnderAmr, channel, now)
         accountAuthMethodRepository.save(
             AccountAuthMethod(
                 accountId = accountId,
@@ -600,8 +606,9 @@ class AccountService(
     fun deactivateAuthenticationMethod(accountId: Long, methodInstanceId: String): AccountProfile {
         lockForUpdate(accountId)
         findMethodInstance(accountId, methodInstanceId)?.takeIf { it.active }?.let {
-            it.deactivate(Instant.now())
-            auditLog.record(accountId, AuditEventType.METHOD_DEACTIVATED, subject = it.method, source = "verwaltung")
+            val now = Instant.now()
+            it.deactivate(now)
+            changeLog.methodDeactivated(accountId, it.method, MethodDeactivationReason.REMOVED_BY_HOLDER, now)
         }
         announceChanged(accountId)
         return getProfileOrThrow(accountId)
@@ -617,7 +624,7 @@ class AccountService(
 
     /**
      * Deletes the account row; its anchors, methods, claims and identification details cascade with
-     * it - the values go. What survives is the audit trail without values (ADR-39): this very
+     * it - the values go. What survives is the change log without values (ADR-39): this very
      * deletion is its last entry, and the retention period counts from it. This
      * module must never depend on a method module (see [ModuleMetadata]), so the caller is
      * responsible for first cleaning up the credentials [allEnrollmentRefs] points at
@@ -625,7 +632,7 @@ class AccountService(
      */
     @Transactional
     fun deleteAccount(accountId: Long) {
-        auditLog.record(accountId, AuditEventType.ACCOUNT_DELETED)
+        changeLog.accountDeleted(accountId)
         accountRepository.deleteById(accountId)
         eventPublisher.publishEvent(AccountDeleted(accountId))
     }

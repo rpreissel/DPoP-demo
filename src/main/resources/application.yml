@@ -70,10 +70,10 @@ spring:
 # Zugang zur Admin-Seite (/admin/) und zu allen Betriebsendpunkten unter /orchestrator/admin/**
 # (AdminSecurityConfig, HTTP Basic). Demo-Werte - wer diese Instanz erreichbar macht, setzt sie per
 # DEMO_ADMIN_USERNAME/DEMO_ADMIN_PASSWORD neu.
-# Was eine Kontoloeschung ueberlebt (ADR-39): das Audit-Protokoll ohne Werte. Die Frist zaehlt ab
+# Was eine Kontoloeschung ueberlebt (ADR-39): das Änderungsprotokoll ohne Werte. Die Frist zaehlt ab
 # der Loeschung; 10 Jahre sind die Voreinstellung und von der Datenschutzbeauftragten zu bestaetigen.
 account:
-  audit:
+  change-log:
     retention-years: 10
 
 demo:
