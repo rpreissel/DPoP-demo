@@ -15,14 +15,14 @@ import org.springframework.web.client.body
 import org.springframework.web.util.UriComponentsBuilder
 
 /**
- * The orchestrator's calls into Keycloak's Admin API - no longer a user mirror (review 2026-09, P-3):
+ * The orchestrator's calls into Keycloak's Admin API - not a user mirror (review 2026-09, P-3):
  * Keycloak reads accounts through its user federation (`OrchestratorStorageProvider`, backed by
  * `KcAccountLookupController`), so nothing here creates or updates users. What remains:
  * whether a session still lives ([isSessionAlive]), ending one ([logoutSession]), clearing up after
  * a deleted account ([removeAccount]), and the account-token grant.
  *
  * A federated user's Keycloak id is computed ([federatedUserId]), never searched for - a lookup by
- * attribute over 10 million+ users is exactly what this design removes.
+ * attribute over 10 million+ users is exactly what this design avoids.
  *
  * Authenticates as its OWN client's service account (`keycloak-sync.admin-client-id`).
  *

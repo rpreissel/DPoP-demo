@@ -38,9 +38,9 @@ import java.time.Instant
  * over the network, once per candidate channel, and a sweep can face hundreds of them. Holding the
  * retention transaction open across those round trips would keep row locks for as long as a remote
  * service takes to answer - the very thing `KeycloakAccountSyncListener` states as the rule
- * ("never hold the account's own DB transaction open across a network call to Keycloak") and that
- * this job used to break. The probe therefore runs first, with no transaction, and only its result
- * is handed to [SessionRetentionSweeper], which does all the deleting in one.
+ * ("never hold the account's own DB transaction open across a network call to Keycloak"). The probe
+ * therefore runs first, with no transaction, and only its result is handed to
+ * [SessionRetentionSweeper], which does all the deleting in one.
  *
  * `OrchestratorArchitectureTest.keycloakIsNeverCalledFromInsideATransaction` keeps it that way.
  */

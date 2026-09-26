@@ -34,12 +34,12 @@ import com.example.dpop.orchestrator.kernel.AuthIntent
 
 /**
  * The acting phase of a transition: the [Action]s a [Transition.Perform] can carry, actually
- * executed. Split out of [JourneyService] along the machine's own phase boundary - that service
+ * executed. Separate from [JourneyService] along the machine's own phase boundary - that service
  * DECIDES and ROUTES (which strategy, which transition, where next), this class WRITES (accounts,
  * claims, credentials, device links, revocations).
  *
  * The split is the same one [IntentStrategy] already makes one level up, continued: a strategy
- * decides but never acts, and the service that drives it now no longer mixes the driving with the
+ * decides but never acts, and the service that drives it does not mix the driving with the
  * acting either. Every side effect a journey can have is reachable from exactly one file, so
  * "no intent can forget the ACR cap or skip the change log" stays inspectable.
  *
@@ -285,7 +285,7 @@ class JourneyActionExecutor(
     /**
      * An attested attribute (docs/12-entscheidungen.md, ADR-16 follow-up): the claims land in the
      * account's log and consolidate their anchor, and that is all. No method instance, so
-     * confirming an address no longer makes email an authentication method by accident; no device
+     * confirming an address never makes email an authentication method by accident; no device
      * binding, because nothing was created here that this device could later be recognized by.
      *
      * The outcome carries no `amr` by construction ([com.example.dpop.tool_spi.ToolOutcome.Completed.Attested]),
@@ -318,8 +318,8 @@ class JourneyActionExecutor(
      * An attested anchor value that resolves to ANOTHER account may move this session there ONLY
      * if THIS session has already proven a real Identification (ident-fsc/ident-eid -
      * [EvidenceAxis.IDENTITY] evidence, [DefaultAuthPolicy]'s own IAL/AAL split) earlier - read
-     * from the channel's evidence, which this session accumulates across its journeys (review
-     * 2026-09, M-7: this used to say "the same journey") - never on the strength of the attestation
+     * from the channel's evidence, which this session accumulates across its journeys, not just
+     * the current journey's (review 2026-09, M-7) - never on the strength of the attestation
      * alone. A mere attestation (e.g.
      * `confirm-email`) is deliberately weaker than an identification - the glossary's own
      * "unbescheinigtes/schwaches Identifizierungsmittel" distinction for email applies here
@@ -619,9 +619,9 @@ class JourneyActionExecutor(
         // revokeMethod, not the bare deactivate: a user who removes a method expects the
         // credential itself gone, not merely unusable. It deletes the owning module's row
         // (EnrollmentCleanup) and THEN deactivates the instance - the deactivated row stays, so
-        // account deletion still walks every ref it ever pointed at. Device rebinding already
-        // took this path (docs/09-dpop.md); the user-facing removal used to stop at the flag and
-        // left the phone number / password hash behind until the whole account went.
+        // account deletion still walks every ref it ever pointed at. Device rebinding takes the
+        // same path (docs/09-dpop.md); stopping at the flag would leave the phone number /
+        // password hash behind until the whole account went.
         //
         // Dependents first, then the method that carried them: the reverse order would leave a
         // window in which a dependent credential exists without what it depends on.

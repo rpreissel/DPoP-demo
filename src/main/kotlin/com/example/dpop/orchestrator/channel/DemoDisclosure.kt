@@ -10,13 +10,11 @@ import org.springframework.stereotype.Component
  * The only thing in the system that may put demo-only values into a response.
  *
  * What travels in the `demo` block is not decoration: a plaintext TAN, a plaintext confirmation
- * code, the fixed demo password, every register persona's KVNR, name, address and FSC code. That it
- * is "never part of the production contract" used to be stated in a doc comment and nowhere
- * else - the two assembly sites built a [DemoInfo]
- * unconditionally, so a deployment that must not disclose any of it had nothing to switch off.
- * A convention is not a safeguard.
+ * code, the fixed demo password, every register persona's KVNR, name, address and FSC code. A
+ * deployment that must not disclose any of it needs something to switch off - a doc comment
+ * saying "never part of the production contract" is a convention, not a safeguard.
  *
- * Now there is exactly one implementation able to produce a [DemoInfo], and whether it exists at
+ * So there is exactly one implementation able to produce a [DemoInfo], and whether it exists at
  * all is decided at startup by `demo.disclosure`. With it off, the bean in this file's place
  * returns `null` for every request and the plaintext values physically cannot reach a client -
  * the tools still attach them to their own outcome, but nothing carries them any further.

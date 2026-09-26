@@ -8,9 +8,8 @@ import org.keycloak.storage.StorageId;
 /**
  * The one way this extension resolves an orchestrator account to its Keycloak user. The user IS the
  * account, read through the federation (review 2026-09, P-3) - so the lookup is by id,
- * {@code f:<component>:<accountId>}, a single read. It used to be a search over a user attribute,
- * with a conflict check for the case that two mirrors carried the same account; without mirrors
- * there is nothing that could carry it twice (review 2026-09, S-2).
+ * {@code f:<component>:<accountId>}, a single read. No attribute search and no conflict check:
+ * without user mirrors nothing can carry the same account twice (review 2026-09, S-2).
  */
 public final class AccountUsers {
 

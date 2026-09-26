@@ -24,8 +24,8 @@ import org.springframework.web.client.body
  * (`keycloak-setup ... trustSelfSignedCertificate`), not of the Spring profile: the local
  * variants run Keycloak with a self-signed `start-dev` certificate that only names `localhost`,
  * everything else checks certificates normally. And the exception is scoped to the clients built
- * here - it used to be installed as the JVM-wide default `SSLContext` and hostname verifier, which
- * silently disabled certificate checks for EVERY outgoing HTTPS call of the process, including
+ * here - never installed as the JVM-wide default `SSLContext` and hostname verifier, which would
+ * silently disable certificate checks for EVERY outgoing HTTPS call of the process, including
  * future real providers (review 2026-09, S-4).
  */
 @Component

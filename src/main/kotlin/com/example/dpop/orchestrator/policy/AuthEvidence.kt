@@ -158,7 +158,7 @@ data class AuthEvidence(
          * from [amr] in this call: a caller invoking [from] once per proven method (the common
          * case) gets exact per-method attribution for free; a caller reporting several methods
          * from one coarser source (e.g. Keycloak's own "Selbstauskunft", docs/05-api.md
-         * Abschnitt 3) gets the same flat union as before this was per-method at all
+         * Abschnitt 3) gets the flat union on each of them
          * - either way [AuthEvidence.factorTypes]'s derived union comes out identical to just
          * passing [factorTypes] through directly.
          */

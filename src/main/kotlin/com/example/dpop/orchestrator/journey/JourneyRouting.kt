@@ -21,10 +21,9 @@ import org.springframework.stereotype.Component
 /**
  * One step as the client will see it.
  *
- * [demo] rides ALONGSIDE [stepData], not inside it. It used to be stuffed in under a reserved key
- * and lifted back out by `ToolControllerSupport` - which only worked while stepData was an untyped
- * map, and was always a misuse: the demo block is explicitly not part of the step's contract
- * (tool_spi/Demo.kt). Now the two are simply two fields.
+ * [demo] rides ALONGSIDE [stepData], not inside it under a reserved key: the demo block is
+ * explicitly not part of the step's contract (tool_spi/Demo.kt), and a typed stepData has no
+ * room for it anyway. So the two are simply two fields.
  */
 data class Step(
     val next: Next?,

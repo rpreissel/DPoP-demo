@@ -349,7 +349,10 @@ mit dem jeweiligen Schritt korrigiert, nicht gesammelt.
     kaskadiert (Datenminimierung). Anmeldeprotokoll `account.sign_in_log` (6 Monate, geht mit dem
     Konto, auch Keycloak-Logouts). `session_event` entfällt, das Journey-Log heißt `journey_trace` und
     lebt 14 statt 30 Tage.
-30. Text-Schlüssel lesbar machen; Historie aus KDocs in ADRs verschieben.
+30. ~~Text-Schlüssel lesbar machen; Historie aus KDocs in ADRs verschieben~~ – erledigt 2026-09-26:
+    Text-IDs lesbar (`journey-trace-laden-fehlgeschlagen-cf9829`), weiter aus der Vorlage abgeleitet;
+    fehlt eine Übersetzung, zeigt der Client die Vorlage (ADR-33, Nachtrag). Rund 40 Kommentare
+    erzählen keine Vorgeschichte mehr, sondern begründen den jetzigen Stand.
 
 **Phase G – Frontends und Ausführungsumgebung (später, nach ADR-35)**
 

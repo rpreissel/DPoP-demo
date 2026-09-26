@@ -34,7 +34,7 @@ inline fun declineTool(
 /**
  * The two answers an [com.example.dpop.orchestrator.journey.state.AnswerableState] prompt accepts,
  * as the client sends them ([JourneyEvent.Answered]). Defined once next to the event that carries
- * them rather than as a private constant in each of the four strategies that used to own a copy -
+ * them rather than as a private constant in each strategy that uses them -
  * they are a wire contract, and four copies can drift apart while every prompt still looks fine.
  */
 const val ANSWER_ACCEPT = "accept"

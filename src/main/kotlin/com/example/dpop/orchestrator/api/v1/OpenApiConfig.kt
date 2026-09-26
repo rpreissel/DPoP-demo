@@ -16,10 +16,10 @@ class OpenApiConfig {
     fun dpopDemoOpenApi(): OpenAPI = OpenAPI()
         /**
          * One description per tag, declared here rather than on the controllers. A method's tools
-         * live in several controllers (enroll / auth / lookup are separate resources), and each
-         * used to carry its own `description` on the SAME tag name - which produced a spec with
-         * `Tool: SMS` listed three times with three different descriptions. Swagger UI then showed
-         * whichever won, and the OpenAPI Generator rejected the spec outright.
+         * live in several controllers (enroll / auth / lookup are separate resources); if each
+         * carried its own `description` on the SAME tag name, the spec would list `Tool: SMS`
+         * three times with three different descriptions. Swagger UI then shows whichever wins,
+         * and the OpenAPI Generator rejects the spec outright.
          *
          * A tag names a method, and a method is one thing: its description belongs where it can
          * only be written once. The controllers keep `@Tag(name = ...)` with no description, which

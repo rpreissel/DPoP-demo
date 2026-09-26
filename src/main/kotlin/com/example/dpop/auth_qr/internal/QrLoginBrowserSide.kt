@@ -15,9 +15,9 @@ import java.time.Instant
  * 2. `enterCode`: the app approved and shows a confirmation code; the browser must type it.
  * 3. Only the right code, in time, completes the request - once.
  *
- * Step 2 is the point (review 2026-09, M-2). Approving in the app used to log the browser in
- * directly, so a victim approving an attacker's pairing code from a link handed over the account.
- * Now the victim would also have to type a code into the attacker's browser.
+ * Step 2 is the point (review 2026-09, M-2). If approving in the app logged the browser in
+ * directly, a victim approving an attacker's pairing code from a link would hand over the account.
+ * With step 2 the victim would also have to type a code into the attacker's browser.
  */
 @Component
 class QrLoginBrowserSide(private val requests: QrLoginRequestRepository) {

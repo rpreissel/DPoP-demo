@@ -10,19 +10,19 @@ import kotlin.reflect.KClass
 /**
  * What one step needs the client to show.
  *
- * It used to be a bare `Map<String, Any?>`, which made it the one part of the response the
- * contract said nothing about: a client had to know from prose which keys a given step carries.
- * Now every shape is a declared type, and the object names itself through `kind`.
+ * Every shape is a declared type, not a bare `Map<String, Any?>`, so the contract says which keys a
+ * given step carries instead of leaving the client to learn it from prose. The object names itself
+ * through `kind`.
  *
  * **The discriminator has to be inside the object.** What a step shows depends on the step, and
  * the step is named by the sibling `next` - but OpenAPI can only discriminate on a property of the
  * object itself.
  *
  * **Why `kind` and not `@t`.** `@t` is the Jackson convention for the journey states this backend
- * persists, and that is where it belongs. On the wire it broke the generated TypeScript: the
- * generator turns the name into a legal identifier and wrote the union as `{ t: 'confirm' }`, so a
- * client dispatching on the generated type would always have read `undefined`. `kind` is what the
- * contract already used for the KOBIL unlock credential - one
+ * persists, and that is where it belongs. On the wire it breaks the generated TypeScript: the
+ * generator turns the name into a legal identifier and writes the union as `{ t: 'confirm' }`, so a
+ * client dispatching on the generated type would always read `undefined`. `kind` is what the
+ * contract uses for the KOBIL unlock credential - one
  * discriminator name on the wire, not two.
  *
  * **Keyed by the step, not by the endpoint.** A tool's response regularly carries another step's

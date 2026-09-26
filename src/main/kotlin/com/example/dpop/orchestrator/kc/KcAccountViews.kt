@@ -28,7 +28,7 @@ data class KcAccountView(
     val attributes: Map<String, String>,
     /** The account's public key for the account-token grant (ADR-9), once the orchestrator has minted one. */
     val publicKeyJwk: String?,
-    /** The account's active methods - what the grant used to read from the uploaded credential. */
+    /** The account's active methods, as the account-token grant reads them. */
     val authMethods: List<String>,
 )
 

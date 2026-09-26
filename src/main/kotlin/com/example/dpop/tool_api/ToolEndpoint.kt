@@ -15,9 +15,9 @@ interface ToolContext {
     val toolSessionId: UUID
     /**
      * The account in hand: the one this channel knows - from the device link, an earlier login, or
-     * bound by the running journey so far - or `null` while nobody is known yet. One value: the
-     * journey's and the channel's account used to be offered side by side, though they never
-     * differed (review 2026-09, fahrplan Phase D 21).
+     * bound by the running journey so far - or `null` while nobody is known yet. One value, not the
+     * journey's and the channel's account side by side: they never differ (review 2026-09,
+     * fahrplan Phase D 21).
      */
     val accountId: Long?
 }
@@ -183,8 +183,8 @@ interface ToolEndpoint {
      * Refuses (429) to send yet another code to [context]'s account when that is over budget -
      * for an IDENTIFIED_AUTH tool that sends on activation (`auth-sms`, `auth-email`), whose account
      * the channel already knows, so saying so reveals nothing. Counts the attempt. Not a failed
-     * attempt: it charges no login throttle and no journey budget (review 2026-09, Phase F - the
-     * activation used to send unchecked, one code per click).
+     * attempt: it charges no login throttle and no journey budget. Without it, activation would send
+     * one code per click, unchecked (review 2026-09, Phase F).
      */
     fun requireSendAllowed(context: ToolContext)
 

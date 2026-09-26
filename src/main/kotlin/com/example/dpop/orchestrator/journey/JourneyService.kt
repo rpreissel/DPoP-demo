@@ -74,9 +74,8 @@ class JourneyService(
     private val journeyTraceDetails: JourneyTraceDetails,
     private val journeyRecorder: JourneyRecorder,
     // Logout publishes KeycloakSessionEnded rather than calling Keycloak: no listener is
-    // registered outside the `keycloak` profile, so the event simply goes nowhere there - which
-    // replaces the ObjectProvider<KeycloakAdminClient> this used to hold just to tolerate the
-    // bean's absence.
+    // registered outside the `keycloak` profile, so the event simply goes nowhere there, and this
+    // service needs no ObjectProvider<KeycloakAdminClient> to tolerate the bean's absence.
     private val eventPublisher: ApplicationEventPublisher
 ) {
     private val strategiesByIntent: Map<AuthIntent, IntentStrategy<*>> = strategies.associateBy { it.intent }
@@ -242,8 +241,8 @@ class JourneyService(
 
     /**
      * The one way a channel's login ends - the confirmed logout (`Transition.Logout`), the hard
-     * logout (`ChannelService.logout`) and an expired session alike (review 2026-09, M-4: the hard
-     * logout used to leave the RefreshToken and the Keycloak session behind).
+     * logout (`ChannelService.logout`) and an expired session alike, so none of them leaves the
+     * RefreshToken or the Keycloak session behind (review 2026-09, M-4).
      *
      * The tokens are discarded, not just unlinked. For an App channel that holds a real Keycloak
      * session (the account-token grant, `AuthContext.keycloakSessionId`) exactly that session is
@@ -259,8 +258,8 @@ class JourneyService(
         if (finalState == ChannelState.LOGGED_OUT) journeyRecorder.recordSignOut(channel, endedBy = "HOLDER")
         channel.authContextId?.let { authContextService.getAuthContext(it) }?.let { context ->
             if (channel.channel == ChannelType.APP) {
-                // Published, not called: this runs inside the caller's transaction, and the Admin
-                // API call used to hold it open across a network round trip.
+                // Published, not called: this runs inside the caller's transaction, and calling the
+                // Admin API here would hold it open across a network round trip.
                 // KeycloakSessionLogoutListener picks it up AFTER_COMMIT.
                 context.keycloakSessionId?.let { eventPublisher.publishEvent(KeycloakSessionEnded(it)) }
             }
@@ -625,11 +624,10 @@ class JourneyService(
 
     /**
      * Where the channel lands after an abandoned journey: back to the login status it had before -
-     * one rule for every intent ([ChannelState.isLoggedIn]). Each strategy used to name its own
-     * fallback, and six of them said AUTHENTICATED on the assumption that they only ever run on a
-     * logged-in channel. A cold peer-login confirmation and a step-up before the login broke that
-     * assumption: cancelling them claimed AUTHENTICATED without any proof, which only the database
-     * refused (docs/invarianten.md I-4).
+     * one rule for every intent ([ChannelState.isLoggedIn]), not a fallback per strategy. A
+     * strategy assuming it only ever runs on a logged-in channel would be wrong for a cold
+     * peer-login confirmation or a step-up before the login: cancelling them would claim
+     * AUTHENTICATED without any proof, which only the database refuses (docs/invarianten.md I-4).
      *
      * Account and evidence are re-derived from the DURABLE truth rather than blindly kept or
      * blindly wiped: the device link is what survives a journey, an AuthContext is not.

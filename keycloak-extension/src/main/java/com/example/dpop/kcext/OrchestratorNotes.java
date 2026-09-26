@@ -238,7 +238,7 @@ public final class OrchestratorNotes {
      * floor to apply to (KcSelectMethodStrategy.afterProof already returned Decision.Authenticated),
      * so the step-up silently never happens. Null if Keycloak has no requested level at all (a plain
      * login with no acr_values) or the level isn't one of ours - callers fall back to their own
-     * static config in that case, same as before this existed.
+     * static config in that case.
      */
     static String requestedAcr(AuthenticationFlowContext context) {
         AcrStore acrStore = new AcrStore(context.getSession(), context.getAuthenticationSession());

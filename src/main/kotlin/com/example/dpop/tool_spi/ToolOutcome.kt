@@ -44,8 +44,8 @@ sealed interface ToolOutcome {
      * (it is not on the channel - that is the point of lookup login), an IDENT tool resolves a
      * person before any account exists. So there is one variant per kind of subject, each naming it
      * as a REQUIRED field: a handler cannot fail without saying whom the attempt was against, and
-     * "nobody" is an explicit `null`, not a forgotten default (review 2026-09, S-6: `ident-kvnr`
-     * answered a foreign KVNR without its person, and the attempt went uncounted).
+     * "nobody" is an explicit `null`, not a forgotten default - a failure that leaves out its
+     * person goes uncounted (review 2026-09, S-6).
      *
      * Which variant a tool may use follows from its [ToolDescriptor.role] ([fits]); the orchestrator
      * refuses any other before it charges anything.

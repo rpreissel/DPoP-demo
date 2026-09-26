@@ -19,8 +19,8 @@ import org.springframework.context.annotation.Configuration
 
 /** Several candidates are open, so the client shows a choice (docs/04-orchestrierung.md #4). */
 @JsonTypeName("select-method")
-// NON_NULL like the other envelope DTOs: an absent description was an absent key before this type
-// existed, and adding `"description": null` would be a wire change for no reason.
+// NON_NULL like the other envelope DTOs: an absent description is an absent key on the wire, and
+// sending `"description": null` instead would change the wire format for no reason.
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "Several procedures are possible; the client shows a selection.")
 data class SelectMethodStep(

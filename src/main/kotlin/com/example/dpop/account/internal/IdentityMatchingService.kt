@@ -31,7 +31,7 @@ import java.time.LocalDate
  * data behind a KVNR is checked against the register ([verifyToolAttestedConsistency]),
  * never matched against the account stock: attribute combinations are ambiguous by nature,
  * and the most expensive error they can make is a false merge, so they are not a resolution
- * layer at all anymore. A future EUDI-Wallet case slots in without a policy fork: an
+ * layer at all. A future EUDI-Wallet case slots in without a policy fork: an
  * issuer-scoped PID identifier arrives as its own anchor type, and selective disclosure
  * simply shrinks the claim set - a subset can only ever bind weakly.
  */

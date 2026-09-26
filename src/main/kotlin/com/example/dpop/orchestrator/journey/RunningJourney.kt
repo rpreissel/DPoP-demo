@@ -10,7 +10,7 @@ import java.util.UUID
  *
  * The private constructor is the point: [of] is the one way to get one, and it refuses a finished,
  * suspended or expired journey. So "a tool result reaches a consumed journey" (S-1: replaying the
- * auth-sms PATCH after a logout) is no longer a check every entry point has to remember - there is
+ * auth-sms PATCH after a logout) is not a check every entry point has to remember - there is
  * simply no value to call [JourneyService.applyOutcome] with.
  *
  * It is a witness for the moment of the lookup, not a live view: the transition it is handed to

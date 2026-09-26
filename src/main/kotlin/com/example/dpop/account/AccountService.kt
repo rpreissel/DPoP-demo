@@ -682,8 +682,8 @@ class AccountService(
     /**
      * Whether a method of ANOTHER account points at the same credential row as [enrollmentRef] - a
      * device key rebound to a new account, whose enrollment reused the row by its thumbprint. Such a
-     * row must survive this account's deletion or revocation (review 2026-09, Phase F: it used to be
-     * deleted, and the other account's method ran into a 500).
+     * row must survive this account's deletion or revocation - deleting it would break the other
+     * account's method (review 2026-09, Phase F).
      */
     @Transactional(readOnly = true)
     fun isEnrollmentSharedWithOtherAccount(accountId: Long, enrollmentRef: EnrollmentRef): Boolean =

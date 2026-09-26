@@ -11,8 +11,8 @@ import org.springframework.modulith.ApplicationModule
  * annotations, but `@ApplicationModule` is `@Target({PACKAGE, TYPE})` and meta-annotated
  * `@PackageInfo`, so this otherwise-unused type serves as the package descriptor. A
  * `package-info.kt` carrying only `@file:ApplicationModule` does NOT work: a Kotlin file without
- * declarations compiles to no class at all, so the annotation is silently discarded - which is
- * how this module went without an enforced boundary until now.
+ * declarations compiles to no class at all, so the annotation is silently discarded and the
+ * module has no enforced boundary.
  */
 @ApplicationModule(
     allowedDependencies = ["tool_spi", "tool_api", "account", "kcmigrate", "demo_seed", "texts", "demo_mode"]

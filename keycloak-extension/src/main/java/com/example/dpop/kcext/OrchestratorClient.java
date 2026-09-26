@@ -476,8 +476,7 @@ final class OrchestratorClient {
             // #4/#5, FastAccessState.Identifying.selectionStep) - the same generic multi-option
             // selection screen as every other OfferingState's default "selectMethod", just named
             // differently because it's REGISTER's own identification choice, not an auth choice.
-            // Never reachable before DPoP-demo-urt (REGISTER had no kc-facade path), so this arm
-            // was previously unexercised by anything actually calling into it.
+            // Reached through REGISTER's kc-facade path (DPoP-demo-urt).
             return "orchestrator".equals(type) && ("selectMethod".equals(step) || "selectIdentificationMethod".equals(step));
         }
 

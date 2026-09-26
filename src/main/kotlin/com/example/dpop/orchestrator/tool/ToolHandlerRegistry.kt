@@ -39,8 +39,8 @@ class ToolHandlerRegistry(descriptors: List<ToolDescriptor>) {
             "Duplicate (method, role) in tool catalog: $details"
         }
         // A KVNR is only ever vouched for by the Personenverzeichnis itself. Identity matching has
-        // no path for a KVNR a tool merely read (it used to have one, unreachable and unchecked -
-        // review 2026-09, Phase F); a tool declaring one must fail here, not open that path silently.
+        // no path for a KVNR a tool merely read (review 2026-09, Phase F); a tool declaring one must
+        // fail here, not open that path silently.
         val unvouchedKvnr = descriptorsByToolId.values.filter { descriptor ->
             descriptor.claims.any { it.attributeType == AttributeType.KVNR && it.source != ClaimSource.PERSON_DIRECTORY }
         }

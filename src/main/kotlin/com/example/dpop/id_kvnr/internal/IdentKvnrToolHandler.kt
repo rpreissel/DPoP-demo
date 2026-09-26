@@ -49,8 +49,8 @@ class IdentKvnrToolHandler(
      * that belongs to somebody else's person answer exactly alike - same text, same `Failed` - so
      * this cannot be used to probe which numbers exist. The foreign person is still named as
      * `attemptedPersonId`, so the guess counts against the ident throttle like a wrong
-     * Freischaltcode does (review 2026-09, S-6: it used to surface as a 409 from the journey
-     * instead, uncounted).
+     * Freischaltcode does, instead of surfacing as an uncounted 409 from the journey
+     * (review 2026-09, S-6).
      */
     @Transactional
     fun patch(toolSessionId: UUID, kvnr: String?, partnernr: String?, personId: String?, matchesAttestedIdentity: Boolean): ToolOutcome {

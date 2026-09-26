@@ -73,11 +73,10 @@ class BindingKeyOpenApiConfig {
         /**
          * The Web channel's signed peer-auth assertion (docs/05-api.md Abschnitt 3, ADR-7).
          *
-         * This spelling, not a new one: `KcChannelController` and `MgmtPasswordController` have
-         * carried `@SecurityRequirement(name = "kc-peer-auth")` all along - but nothing ever
-         * DECLARED a scheme under that name, so those references dangled and the document was
-         * invalid. Found by openapi-diff, which refused to read the spec at all
-         * ("Impossible to find security scheme: kc-peer-auth").
+         * This spelling, not a new one: `KcChannelController` and `MgmtPasswordController` carry
+         * `@SecurityRequirement(name = "kc-peer-auth")`, and without a scheme DECLARED under that
+         * name those references dangle and the document is invalid - openapi-diff then refuses to
+         * read the spec at all ("Impossible to find security scheme: kc-peer-auth").
          */
         const val PEER_AUTH_SCHEME = "kc-peer-auth"
     }

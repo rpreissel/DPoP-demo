@@ -61,8 +61,8 @@ interface IdentityResolver {
      * May account [accountId] take these attested [claims] without becoming somebody else? `true`
      * when it has attested no identity yet, or the new claims name the same person (name, given
      * name, birthdate - compared in passport form: case, umlaut spelling and diacritics do not
-     * count). For an account without a register person (an Interessent, ADR-18): it used to take
-     * any second identity unchecked (review 2026-09, Phase F).
+     * count). This holds for an account without a register person (an Interessent, ADR-18) too - it
+     * must not take a second identity unchecked (review 2026-09, Phase F).
      */
     fun attestationFits(accountId: Long, claims: Set<Claim>): Boolean
 }

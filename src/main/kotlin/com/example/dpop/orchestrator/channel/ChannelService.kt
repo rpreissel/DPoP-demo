@@ -262,9 +262,9 @@ class ChannelService(
 
         // Not logged in yet: there is nothing to step up FROM. The raised floor simply applies to the
         // login or registration already running - every strategy reads it afresh on each
-        // transition. A STEP_UP here used to crash without an account, and with a device-linked
-        // account its cancel landed on AUTHENTICATED without any proof (both found by the
-        // model-based test once it learned the step-up; the second one the database refused, I-4).
+        // transition. A STEP_UP here would crash without an account, and with a device-linked
+        // account its cancel would land on AUTHENTICATED without any proof (which the database
+        // refuses, I-4).
         if (refreshed.state?.isLoggedIn != true) return resumeChannel(refreshed)
 
         val floor = refreshed.acrFloor?.let(AcrLevel::of) ?: AcrLevels.DEFAULT_REQUIRED_ACR
@@ -508,9 +508,8 @@ class ChannelService(
      *
      * Generic all the way through: which instance lives on this key is answered by the method's
      * own [ToolDescriptor.keyBinding], and what may be shown about it by its own disclosure. No
-     * concrete method name or detail-map key appears here - this file used to name four of them,
-     * which only compiled because `internal const val` is inlined and therefore left no module
-     * edge behind.
+     * concrete method name or detail-map key appears here - naming one would still compile,
+     * because `internal const val` is inlined, but would leave no module edge behind to check.
      *
      * Resolved by `(method, IDENTIFIED_AUTH)`, the pair that names one concrete procedure - the
      * same rule `JourneyActionExecutor.credentialsLivingOn` uses, and for the same reason: by

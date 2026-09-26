@@ -48,11 +48,11 @@ class OrchestratorExceptionHandler {
      * A value the CLIENT sent was rejected (a malformed phone number, an unknown acr level) -
      * docs/07-betrieb.md #1: 400. An [InvalidInputException] carries the words for the user; any
      * other rejection gets a neutral text, and its message goes to the log only - it may come from a
-     * library and name classes or internals (review 2026-09, Phase F: it used to be sent as `{detail}`).
+     * library and name classes or internals (review 2026-09, Phase F).
      *
      * The rule this relies on: `require`/`IllegalArgumentException` only for rejected input,
-     * `check`/`error()` for a broken internal assumption. Internal lookups ("Account not found")
-     * used to throw this too and reached the client as a 400 with an internal id in the text.
+     * `check`/`error()` for a broken internal assumption. An internal lookup ("Account not found")
+     * throwing this would reach the client as a 400 with an internal id in the text.
      */
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ErrorResponse> {
@@ -76,11 +76,9 @@ class OrchestratorExceptionHandler {
      * the code never expected, not something the caller did, so: 500, a neutral text, and the
      * details in the log only.
      *
-     * This used to answer 409 INVALID_STATE_TRANSITION with the raw message. That dressed 217
-     * internal checks up as a business conflict and sent texts like "auth-kobil enrollment 42 no
-     * longer exists" to the client. Real conflicts are explicit:
-     * `OrchestratorException.invalidState`. No test and no client relied on the old mapping -
-     * checked by switching it to 500 against the full suite.
+     * Not 409 INVALID_STATE_TRANSITION: that would dress internal checks up as a business conflict
+     * and send texts like "auth-kobil enrollment 42 no longer exists" to the client
+     * (docs/07-betrieb.md #1). Real conflicts are explicit: `OrchestratorException.invalidState`.
      */
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalState(e: IllegalStateException): ResponseEntity<ErrorResponse> {

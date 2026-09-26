@@ -80,7 +80,7 @@ enum class AuthIntent {
     /**
      * An APP channel entered with this intent starts from the account this device is linked to
      * (`DeviceAccountLink`) - when it is opened AND again after a cancel, one rule for both
-     * (they used to disagree: a cancelled cold CONFIRM_PEER_LOGIN lost its account and aborted).
+     * (with two rules, a cancelled cold CONFIRM_PEER_LOGIN would lose its account and abort).
      * REGISTER and LOOKUP_LOGIN both mean "not the account this device already knows".
      */
     val startsFromDeviceLink: Boolean
